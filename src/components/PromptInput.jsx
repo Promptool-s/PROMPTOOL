@@ -174,24 +174,60 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
           className="w-full min-h-[100px] resize-none rounded-xl border border-slate-200 dark:border-slate-700 bg-transparent px-4 py-3 pr-12 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none transition focus:border-slate-400 dark:focus:border-slate-500 focus:ring-0 disabled:cursor-not-allowed disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:text-slate-400"
         />
         <div className="pointer-events-none absolute right-3 top-3 rounded-md bg-slate-900/5 dark:bg-slate-100/10 px-2 py-0.5 text-xs font-medium tabular-nums text-slate-500 dark:text-slate-400">
-          {wordsCount}
+          {wordsCount} {lang === 'en' ? 'words' : 'palabras'}
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
         {onModeChange ? (
-          <button
-            type="button"
-            onClick={onModeChange}
-            title={lang === 'en' ? 'Click to switch mode' : 'Click para cambiar modo'}
-            className="group inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5 transition hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
-          >
-            <span className="text-slate-400 dark:text-slate-500">{t('mode')}</span>
-            <span className="font-semibold text-slate-700 dark:text-slate-300">{mode === 'daily' ? t('daily') : mode === 'challenge' ? (lang === 'en' ? 'Challenge' : 'Desafío') : t('random')}</span>
-            <svg className="h-3 w-3 text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-            </svg>
-          </button>
+          <div className="relative group">
+            <button
+              type="button"
+              onClick={onModeChange}
+              className="group/btn inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5 transition hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+            >
+              <span className="text-slate-400 dark:text-slate-500">{t('mode')}</span>
+              <span className="font-semibold text-slate-700 dark:text-slate-300">{mode === 'daily' ? t('daily') : mode === 'challenge' ? (lang === 'en' ? 'Challenge' : 'Desafío') : t('random')}</span>
+              <svg className="h-3 w-3 text-slate-400 dark:text-slate-500 group-hover/btn:text-slate-600 dark:group-hover/btn:text-slate-300 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+              </svg>
+            </button>
+            <div className="pointer-events-none absolute bottom-full left-0 mb-2 hidden group-hover:block z-50 w-60">
+              <div className="rounded-xl bg-slate-900 px-3 py-2.5 text-xs text-white shadow-xl space-y-1.5">
+                {mode === 'daily' ? (
+                  <>
+                    <p className="font-semibold text-sky-300">{lang === 'en' ? 'Daily mode' : 'Modo diario'}</p>
+                    <p className="text-slate-300 leading-relaxed">
+                      {lang === 'en'
+                        ? 'One image per day, same for all players. Compare your score with the community. Resets at midnight.'
+                        : 'Una imagen por día, igual para todos los jugadores. Compará tu score con la comunidad. Se renueva a medianoche.'}
+                    </p>
+                    <p className="text-slate-400">{lang === 'en' ? 'Click to switch to Random.' : 'Click para cambiar a Aleatorio.'}</p>
+                  </>
+                ) : mode === 'random' ? (
+                  <>
+                    <p className="font-semibold text-violet-300">{lang === 'en' ? 'Random mode' : 'Modo aleatorio'}</p>
+                    <p className="text-slate-300 leading-relaxed">
+                      {lang === 'en'
+                        ? 'A random image from the library. Play as many times as you want and practice at your own pace.'
+                        : 'Una imagen aleatoria de la biblioteca. Jugá todas las veces que quieras y practicá a tu ritmo.'}
+                    </p>
+                    <p className="text-slate-400">{lang === 'en' ? 'Click to switch to Daily.' : 'Click para cambiar a Diario.'}</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-semibold text-amber-300">{lang === 'en' ? 'Challenge mode' : 'Modo desafío'}</p>
+                    <p className="text-slate-300 leading-relaxed">
+                      {lang === 'en'
+                        ? 'A challenge created by a company or team. Your result may be visible to the challenge creator.'
+                        : 'Un desafío creado por una empresa o equipo. Tu resultado puede ser visible para el creador del desafío.'}
+                    </p>
+                  </>
+                )}
+              </div>
+              <div className="ml-3 h-2 w-2 rotate-45 bg-slate-900 -mt-1" />
+            </div>
+          </div>
         ) : (
           <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5">
             <span className="text-slate-400 dark:text-slate-500">{t('mode')}</span>
@@ -200,44 +236,135 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
         )}
 
         {onDifficultyChange && availableDiffs.length > 1 ? (
-          <button
-            type="button"
-            onClick={() => {
-              const diffs = availableDiffs
-              const current = diffs.findIndex(d => d.toLowerCase() === (difficulty || 'Medium').toLowerCase())
-              const next = diffs[(current + 1) % diffs.length]
-              onDifficultyChange(next)
-            }}
-            title={lang === 'en' ? 'Click to change difficulty' : 'Click para cambiar dificultad'}
-            className="group inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5 transition hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
-          >
-            <span className="text-slate-400 dark:text-slate-500">{t('difficulty')}</span>
-            <span className={`font-semibold transition ${
-              normalizeDifficulty(difficulty) === 'easy' ? 'text-emerald-600 dark:text-emerald-500' :
-              normalizeDifficulty(difficulty) === 'hard' ? 'text-rose-600 dark:text-rose-500' :
-              'text-amber-600 dark:text-amber-500'
-            }`}>{difficulty}</span>
-            <svg className="h-3 w-3 text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-            </svg>
-          </button>
+          <div className="relative group">
+            <button
+              type="button"
+              onClick={() => {
+                const diffs = availableDiffs
+                const current = diffs.findIndex(d => d.toLowerCase() === (difficulty || 'Medium').toLowerCase())
+                const next = diffs[(current + 1) % diffs.length]
+                onDifficultyChange(next)
+              }}
+              className="group/btn inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5 transition hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+            >
+              <span className="text-slate-400 dark:text-slate-500">{t('difficulty')}</span>
+              <span className={`font-semibold transition ${
+                normalizeDifficulty(difficulty) === 'easy' ? 'text-emerald-600 dark:text-emerald-500' :
+                normalizeDifficulty(difficulty) === 'hard' ? 'text-rose-600 dark:text-rose-500' :
+                'text-amber-600 dark:text-amber-500'
+              }`}>{difficulty}</span>
+              <svg className="h-3 w-3 text-slate-400 dark:text-slate-500 group-hover/btn:text-slate-600 dark:group-hover/btn:text-slate-300 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+              </svg>
+            </button>
+            <div className="pointer-events-none absolute bottom-full left-0 mb-2 hidden group-hover:block z-50 w-60">
+              <div className="rounded-xl bg-slate-900 px-3 py-2.5 text-xs text-white shadow-xl space-y-1.5">
+                {normalizeDifficulty(difficulty) === 'easy' ? (
+                  <>
+                    <p className="font-semibold text-emerald-400">{lang === 'en' ? 'Easy' : 'Fácil'}</p>
+                    <p className="text-slate-300 leading-relaxed">
+                      {lang === 'en'
+                        ? 'Simple images with clear subjects. Shorter prompts work well. Pass score: 55%.'
+                        : 'Imágenes simples con sujetos claros. Prompts cortos funcionan bien. Score para pasar: 55%.'}
+                    </p>
+                  </>
+                ) : normalizeDifficulty(difficulty) === 'hard' ? (
+                  <>
+                    <p className="font-semibold text-rose-400">{lang === 'en' ? 'Hard' : 'Difícil'}</p>
+                    <p className="text-slate-300 leading-relaxed">
+                      {lang === 'en'
+                        ? 'Complex images with many details, lighting and style. Requires precise and detailed prompts. Pass score: 82%.'
+                        : 'Imágenes complejas con muchos detalles, iluminación y estilo. Requiere prompts precisos y detallados. Score para pasar: 82%.'}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-semibold text-amber-400">{lang === 'en' ? 'Medium' : 'Medio'}</p>
+                    <p className="text-slate-300 leading-relaxed">
+                      {lang === 'en'
+                        ? 'Balanced images. Describe the subject, environment and style. Pass score: 70%.'
+                        : 'Imágenes balanceadas. Describí el sujeto, ambiente y estilo. Score para pasar: 70%.'}
+                    </p>
+                  </>
+                )}
+                <p className="text-slate-400">{lang === 'en' ? 'Click to cycle difficulty.' : 'Click para cambiar dificultad.'}</p>
+              </div>
+              <div className="ml-3 h-2 w-2 rotate-45 bg-slate-900 -mt-1" />
+            </div>
+          </div>
         ) : (
-          <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5">
-            <span className="text-slate-400 dark:text-slate-500">{t('difficulty')}</span>
-            <span className={`font-semibold ${
-              normalizeDifficulty(difficulty) === 'easy' ? 'text-emerald-600 dark:text-emerald-500' :
-              normalizeDifficulty(difficulty) === 'hard' ? 'text-rose-600 dark:text-rose-500' :
-              'text-amber-600 dark:text-amber-500'
-            }`}>{difficulty}</span>
-          </span>
+          <div className="relative group">
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5 cursor-default">
+              <span className="text-slate-400 dark:text-slate-500">{t('difficulty')}</span>
+              <span className={`font-semibold ${
+                normalizeDifficulty(difficulty) === 'easy' ? 'text-emerald-600 dark:text-emerald-500' :
+                normalizeDifficulty(difficulty) === 'hard' ? 'text-rose-600 dark:text-rose-500' :
+                'text-amber-600 dark:text-amber-500'
+              }`}>{difficulty}</span>
+            </span>
+            {mode === 'daily' && (
+              <div className="pointer-events-none absolute bottom-full left-0 mb-2 hidden group-hover:block z-50 w-60">
+                <div className="rounded-xl bg-slate-900 px-3 py-2.5 text-xs text-white shadow-xl space-y-1.5">
+                  <p className="font-semibold text-sky-300">{lang === 'en' ? 'Fixed difficulty' : 'Dificultad fija'}</p>
+                  <p className="text-slate-300 leading-relaxed">
+                    {lang === 'en'
+                      ? 'In Daily mode the difficulty is set by the image of the day — you can\'t change it. Switch to Random mode to choose your own difficulty.'
+                      : 'En el modo Diario la dificultad la define la imagen del día, no podés cambiarla. Cambiá a modo Aleatorio para elegir la dificultad.'}
+                  </p>
+                  {normalizeDifficulty(difficulty) === 'easy' && (
+                    <p className="text-emerald-400">{lang === 'en' ? 'Today: Easy — pass score 55%.' : 'Hoy: Fácil — score para pasar 55%.'}</p>
+                  )}
+                  {normalizeDifficulty(difficulty) === 'medium' && (
+                    <p className="text-amber-400">{lang === 'en' ? 'Today: Medium — pass score 70%.' : 'Hoy: Medio — score para pasar 70%.'}</p>
+                  )}
+                  {normalizeDifficulty(difficulty) === 'hard' && (
+                    <p className="text-rose-400">{lang === 'en' ? 'Today: Hard — pass score 82%.' : 'Hoy: Difícil — score para pasar 82%.'}</p>
+                  )}
+                </div>
+                <div className="ml-3 h-2 w-2 rotate-45 bg-slate-900 -mt-1" />
+              </div>
+            )}
+          </div>
         )}
 
-        <span className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${timeBadgeClass}`}>
-          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span className="font-semibold">{formatTime(remainingSeconds)}</span>
-        </span>
+        <div className="relative group">
+          <span className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 cursor-default ${timeBadgeClass}`}>
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="font-semibold">{formatTime(remainingSeconds)}</span>
+          </span>
+          <div className="pointer-events-none absolute bottom-full left-0 mb-2 hidden group-hover:block z-50 w-64">
+            <div className="rounded-xl bg-slate-900 px-3 py-2.5 text-xs text-white shadow-xl space-y-1.5">
+              <p className="font-semibold text-sky-300">{lang === 'en' ? 'Recommended time' : 'Tiempo recomendado'}</p>
+              <p className="text-slate-300 leading-relaxed">
+                {lang === 'en'
+                  ? `You have ${formatTime(estimatedSeconds)} to write your prompt. Going over starts a grace period, then a score penalty kicks in.`
+                  : `Tenés ${formatTime(estimatedSeconds)} para escribir tu prompt. Si te pasás, hay un período de gracia y luego se aplica una penalización al score.`}
+              </p>
+              {overtimeSeconds > 0 && penaltyOvertimeSeconds === 0 && (
+                <p className="text-amber-400 font-medium">
+                  {lang === 'en'
+                    ? `Grace period: ${formatTime(timerConfig.graceSeconds - overtimeSeconds)} left before penalty.`
+                    : `Período de gracia: ${formatTime(timerConfig.graceSeconds - overtimeSeconds)} antes de penalización.`}
+                </p>
+              )}
+              {penaltyOvertimeSeconds > 0 && (
+                <p className="text-rose-400 font-medium">
+                  {lang === 'en'
+                    ? `Penalty active — ${formatTime(penaltyOvertimeSeconds)} over limit.`
+                    : `Penalización activa — ${formatTime(penaltyOvertimeSeconds)} sobre el límite.`}
+                </p>
+              )}
+              <p className="text-slate-400">
+                {lang === 'en'
+                  ? 'Time adapts to your history as you play more.'
+                  : 'El tiempo se adapta a tu historial a medida que jugás más.'}
+              </p>
+            </div>
+            <div className="ml-3 h-2 w-2 rotate-45 bg-slate-900 -mt-1" />
+          </div>
+        </div>
 
         {onToggleRanked && (
           <div className="relative group">

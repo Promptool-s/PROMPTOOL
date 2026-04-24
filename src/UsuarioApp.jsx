@@ -346,23 +346,24 @@ function UsuarioApp() {
             .order('fecha_hora', { ascending: false })
 
           if (intentos && intentos.length > 0) {
-            const total = intentos.length
-            const scores = intentos.map(i => i.puntaje_similitud || 0)
-            const promedio = Math.round(scores.reduce((s, v) => s + v, 0) / total)
-            const mejor = Math.max(...scores)
-            const peor = Math.min(...scores)
-            const aprobados = intentos.filter(i => (i.puntaje_similitud || 0) >= 60).length
-            const porcentajeAprobacion = Math.round((aprobados / total) * 100)
+            const realIntentos = intentos.filter(i => i.prompt_usuario !== '[REVEALED]')
+            const total = realIntentos.length
+            const scores = realIntentos.map(i => i.puntaje_similitud || 0)
+            const promedio = total > 0 ? Math.round(scores.reduce((s, v) => s + v, 0) / total) : 0
+            const mejor = total > 0 ? Math.max(...scores) : 0
+            const peor = total > 0 ? Math.min(...scores) : 0
+            const aprobados = realIntentos.filter(i => (i.puntaje_similitud || 0) >= 60).length
+            const porcentajeAprobacion = total > 0 ? Math.round((aprobados / total) * 100) : 0
 
             const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
-            const intentosHoy = intentos.filter(i => new Date(i.fecha_hora) >= hoy).length
+            const intentosHoy = realIntentos.filter(i => new Date(i.fecha_hora) >= hoy).length
             const inicioSemana = new Date()
             inicioSemana.setDate(inicioSemana.getDate() - inicioSemana.getDay())
             inicioSemana.setHours(0, 0, 0, 0)
-            const intentosEstaSemana = intentos.filter(i => new Date(i.fecha_hora) >= inicioSemana).length
+            const intentosEstaSemana = realIntentos.filter(i => new Date(i.fecha_hora) >= inicioSemana).length
 
             let racha = 0
-            const fechasUnicas = [...new Set(intentos.map(i => {
+            const fechasUnicas = [...new Set(realIntentos.map(i => {
               const d = new Date(i.fecha_hora)
               return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
             }))]
@@ -377,10 +378,18 @@ function UsuarioApp() {
             }
 
             setStats({ totalIntentos: total, promedioScore: promedio, mejorScore: mejor, peorScore: peor, intentosHoy, intentosEstaSemana, porcentajeAprobacion, racha,
+              imagenesVencidas: realIntentos.filter(i => (i.puntaje_similitud || 0) > 93).length,
+              promptsRevelados: intentos.filter(i => i.prompt_usuario === '[REVEALED]').length,
+              avgAttemptsPerImage: (() => {
+                const byImage = {}
+                realIntentos.forEach(i => { if (i.id_imagen) byImage[i.id_imagen] = (byImage[i.id_imagen] || 0) + 1 })
+                const vals = Object.values(byImage)
+                return vals.length ? Math.round((vals.reduce((s, v) => s + v, 0) / vals.length) * 10) / 10 : 0
+              })(),
               avgTime: (() => {
                 const avgByDiff = {}
                 for (const diff of ['Easy', 'Medium', 'Hard']) {
-                  const group = intentos.filter(i => i.tiempo_respuesta > 0 && i.imagenes_ia?.image_diff === diff)
+                  const group = realIntentos.filter(i => i.tiempo_respuesta > 0 && i.imagenes_ia?.image_diff === diff)
                   if (group.length) avgByDiff[diff] = Math.round(group.reduce((s, i) => s + i.tiempo_respuesta, 0) / group.length)
                 }
                 return Object.keys(avgByDiff).length ? avgByDiff : null
@@ -2985,6 +2994,67 @@ function UsuarioApp() {
               })}
             </div>
 
+            {/* Tarjetas de imágenes vencidas y prompts revelados */}
+            {ownProfile && (stats.imagenesVencidas > 0 || stats.promptsRevelados > 0) && (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {/* Imágenes vencidas */}
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-800 p-4 flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400">
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">{stats.imagenesVencidas}</p>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-500 font-medium">
+                      {lang === 'en' ? 'Images conquered' : 'Imágenes vencidas'}
+                    </p>
+                    <p className="text-[10px] text-emerald-500/70 dark:text-emerald-600 mt-0.5">
+                      {lang === 'en' ? 'Score > 93%' : 'Score mayor a 93%'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Prompts revelados */}
+                <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800 p-4 flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400">
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-amber-700 dark:text-amber-400 tabular-nums">{stats.promptsRevelados}</p>
+                    <p className="text-xs text-amber-600 dark:text-amber-500 font-medium">
+                      {lang === 'en' ? 'Prompts revealed' : 'Prompts revelados'}
+                    </p>
+                    <p className="text-[10px] text-amber-500/70 dark:text-amber-600 mt-0.5">
+                      {lang === 'en' ? 'After 4 attempts' : 'Después de 4 intentos'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Promedio de intentos por imagen */}
+                {stats.avgAttemptsPerImage > 0 && (
+                  <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-slate-700 dark:text-slate-200 tabular-nums">{stats.avgAttemptsPerImage}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                        {lang === 'en' ? 'Avg attempts/image' : 'Intentos promedio/imagen'}
+                      </p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                        {lang === 'en' ? 'Lower = more efficient' : 'Menor = más eficiente'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Tiempo promedio de respuesta por dificultad */}
             {ownProfile && stats.avgTime != null && (
               <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
@@ -3165,9 +3235,14 @@ function UsuarioApp() {
                         >
                           {ownProfile ? (
                             <p className="truncate text-sm text-slate-700">
-                              {attempt.puntaje_similitud >= 60
-                                ? <span className="italic text-slate-400">{lang === 'en' ? 'Prompt hidden (score ≥ 60%)' : 'Prompt oculto (score ≥ 60%)'}</span>
-                                : (attempt.prompt_usuario || '—')}
+                              {attempt.prompt_usuario === '[REVEALED]'
+                                ? <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs font-medium text-amber-700">
+                                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" /></svg>
+                                    {lang === 'en' ? 'Revealed prompt' : 'Prompt revelado'}
+                                  </span>
+                                : attempt.puntaje_similitud >= 60
+                                  ? <span className="italic text-slate-400">{lang === 'en' ? 'Prompt hidden (score ≥ 60%)' : 'Prompt oculto (score ≥ 60%)'}</span>
+                                  : (attempt.prompt_usuario || '—')}
                             </p>
                           ) : (
                             <div className="flex items-center gap-2 min-w-0">
@@ -3229,7 +3304,14 @@ function UsuarioApp() {
                                 {ownProfile ? (
                                   <div>
                                     <p className="text-xs font-semibold text-slate-400 uppercase mb-1">{t('yourPrompt')}</p>
-                                    {attempt.puntaje_similitud >= 60 ? (
+                                    {attempt.prompt_usuario === '[REVEALED]' ? (
+                                      <div className="flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
+                                        <svg className="h-3.5 w-3.5 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" /></svg>
+                                        <p className="text-xs text-amber-700">
+                                          {lang === 'en' ? 'You revealed the original prompt after 4 attempts.' : 'Revelaste el prompt original después de 4 intentos.'}
+                                        </p>
+                                      </div>
+                                    ) : attempt.puntaje_similitud >= 60 ? (
                                       <p className="text-xs italic text-slate-400 bg-white rounded-lg px-3 py-2 border border-slate-200">
                                         {lang === 'en' ? 'Prompt hidden — score ≥ 60% protects the answer.' : 'Prompt oculto — score ≥ 60% protege la respuesta.'}
                                       </p>
