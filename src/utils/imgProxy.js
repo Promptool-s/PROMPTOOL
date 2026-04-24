@@ -1,21 +1,29 @@
-/**
- * Pasa una URL de imagen por el proxy /api/img-proxy para evitar bloqueos
- * de sitios institucionales. Solo aplica a URLs externas (http/https).
- * Las URLs de Supabase Storage se devuelven sin cambios.
- */
+const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL || '').replace(/\/$/, '')
+const IS_DEV = import.meta.env.DEV
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || ''
+// Extrae UUID de una URL (formato estándar 8-4-4-4-12)
+function extractUUID(url) {
+  const m = url.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i)
+  return m ? m[1] : null
+}
 
 export function proxyImg(url) {
   if (!url) return url
   const raw = String(url).trim()
-
-  // No proxear blobs ni rutas relativas
   if (!raw.startsWith('http://') && !raw.startsWith('https://')) return raw
 
-  // No proxear imágenes que ya vienen de Supabase Storage (no están bloqueadas)
-  if (SUPABASE_URL && raw.startsWith(SUPABASE_URL)) return raw
+  if (IS_DEV) {
+    // Solo cachear imágenes de imagenes_ia (tienen UUID en la URL)
+    // Los avatares y otras imágenes de Supabase Storage van directo
+    if (raw.includes('imagenes_ia/')) {
+      const id = extractUUID(raw)
+      if (id) return `/.img-cache/${id}`
+    }
+    // Todo lo demás: directo (avatares, enterprise-challenges, etc.)
+    return raw
+  }
 
-  // Pasar por el proxy
+  // Producción: Supabase Storage va directo, externas por proxy
+  if (SUPABASE_URL && raw.startsWith(SUPABASE_URL)) return raw
   return `/api/img-proxy?url=${encodeURIComponent(raw)}`
 }

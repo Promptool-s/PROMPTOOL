@@ -22,7 +22,7 @@ const normalizeImageData = (row) => {
   if (!row) return null
   return {
     id_imagen: row.id_imagen ?? null,
-    url_image: row.url_image ?? null,
+    url_image: row.url_image ? proxyImg(row.url_image) : null,
     prompt_original: row.prompt_original ?? '',
     seed: row.seed ?? null,
     fecha: row.fecha ?? null,

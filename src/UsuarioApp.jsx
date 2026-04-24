@@ -2624,7 +2624,7 @@ function UsuarioApp() {
                 {showcaseUrl ? (
                   <>
                     <img
-                      src={showcaseUrl}
+                      src={proxyImg(showcaseUrl)}
                       alt="showcase"
                       className="w-full h-full object-cover"
                       style={{ minHeight: '200px' }}
@@ -2724,7 +2724,7 @@ function UsuarioApp() {
                         <div className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 flex-1">
                           <div className="h-6 w-6 shrink-0 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
                             {compareWith.avatar
-                              ? <img src={compareWith.avatar} alt="" className="h-full w-full object-cover" />
+                              ? <img src={proxyImg(compareWith.avatar)} alt="" className="h-full w-full object-cover" />
                               : <span className="text-xs font-bold text-slate-500">{compareWith.name.substring(0,2).toUpperCase()}</span>
                             }
                           </div>
@@ -3172,7 +3172,7 @@ function UsuarioApp() {
                           ) : (
                             <div className="flex items-center gap-2 min-w-0">
                               {attempt.imagenes_ia?.url_image && (
-                                <img src={attempt.imagenes_ia.url_image} alt=""
+                                <img src={proxyImg(attempt.imagenes_ia.url_image)} alt=""
                                   className="h-8 w-8 shrink-0 rounded-md object-cover border border-slate-200" />
                               )}
                               <span className="truncate text-sm text-slate-500">
@@ -3222,7 +3222,7 @@ function UsuarioApp() {
                           <div className="bg-slate-50 border-b border-slate-200 px-4 py-3" onClick={e => e.stopPropagation()}>
                             <div className="flex gap-4">
                               {attempt.imagenes_ia?.url_image && (
-                                <img src={attempt.imagenes_ia.url_image} alt=""
+                                <img src={proxyImg(attempt.imagenes_ia.url_image)} alt=""
                                   className="h-20 w-20 shrink-0 rounded-lg object-cover border border-slate-200" />
                               )}
                               <div className="flex-1 min-w-0 space-y-2">

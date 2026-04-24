@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { proxyImg } from '../utils/imgProxy'
 
 const DashboardFilters = ({ onFilterChange, teamUsers, lang }) => {
   const [filters, setFilters] = useState({
@@ -185,7 +186,7 @@ const DashboardFilters = ({ onFilterChange, teamUsers, lang }) => {
                       }`}
                     >
                       {member.avatar_url && (
-                        <img src={member.avatar_url} alt="" className="h-4 w-4 rounded-full object-cover" />
+                        <img src={proxyImg(member.avatar_url)} alt="" className="h-4 w-4 rounded-full object-cover" />
                       )}
                       <span className="truncate">{member.nombre_display || member.nombre || member.username || member.email}</span>
                     </button>

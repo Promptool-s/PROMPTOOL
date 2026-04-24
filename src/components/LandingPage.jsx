@@ -184,7 +184,7 @@ const isPromptOk = (p) => {
 const Slide = ({ item, visible }) => (
   <div className={`absolute inset-0 flex flex-col transition-opacity duration-700 ${visible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
     <div className="relative flex-1 overflow-hidden rounded-2xl select-none" onContextMenu={e => e.preventDefault()} onDragStart={e => e.preventDefault()}>
-      <img src={item.url_image} alt="" className="h-full w-full object-cover pointer-events-none" draggable={false} loading="lazy" />
+      <img src={proxyImg(item.url_image)} alt="" className="h-full w-full object-cover pointer-events-none" draggable={false} loading="lazy" />
       <div className="absolute inset-0" onContextMenu={e => e.preventDefault()} />
       <div className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-slate-950/90 to-transparent" />
     </div>
