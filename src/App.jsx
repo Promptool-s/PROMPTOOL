@@ -302,16 +302,29 @@ function App() {
     if (user) setShowLanding(false)
   }, [user])
 
-  // Cuando el usuario se loguea, asignar intento pendiente de guest si existe
+  // Cuando el usuario se loguea, asignar todos los intentos pendientes de guest
   useEffect(() => {
     if (!user) return
+    // Array de intentos (nuevo formato)
+    const pendingList = sessionStorage.getItem('guestAttempts')
+    if (pendingList) {
+      try {
+        const attempts = JSON.parse(pendingList)
+        if (Array.isArray(attempts) && attempts.length > 0) {
+          supabase.from('intentos').insert(attempts.map(a => ({ ...a, id_usuario: user.id })))
+            .then(() => sessionStorage.removeItem('guestAttempts'))
+        }
+      } catch { sessionStorage.removeItem('guestAttempts') }
+    }
+    // Compatibilidad con el formato viejo (un solo intento)
     const pending = sessionStorage.getItem('pendingAttempt')
-    if (!pending) return
-    try {
-      const attempt = JSON.parse(pending)
-      supabase.from('intentos').insert([{ ...attempt, id_usuario: user.id }])
-        .then(() => sessionStorage.removeItem('pendingAttempt'))
-    } catch { sessionStorage.removeItem('pendingAttempt') }
+    if (pending) {
+      try {
+        const attempt = JSON.parse(pending)
+        supabase.from('intentos').insert([{ ...attempt, id_usuario: user.id }])
+          .then(() => sessionStorage.removeItem('pendingAttempt'))
+      } catch { sessionStorage.removeItem('pendingAttempt') }
+    }
   }, [user?.id])
 
   // Fetch inicial: extrae las dificultades disponibles en la BD
@@ -520,6 +533,24 @@ function App() {
 
       if (dbError) { /* silencioso — el usuario igual ve el resultado */ }
       else {
+        // Guardar intento en sessionStorage para guests (se asigna al registrarse)
+        if (!user) {
+          try {
+            const existing = JSON.parse(sessionStorage.getItem('guestAttempts') || '[]')
+            existing.push({
+              prompt_usuario: submittedPrompt,
+              puntaje_similitud: finalScore,
+              id_imagen: imageData.id_imagen,
+              fecha_hora: nowAR(),
+              strengths: result.strengths ?? [],
+              improvements: result.improvements ?? [],
+              modo: mode === 'challenge' ? 'challenge' : mode,
+              is_ranked: false, // guests no tienen ELO
+              tiempo_respuesta: timingData.elapsedSeconds > 0 ? timingData.elapsedSeconds : null,
+            })
+            sessionStorage.setItem('guestAttempts', JSON.stringify(existing))
+          } catch { /* silencioso */ }
+        }
         // Incrementar total_intentos (y ranked_count si aplica) en la BD
         if (user) {
           supabase.from('usuarios')
@@ -732,8 +763,7 @@ function App() {
   const handleRevealOriginalPrompt = () => {
     setPromptRevealed(true)
     setRevealPrompt(false)
-    setSubmitted(false) // volver al panel izquierdo para mostrar el análisis
-    // Marcar como "vista" — excluir de futuras partidas random (igual que mastered)
+    setSubmitted(false)
     if (user && imageData?.id_imagen) {
       supabase.from('intentos').insert([{
         prompt_usuario: '[REVEALED]',
@@ -744,6 +774,20 @@ function App() {
         modo: mode,
         is_ranked: false,
       }]).then(() => {})
+    } else if (!user && imageData?.id_imagen) {
+      // Guardar reveal para asignarlo al registrarse
+      try {
+        const existing = JSON.parse(sessionStorage.getItem('guestAttempts') || '[]')
+        existing.push({
+          prompt_usuario: '[REVEALED]',
+          puntaje_similitud: 94,
+          id_imagen: imageData.id_imagen,
+          fecha_hora: nowAR(),
+          modo: mode,
+          is_ranked: false,
+        })
+        sessionStorage.setItem('guestAttempts', JSON.stringify(existing))
+      } catch { /* silencioso */ }
     }
   }
 
