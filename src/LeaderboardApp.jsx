@@ -5,6 +5,7 @@ import { supabase } from './supabaseClient'
 import { useLang } from './contexts/LangContext'
 import { useAuth } from './hooks/useAuth'
 import { getRank } from './services/eloService'
+import { proxyImg } from './utils/imgProxy'
 
 const TOP_COLORS = ['#f59e0b', '#94a3b8', '#b45309']
 
@@ -133,7 +134,7 @@ function LeaderboardApp() {
 
   const getDisplayName = (p) => p?.nombre_display || p?.nombre || p?.username || 'User'
   const getProfileUrl = (p) => p?.username ? `/user/${p.username}` : `/usuario.html?id=${p?.id_usuario}`
-  const getAvatar = (p) => p?.avatar_url || null
+  const getAvatar = (p) => p?.avatar_url ? proxyImg(p.avatar_url) : null
 
   const getScoreColor = (val, key) => {
     if (key === 'total_intentos' || key === 'racha_actual') return 'text-slate-700'

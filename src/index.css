@@ -53,6 +53,22 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* ── Scroll indicator animation ── */
+@keyframes bounce-subtle {
+  0%, 100% {
+    transform: translateY(0);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateY(8px);
+    opacity: 1;
+  }
+}
+
+.animate-bounce-subtle {
+  animation: bounce-subtle 2.5s ease-in-out infinite;
+}
+
 /* ── Acento de marca — botones primarios ── */
 .btn-primary {
   background-color: rgb(var(--color-accent));

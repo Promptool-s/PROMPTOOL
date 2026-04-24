@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabaseClient'
 import { useLang } from '../contexts/LangContext'
+import { proxyImg } from '../utils/imgProxy'
 
 const CompanyPanel = ({ user, companyData, onClose, onLeft }) => {
   const { lang } = useLang()
@@ -255,7 +256,7 @@ const CompanyPanel = ({ user, companyData, onClose, onLeft }) => {
                     {/* Avatar */}
                     <div className="h-9 w-9 rounded-full overflow-hidden bg-slate-200 shrink-0 flex items-center justify-center border border-slate-200">
                       {member.avatar_url
-                        ? <img src={member.avatar_url} alt={name} className="h-full w-full object-cover" />
+                        ? <img src={proxyImg(member.avatar_url)} alt={name} className="h-full w-full object-cover" />
                         : <span className="text-xs font-bold text-slate-500">{name.substring(0, 2).toUpperCase()}</span>
                       }
                     </div>
@@ -347,13 +348,15 @@ const CompanyPanel = ({ user, companyData, onClose, onLeft }) => {
                         </p>
                       </div>
 
-                      {/* Botón jugar */}
-                      <a
-                        href={`/?challenge=${ch.id_imagen}`}
-                        className="shrink-0 rounded-xl bg-violet-600 px-4 py-2 text-xs font-semibold text-white hover:bg-violet-700 transition group-hover:shadow-md"
-                      >
-                        {lang === 'en' ? 'Play' : 'Jugar'}
-                      </a>
+                      {/* Botón jugar - solo si NO es organizador */}
+                      {companyData?.user_type !== 'enterprise' && (
+                        <a
+                          href={`/?challenge=${ch.id_imagen}`}
+                          className="shrink-0 rounded-xl bg-violet-600 px-4 py-2 text-xs font-semibold text-white hover:bg-violet-700 transition group-hover:shadow-md"
+                        >
+                          {lang === 'en' ? 'Play' : 'Jugar'}
+                        </a>
+                      )}
                     </div>
                   ))}
                 </>
@@ -426,7 +429,7 @@ const CompanyPanel = ({ user, companyData, onClose, onLeft }) => {
                         <div className="flex items-center gap-3">
                           <div className="h-10 w-10 rounded-full overflow-hidden bg-violet-200 shrink-0 flex items-center justify-center">
                             {myData.avatar_url
-                              ? <img src={myData.avatar_url} alt="" className="h-full w-full object-cover" />
+                              ? <img src={proxyImg(myData.avatar_url)} alt="" className="h-full w-full object-cover" />
                               : <span className="text-sm font-bold text-violet-600">
                                   {(myData.nombre_display || myData.nombre || 'U').substring(0, 2).toUpperCase()}
                                 </span>
@@ -473,7 +476,7 @@ const CompanyPanel = ({ user, companyData, onClose, onLeft }) => {
                               <span className="text-lg shrink-0">{medals[i]}</span>
                               <div className="h-7 w-7 rounded-full overflow-hidden bg-slate-200 shrink-0 flex items-center justify-center">
                                 {m.avatar_url
-                                  ? <img src={m.avatar_url} alt={name} className="h-full w-full object-cover" />
+                                  ? <img src={proxyImg(m.avatar_url)} alt={name} className="h-full w-full object-cover" />
                                   : <span className="text-[10px] font-bold text-slate-500">{name.substring(0,2).toUpperCase()}</span>
                                 }
                               </div>

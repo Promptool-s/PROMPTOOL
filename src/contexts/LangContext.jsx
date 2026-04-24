@@ -294,7 +294,12 @@ const translations = {
 const LangContext = createContext()
 
 export const LangProvider = ({ children }) => {
-  const [lang, setLang] = useState(() => localStorage.getItem('lang') || 'es')
+  const [lang, setLang] = useState(() => {
+    const stored = localStorage.getItem('lang')
+    if (stored) return stored
+    const nav = navigator.language || navigator.languages?.[0] || 'es'
+    return nav.toLowerCase().startsWith('es') ? 'es' : 'en'
+  })
 
   const t = (key) => translations[lang]?.[key] ?? translations['es'][key] ?? key
 

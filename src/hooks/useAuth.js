@@ -12,13 +12,25 @@ const ensureUserProfile = async (u) => {
 
     if (!existing) {
       const nombre = u.user_metadata?.full_name || u.user_metadata?.nombre || u.email?.split('@')[0] || 'Usuario'
-      await supabase.from('usuarios').insert([{
+      const userType = u.user_metadata?.userType || 'individual'
+      const companyName = u.user_metadata?.companyName || null
+      
+      const profileData = {
         id_usuario: u.id,
         nombre,
         email: u.email,
         idioma_preferido: 'es',
         adminstate: false,
-      }])
+        user_type: userType,
+      }
+
+      // Si es empresa, agregar campos específicos
+      if (userType === 'enterprise') {
+        profileData.company_name = companyName || nombre
+        profileData.nombre_display = companyName || nombre
+      }
+
+      await supabase.from('usuarios').insert([profileData])
     }
   } catch {
     // profile creation failed silently
@@ -76,23 +88,30 @@ export const useAuth = () => {
       email,
       password,
       options: {
-        data: { nombre },
+        data: { nombre, userType, companyName },
         emailRedirectTo: window.location.origin,
       },
     })
     if (error) throw error
 
     if (data.user) {
-      const { error: dbError } = await supabase.from('usuarios').insert([{
+      const profileData = {
         id_usuario: data.user.id,
         nombre,
         username: username || null,
         email,
         idioma_preferido: 'es',
         adminstate: false,
-        user_type: userType,
-        company_name: userType === 'enterprise' ? companyName : null,
-      }])
+        user_type: userType || 'individual',
+      }
+
+      // Si es empresa, agregar campos específicos
+      if (userType === 'enterprise') {
+        profileData.company_name = companyName || nombre
+        profileData.nombre_display = companyName || nombre
+      }
+
+      const { error: dbError } = await supabase.from('usuarios').insert([profileData])
       if (dbError) throw dbError
     }
 

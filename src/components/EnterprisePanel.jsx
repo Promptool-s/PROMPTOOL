@@ -4,6 +4,8 @@ import { useLang } from '../contexts/LangContext'
 import Header from './Header'
 import Footer from './Footer'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { proxyImg } from '../utils/imgProxy'
+import { nowAR } from '../utils/dateAR'
 
 const EnterprisePanel = ({ user }) => {
   const { lang } = useLang()
@@ -25,6 +27,17 @@ const EnterprisePanel = ({ user }) => {
     prompt: '',
     difficulty: 'Medium',
     theme: '',
+    description: '',
+    timeLimit: 180, // segundos
+    maxAttempts: 0, // 0 = ilimitado
+    minWords: 10,
+    startDate: '',
+    endDate: '',
+    visibility: 'private', // private | public
+    points: 100,
+    tags: [],
+    hints: ['', '', ''],
+    evaluationMode: 'standard', // standard | strict | flexible
   })
   const [challengeImageFile, setChallengeImageFile] = useState(null)
   const [challengeImagePreview, setChallengeImagePreview] = useState(null)
@@ -40,6 +53,27 @@ const EnterprisePanel = ({ user }) => {
     bio: '',
     website: '',
     allowed_diffs: ['Easy', 'Medium', 'Hard'],
+    industry_type: 'marketing',
+    tournament_enabled: false,
+    default_challenge_type: 'standard',
+    default_challenge_mode: 'static',
+    performance_metrics: {
+      trackTimePerAttempt: true,
+      trackImprovementRate: true,
+      trackKeywordEffectiveness: true,
+      trackDepartmentComparison: true,
+      generateWeeklyReports: false,
+      generateMonthlyReports: true
+    },
+    training_config: {
+      enableProgressTracking: true,
+      enablePeerReview: false,
+      enableManagerApproval: false,
+      defaultFeedbackLevel: 'immediate',
+      enableCertificates: false,
+      enableLeaderboards: true,
+      leaderboardScope: 'company'
+    }
   })
   const [savingSettings, setSavingSettings] = useState(false)
   const [settingsStatus, setSettingsStatus] = useState(null)
@@ -56,6 +90,15 @@ const EnterprisePanel = ({ user }) => {
   const [loadingAttempts, setLoadingAttempts] = useState(false)
   const [expandedChallenge, setExpandedChallenge] = useState(null) // id_imagen expandido
   const [expandedMember, setExpandedMember] = useState(null)       // { challengeId, userId }
+  const [editingChallenge, setEditingChallenge] = useState(null)   // challenge being edited
+  
+  // Filtros del dashboard
+  const [dashboardFilters, setDashboardFilters] = useState({
+    timeRange: '30', // 7, 30, 90, 'all'
+    selectedMember: 'all', // 'all' o id_usuario
+    difficulty: 'all', // 'all', 'Easy', 'Medium', 'Hard'
+    metric: 'score', // 'score', 'elo', 'attempts', 'improvement'
+  })
 
   const fetchChallenges = async () => {
     if (!companyData?.id_usuario) return
@@ -112,7 +155,7 @@ const EnterprisePanel = ({ user }) => {
       try {
         const { data: company, error } = await supabase
           .from('usuarios')
-          .select('company_name, user_type, id_usuario, bio, social_website, settings_allowed_diffs')
+          .select('company_name, user_type, id_usuario, bio, social_website, settings_allowed_diffs, industry_type, tournament_enabled, default_challenge_type, default_challenge_mode, performance_metrics, training_config')
           .eq('id_usuario', user.id)
           .maybeSingle()
 
@@ -124,6 +167,27 @@ const EnterprisePanel = ({ user }) => {
             bio: company.bio || '',
             website: company.social_website || '',
             allowed_diffs: company.settings_allowed_diffs || ['Easy', 'Medium', 'Hard'],
+            industry_type: company.industry_type || 'marketing',
+            tournament_enabled: company.tournament_enabled || false,
+            default_challenge_type: company.default_challenge_type || 'standard',
+            default_challenge_mode: company.default_challenge_mode || 'static',
+            performance_metrics: company.performance_metrics || {
+              trackTimePerAttempt: true,
+              trackImprovementRate: true,
+              trackKeywordEffectiveness: true,
+              trackDepartmentComparison: true,
+              generateWeeklyReports: false,
+              generateMonthlyReports: true
+            },
+            training_config: company.training_config || {
+              enableProgressTracking: true,
+              enablePeerReview: false,
+              enableManagerApproval: false,
+              defaultFeedbackLevel: 'immediate',
+              enableCertificates: false,
+              enableLeaderboards: true,
+              leaderboardScope: 'company'
+            }
           })
         }        
         // Fetch team members (users under this company)
@@ -362,6 +426,12 @@ const EnterprisePanel = ({ user }) => {
         bio: settingsForm.bio.trim(),
         social_website: settingsForm.website.trim(),
         settings_allowed_diffs: settingsForm.allowed_diffs,
+        industry_type: settingsForm.industry_type,
+        tournament_enabled: settingsForm.tournament_enabled,
+        default_challenge_type: settingsForm.default_challenge_type,
+        default_challenge_mode: settingsForm.default_challenge_mode,
+        performance_metrics: settingsForm.performance_metrics,
+        training_config: settingsForm.training_config,
       }
       const { error } = await supabase.from('usuarios').update(updates).eq('id_usuario', user.id)
       if (error) throw error
@@ -423,7 +493,22 @@ const EnterprisePanel = ({ user }) => {
   }
 
   const resetChallengeForm = () => {
-    setChallengeForm({ prompt: '', difficulty: 'Medium', theme: '' })
+    setChallengeForm({
+      prompt: '',
+      difficulty: 'Medium',
+      theme: '',
+      description: '',
+      timeLimit: 180,
+      maxAttempts: 0,
+      minWords: 10,
+      startDate: '',
+      endDate: '',
+      visibility: 'private',
+      points: 100,
+      tags: [],
+      hints: ['', '', ''],
+      evaluationMode: 'standard',
+    })
     setChallengeImageFile(null)
     setChallengeImagePreview(null)
     setChallengeStatus(null)
@@ -431,6 +516,30 @@ const EnterprisePanel = ({ user }) => {
 
   const openChallengeModal = () => {
     resetChallengeForm()
+    setEditingChallenge(null)
+    setChallengeModalOpen(true)
+  }
+
+  const openEditChallengeModal = (challenge) => {
+    // Load challenge data into form
+    setChallengeForm({
+      prompt: challenge.prompt_original || '',
+      difficulty: challenge.image_diff || 'Medium',
+      theme: challenge.image_theme || '',
+      description: challenge.challenge_description || '',
+      timeLimit: challenge.challenge_time_limit || 180,
+      maxAttempts: challenge.challenge_max_attempts || 0,
+      minWords: challenge.challenge_min_words || 10,
+      startDate: challenge.challenge_start_date || '',
+      endDate: challenge.challenge_end_date || '',
+      visibility: challenge.challenge_visibility || 'private',
+      points: challenge.challenge_points || 100,
+      tags: challenge.challenge_tags || [],
+      hints: challenge.challenge_hints || ['', '', ''],
+      evaluationMode: challenge.challenge_evaluation_mode || 'standard',
+    })
+    setChallengeImagePreview(challenge.url_image)
+    setEditingChallenge(challenge)
     setChallengeModalOpen(true)
   }
 
@@ -447,6 +556,12 @@ const EnterprisePanel = ({ user }) => {
 
   const createChallenge = async (event) => {
     event.preventDefault()
+    
+    // If editing, update instead of create
+    if (editingChallenge) {
+      return updateChallenge(event)
+    }
+    
     if (!challengeImageFile || !challengeForm.prompt.trim() || !challengeForm.theme.trim()) {
       setChallengeStatus(lang === 'en'
         ? 'Complete image, prompt and theme.'
@@ -477,8 +592,20 @@ const EnterprisePanel = ({ user }) => {
         prompt_original: challengeForm.prompt.trim(),
         image_diff: challengeForm.difficulty,
         image_theme: challengeForm.theme.trim(),
-        fecha: new Date().toISOString(),
+        fecha: nowAR(),
         company_id: companyData?.id_usuario || user.id,
+        // Nuevos campos de personalización
+        challenge_description: challengeForm.description.trim() || null,
+        challenge_time_limit: challengeForm.timeLimit,
+        challenge_max_attempts: challengeForm.maxAttempts || null,
+        challenge_min_words: challengeForm.minWords,
+        challenge_start_date: challengeForm.startDate || null,
+        challenge_end_date: challengeForm.endDate || null,
+        challenge_visibility: challengeForm.visibility,
+        challenge_points: challengeForm.points,
+        challenge_tags: challengeForm.tags.filter(t => t.trim()),
+        challenge_hints: challengeForm.hints.filter(h => h.trim()),
+        challenge_evaluation_mode: challengeForm.evaluationMode,
       }
 
       const { error: insertError } = await supabase.from('imagenes_ia').insert([payload])
@@ -494,8 +621,73 @@ const EnterprisePanel = ({ user }) => {
     }
   }
 
+  const updateChallenge = async (event) => {
+    event.preventDefault()
+    if (!challengeForm.prompt.trim() || !challengeForm.theme.trim()) {
+      setChallengeStatus(lang === 'en'
+        ? 'Complete prompt and theme.'
+        : 'Completa prompt y temática.')
+      return
+    }
+
+    setCreatingChallenge(true)
+    setChallengeStatus(lang === 'en' ? 'Updating challenge...' : 'Actualizando desafío...')
+    try {
+      let imageUrl = editingChallenge.url_image
+
+      // If new image uploaded, upload it
+      if (challengeImageFile) {
+        const ext = (challengeImageFile.name.split('.').pop() || 'jpg').toLowerCase()
+        const path = `${user.id}/${Date.now()}-challenge.${ext}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('enterprise-challenges')
+          .upload(path, challengeImageFile, { upsert: false })
+        if (uploadError) throw new Error(`Storage: ${uploadError.message}`)
+
+        const { data: publicData } = supabase.storage
+          .from('enterprise-challenges')
+          .getPublicUrl(path)
+        imageUrl = publicData.publicUrl
+      }
+
+      const payload = {
+        url_image: imageUrl,
+        prompt_original: challengeForm.prompt.trim(),
+        image_diff: challengeForm.difficulty,
+        image_theme: challengeForm.theme.trim(),
+        challenge_description: challengeForm.description.trim() || null,
+        challenge_time_limit: challengeForm.timeLimit,
+        challenge_max_attempts: challengeForm.maxAttempts || null,
+        challenge_min_words: challengeForm.minWords,
+        challenge_start_date: challengeForm.startDate || null,
+        challenge_end_date: challengeForm.endDate || null,
+        challenge_visibility: challengeForm.visibility,
+        challenge_points: challengeForm.points,
+        challenge_tags: challengeForm.tags.filter(t => t.trim()),
+        challenge_hints: challengeForm.hints.filter(h => h.trim()),
+        challenge_evaluation_mode: challengeForm.evaluationMode,
+      }
+
+      const { error: updateError } = await supabase
+        .from('imagenes_ia')
+        .update(payload)
+        .eq('id_imagen', editingChallenge.id_imagen)
+      if (updateError) throw new Error(`DB: ${updateError.message}`)
+
+      setChallengeStatus(lang === 'en' ? 'Challenge updated successfully.' : 'Desafío actualizado correctamente.')
+      fetchChallenges()
+      setTimeout(() => closeChallengeModal(), 1000)
+    } catch (err) {
+      setChallengeStatus(err?.message || (lang === 'en' ? 'Could not update challenge.' : 'No se pudo actualizar el desafío.'))
+    } finally {
+      setCreatingChallenge(false)
+    }
+  }
+
   const tabs = [
     { id: 'dashboard', label: lang === 'en' ? 'Dashboard' : 'Dashboard', icon: '📊' },
+    { id: 'leaderboard', label: lang === 'en' ? 'Leaderboard' : 'Ranking', icon: '🏆' },
     { id: 'users', label: lang === 'en' ? 'Team' : 'Equipo', icon: '👥' },
     { id: 'settings', label: lang === 'en' ? 'Settings' : 'Configuración', icon: '⚙️' },
     {
@@ -517,31 +709,152 @@ const EnterprisePanel = ({ user }) => {
       return 'text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800'
     }
 
+    // Filtrar datos según selección
+    const filteredUsers = dashboardFilters.selectedMember === 'all' 
+      ? teamUsers 
+      : teamUsers.filter(u => u.id_usuario === dashboardFilters.selectedMember)
+
+    // Calcular stats filtradas
+    const avgScore = filteredUsers.length > 0
+      ? Math.round(filteredUsers.reduce((sum, u) => sum + (u.promedio_score || 0), 0) / filteredUsers.length)
+      : 0
+    const avgElo = filteredUsers.length > 0
+      ? Math.round(filteredUsers.reduce((sum, u) => sum + (u.elo_rating || 1000), 0) / filteredUsers.length)
+      : 1000
+    const totalAttempts = filteredUsers.reduce((sum, u) => sum + (u.total_intentos || 0), 0)
+    const activeMembers = filteredUsers.filter(u => (u.total_intentos || 0) > 0).length
+
     return (
     <div className="space-y-6">
-      {/* KPIs */}
+      {/* Filtros */}
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            {lang === 'en' ? 'Filters' : 'Filtros'}
+          </h3>
+          <button
+            onClick={() => setDashboardFilters({ timeRange: '30', selectedMember: 'all', difficulty: 'all', metric: 'score' })}
+            className="text-xs text-violet-600 hover:text-violet-700 font-medium"
+          >
+            {lang === 'en' ? 'Reset' : 'Restablecer'}
+          </button>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* Rango de tiempo */}
+          <div>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
+              {lang === 'en' ? 'Time Range' : 'Período'}
+            </label>
+            <select
+              value={dashboardFilters.timeRange}
+              onChange={e => setDashboardFilters(f => ({ ...f, timeRange: e.target.value }))}
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
+            >
+              <option value="7">{lang === 'en' ? 'Last 7 days' : 'Últimos 7 días'}</option>
+              <option value="30">{lang === 'en' ? 'Last 30 days' : 'Últimos 30 días'}</option>
+              <option value="90">{lang === 'en' ? 'Last 90 days' : 'Últimos 90 días'}</option>
+              <option value="all">{lang === 'en' ? 'All time' : 'Todo el tiempo'}</option>
+            </select>
+          </div>
+
+          {/* Miembro */}
+          <div>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
+              {lang === 'en' ? 'Team Member' : 'Miembro'}
+            </label>
+            <select
+              value={dashboardFilters.selectedMember}
+              onChange={e => setDashboardFilters(f => ({ ...f, selectedMember: e.target.value }))}
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
+            >
+              <option value="all">{lang === 'en' ? 'All members' : 'Todos los miembros'}</option>
+              {teamUsers.map(u => (
+                <option key={u.id_usuario} value={u.id_usuario}>
+                  {u.nombre_display || u.nombre || u.email}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Dificultad */}
+          <div>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
+              {lang === 'en' ? 'Difficulty' : 'Dificultad'}
+            </label>
+            <select
+              value={dashboardFilters.difficulty}
+              onChange={e => setDashboardFilters(f => ({ ...f, difficulty: e.target.value }))}
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
+            >
+              <option value="all">{lang === 'en' ? 'All difficulties' : 'Todas'}</option>
+              <option value="Easy">{lang === 'en' ? 'Easy' : 'Fácil'}</option>
+              <option value="Medium">{lang === 'en' ? 'Medium' : 'Medio'}</option>
+              <option value="Hard">{lang === 'en' ? 'Hard' : 'Difícil'}</option>
+            </select>
+          </div>
+
+          {/* Métrica */}
+          <div>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
+              {lang === 'en' ? 'Primary Metric' : 'Métrica Principal'}
+            </label>
+            <select
+              value={dashboardFilters.metric}
+              onChange={e => setDashboardFilters(f => ({ ...f, metric: e.target.value }))}
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
+            >
+              <option value="score">{lang === 'en' ? 'Score' : 'Puntaje'}</option>
+              <option value="elo">ELO</option>
+              <option value="attempts">{lang === 'en' ? 'Attempts' : 'Intentos'}</option>
+              <option value="improvement">{lang === 'en' ? 'Improvement' : 'Mejora'}</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* KPIs principales */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
-          <p className="text-sm text-slate-600 dark:text-slate-400">{lang === 'en' ? 'Team Members' : 'Miembros del Equipo'}</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">{teamUsers.length}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
-          <p className="text-sm text-slate-600 dark:text-slate-400">{lang === 'en' ? 'Avg ELO' : 'ELO Promedio'}</p>
-          <p className="mt-2 text-3xl font-bold text-violet-600">
-            {teamUsers.length > 0
-              ? Math.round(teamUsers.reduce((sum, u) => sum + (u.elo_rating || 1000), 0) / teamUsers.length)
-              : '—'}
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">
+            {dashboardFilters.selectedMember === 'all' 
+              ? (lang === 'en' ? 'Team Members' : 'Miembros')
+              : (lang === 'en' ? 'Selected' : 'Seleccionado')}
+          </p>
+          <p className="text-3xl font-bold text-slate-900 dark:text-slate-100">{filteredUsers.length}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            {activeMembers} {lang === 'en' ? 'active' : 'activos'}
           </p>
         </div>
+        
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
-          <p className="text-sm text-slate-600 dark:text-slate-400">{lang === 'en' ? 'Total Attempts' : 'Intentos Totales'}</p>
-          <p className="mt-2 text-3xl font-bold text-emerald-600">
-            {teamUsers.reduce((sum, u) => sum + (u.total_intentos || 0), 0)}
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">
+            {lang === 'en' ? 'Avg ELO' : 'ELO Promedio'}
+          </p>
+          <p className="text-3xl font-bold text-violet-600">{avgElo}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            {lang === 'en' ? 'Rating' : 'Calificación'}
           </p>
         </div>
+        
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
-          <p className="text-sm text-slate-600 dark:text-slate-400">{lang === 'en' ? 'Company' : 'Empresa'}</p>
-          <p className="mt-2 text-lg font-semibold text-slate-900 truncate">{companyData?.company_name}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">
+            {lang === 'en' ? 'Avg Score' : 'Score Promedio'}
+          </p>
+          <p className={`text-3xl font-bold ${scoreColor(avgScore)}`}>{avgScore}%</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            {lang === 'en' ? 'Performance' : 'Rendimiento'}
+          </p>
+        </div>
+        
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">
+            {lang === 'en' ? 'Total Attempts' : 'Intentos'}
+          </p>
+          <p className="text-3xl font-bold text-emerald-600">{totalAttempts}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            {lang === 'en' ? 'All time' : 'Histórico'}
+          </p>
         </div>
       </div>
 
@@ -583,7 +896,7 @@ const EnterprisePanel = ({ user }) => {
                   if (!active || !payload?.length) return null
                   const d = payload[0].payload
                   return (
-                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-lg text-xs space-y-0.5">
+                    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-lg text-xs space-y-0.5">
                       <p className="font-semibold text-slate-500">{d.date}</p>
                       <p className="font-bold text-violet-600">{d.avg}%</p>
                       <p className="text-slate-400">{d.count} {lang === 'en' ? 'attempts' : 'intentos'}</p>
@@ -636,7 +949,7 @@ const EnterprisePanel = ({ user }) => {
                 <div className="flex items-center gap-2.5">
                   <div className="h-8 w-8 rounded-full overflow-hidden bg-slate-200 dark:bg-slate-700 shrink-0 flex items-center justify-center">
                     {u.avatar_url
-                      ? <img src={u.avatar_url} alt="" className="h-full w-full object-cover" />
+                      ? <img src={proxyImg(u.avatar_url)} alt="" className="h-full w-full object-cover" />
                       : <span className="text-xs font-bold text-slate-500">{(u.nombre_display || u.nombre || 'U').substring(0,2).toUpperCase()}</span>
                     }
                   </div>
@@ -755,7 +1068,7 @@ const EnterprisePanel = ({ user }) => {
                             <div key={member.id_usuario} className="flex items-center gap-3 px-5 py-3 border-b border-slate-50 dark:border-slate-800 last:border-0 bg-slate-50/50 dark:bg-slate-800/50">
                               <div className="h-7 w-7 rounded-full overflow-hidden bg-slate-200 dark:bg-slate-700 shrink-0 flex items-center justify-center">
                                 {member.avatar_url
-                                  ? <img src={member.avatar_url} alt="" className="h-full w-full object-cover" />
+                                  ? <img src={proxyImg(member.avatar_url)} alt="" className="h-full w-full object-cover" />
                                   : <span className="text-[10px] font-bold text-slate-400">{memberName.substring(0,2).toUpperCase()}</span>
                                 }
                               </div>
@@ -778,7 +1091,7 @@ const EnterprisePanel = ({ user }) => {
                             >
                               <div className="h-7 w-7 rounded-full overflow-hidden bg-slate-200 dark:bg-slate-700 shrink-0 flex items-center justify-center">
                                 {member.avatar_url
-                                  ? <img src={member.avatar_url} alt="" className="h-full w-full object-cover" />
+                                  ? <img src={proxyImg(member.avatar_url)} alt="" className="h-full w-full object-cover" />
                                   : <span className="text-[10px] font-bold text-slate-500">{memberName.substring(0,2).toUpperCase()}</span>
                                 }
                               </div>
@@ -803,7 +1116,7 @@ const EnterprisePanel = ({ user }) => {
                             {isMemberExpanded && (
                               <div className="px-5 pb-4 space-y-3 bg-slate-50/60 dark:bg-slate-800/60">
                                 {mStats.all.map((intento, idx) => (
-                                  <div key={intento.id_intento} className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5 space-y-2">
+                                  <div key={intento.id_intento} className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5 space-y-2">
                                     <div className="flex items-center justify-between">
                                       <span className="text-xs font-semibold text-slate-500">
                                         {lang === 'en' ? `Attempt ${mStats.all.length - idx}` : `Intento ${mStats.all.length - idx}`}
@@ -879,6 +1192,175 @@ const EnterprisePanel = ({ user }) => {
     )
   }
 
+  const renderLeaderboard = () => {
+    // Categorías de ranking
+    const categories = [
+      { 
+        id: 'elo', 
+        label: lang === 'en' ? 'Highest ELO' : 'Mayor ELO',
+        getValue: (u) => u.elo_rating || 1000,
+        format: (v) => v,
+        color: 'violet'
+      },
+      { 
+        id: 'score', 
+        label: lang === 'en' ? 'Best Average Score' : 'Mejor Promedio',
+        getValue: (u) => u.promedio_score || 0,
+        format: (v) => `${v}%`,
+        color: 'emerald'
+      },
+      { 
+        id: 'attempts', 
+        label: lang === 'en' ? 'Most Attempts' : 'Más Intentos',
+        getValue: (u) => u.total_intentos || 0,
+        format: (v) => v,
+        color: 'amber'
+      },
+      { 
+        id: 'streak', 
+        label: lang === 'en' ? 'Longest Streak' : 'Mayor Racha',
+        getValue: (u) => u.racha_actual || 0,
+        format: (v) => `${v}d`,
+        color: 'rose'
+      },
+    ]
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              {lang === 'en' ? 'Organization Leaderboard' : 'Tabla de la Organización'}
+            </h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              {lang === 'en' ? 'Top performers in each category' : 'Mejores en cada categoría'}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {categories.map(category => {
+            const sorted = [...teamUsers].sort((a, b) => category.getValue(b) - category.getValue(a))
+            const top3 = sorted.slice(0, 3)
+            
+            const colorClasses = {
+              violet: 'border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-950/20',
+              emerald: 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20',
+              amber: 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20',
+              rose: 'border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/20',
+            }
+            
+            const textColorClasses = {
+              violet: 'text-violet-600 dark:text-violet-400',
+              emerald: 'text-emerald-600 dark:text-emerald-400',
+              amber: 'text-amber-600 dark:text-amber-400',
+              rose: 'text-rose-600 dark:text-rose-400',
+            }
+
+            return (
+              <div key={category.id} className={`rounded-2xl border p-5 ${colorClasses[category.color]}`}>
+                <h4 className={`text-sm font-semibold mb-4 ${textColorClasses[category.color]}`}>
+                  {category.label}
+                </h4>
+                <div className="space-y-3">
+                  {top3.map((user, idx) => {
+                    const name = user.nombre_display || user.nombre || user.username || user.email
+                    const value = category.getValue(user)
+                    const medals = ['🥇', '🥈', '🥉']
+                    
+                    return (
+                      <div key={user.id_usuario} className="flex items-center gap-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3">
+                        <span className="text-lg shrink-0">{medals[idx]}</span>
+                        <div className="h-8 w-8 rounded-full overflow-hidden bg-slate-200 dark:bg-slate-700 shrink-0 flex items-center justify-center">
+                          {user.avatar_url
+                            ? <img src={proxyImg(user.avatar_url)} alt={name} className="h-full w-full object-cover" />
+                            : <span className="text-xs font-bold text-slate-500">{name.substring(0,2).toUpperCase()}</span>
+                          }
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{name}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">{user.email}</p>
+                        </div>
+                        <p className={`text-lg font-bold shrink-0 ${textColorClasses[category.color]}`}>
+                          {category.format(value)}
+                        </p>
+                      </div>
+                    )
+                  })}
+                  
+                  {top3.length === 0 && (
+                    <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">
+                      {lang === 'en' ? 'No data yet' : 'Sin datos aún'}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Tabla completa de ranking */}
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800">
+            <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              {lang === 'en' ? 'Complete Ranking' : 'Ranking Completo'}
+            </h4>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">#</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">{lang === 'en' ? 'Member' : 'Miembro'}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">ELO</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">{lang === 'en' ? 'Avg' : 'Prom.'}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">{lang === 'en' ? 'Attempts' : 'Intentos'}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">{lang === 'en' ? 'Streak' : 'Racha'}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {[...teamUsers]
+                  .sort((a, b) => (b.elo_rating || 1000) - (a.elo_rating || 1000))
+                  .map((user, idx) => {
+                    const name = user.nombre_display || user.nombre || user.username || user.email
+                    const profileHref = user.username ? `/user/${user.username}` : `/perfil?id=${user.id_usuario}`
+                    
+                    return (
+                      <tr key={user.id_usuario} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+                        <td className="px-4 py-3">
+                          <span className="text-sm font-bold text-slate-400">#{idx + 1}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="h-8 w-8 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 shrink-0 flex items-center justify-center border border-slate-200 dark:border-slate-700">
+                              {user.avatar_url
+                                ? <img src={proxyImg(user.avatar_url)} alt={name} className="h-full w-full object-cover" />
+                                : <span className="text-xs font-bold text-slate-500">{name.substring(0,2).toUpperCase()}</span>
+                              }
+                            </div>
+                            <div className="min-w-0">
+                              <a href={profileHref} className="text-sm font-medium text-slate-900 dark:text-slate-100 hover:text-violet-600 truncate block">
+                                {name}
+                              </a>
+                              <p className="text-xs text-slate-400 truncate">{user.email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm font-semibold text-violet-600">{user.elo_rating || 1000}</td>
+                        <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{user.promedio_score ?? '—'}</td>
+                        <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{user.total_intentos || 0}</td>
+                        <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{user.racha_actual || 0}d</td>
+                      </tr>
+                    )
+                  })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const renderUsers = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-4">
@@ -907,7 +1389,6 @@ const EnterprisePanel = ({ user }) => {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">ELO</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">{lang === 'en' ? 'Avg' : 'Prom.'}</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">{lang === 'en' ? 'Attempts' : 'Intentos'}</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">{lang === 'en' ? 'Role' : 'Rol'}</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">{lang === 'en' ? 'Actions' : 'Acciones'}</th>
               </tr>
             </thead>
@@ -926,7 +1407,7 @@ const EnterprisePanel = ({ user }) => {
                       <div className="flex items-center gap-2.5">
                         <div className="h-8 w-8 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 shrink-0 flex items-center justify-center border border-slate-200">
                           {member.avatar_url
-                            ? <img src={member.avatar_url} alt={displayName} className="h-full w-full object-cover" />
+                            ? <img src={proxyImg(member.avatar_url)} alt={displayName} className="h-full w-full object-cover" />
                             : <span className="text-xs font-bold text-slate-500">{displayName?.substring(0,2).toUpperCase()}</span>
                           }
                         </div>
@@ -982,23 +1463,6 @@ const EnterprisePanel = ({ user }) => {
                     <td className="px-4 py-3 text-sm font-semibold text-violet-600">{member.elo_rating || 1000}</td>
                     <td className="px-4 py-3 text-sm text-slate-600">{member.promedio_score ?? '—'}</td>
                     <td className="px-4 py-3 text-sm text-slate-600">{member.total_intentos || 0}</td>
-
-                    {/* Rol */}
-                    <td className="px-4 py-3">
-                      <select
-                        value={member.company_role || ''}
-                        onChange={e => assignRole(member.id_usuario, e.target.value)}
-                        className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400"
-                      >
-                        <option value="">{lang === 'en' ? 'No role' : 'Sin rol'}</option>
-                        <option value="member">{lang === 'en' ? 'Member' : 'Miembro'}</option>
-                        <option value="analyst">{lang === 'en' ? 'Analyst' : 'Analista'}</option>
-                        <option value="senior">Senior</option>
-                        <option value="lead">Lead</option>
-                        <option value="manager">Manager</option>
-                        <option value="admin">Admin</option>
-                      </select>
-                    </td>
 
                     {/* Acciones */}
                     <td className="px-4 py-3">
@@ -1077,7 +1541,7 @@ const EnterprisePanel = ({ user }) => {
           </p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {challenges.map((ch) => {
             const diffColors = {
               easy: 'text-emerald-700 bg-emerald-50 border-emerald-200',
@@ -1088,13 +1552,24 @@ const EnterprisePanel = ({ user }) => {
             const diffClass = diffColors[diff] || diffColors.medium
             return (
               <div key={ch.id_imagen} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden hover:border-violet-300 hover:shadow-md transition group">
-                <div className="h-40 bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                <div className="h-40 bg-slate-100 dark:bg-slate-800 overflow-hidden relative">
                   {ch.url_image
                     ? <img src={ch.url_image} alt="challenge" className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     : <div className="h-full w-full flex items-center justify-center text-3xl">🖼️</div>
                   }
+                  {/* Settings gear icon - top right of image, slightly below */}
+                  <button
+                    onClick={() => openEditChallengeModal(ch)}
+                    className="absolute top-2 right-2 h-8 w-8 flex items-center justify-center rounded-lg bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm text-slate-600 dark:text-slate-400 hover:bg-violet-100 hover:text-violet-600 dark:hover:bg-violet-900/70 dark:hover:text-violet-400 transition shadow-sm border border-slate-200/50 dark:border-slate-700/50"
+                    title={lang === 'en' ? 'Edit challenge' : 'Editar desafío'}
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </button>
                 </div>
-                <div className="p-4">
+                <div className="p-4 relative">
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
                     <span className={`text-[11px] font-semibold rounded-full border px-2 py-0.5 ${diffClass}`}>
                       {ch.image_diff || 'Medium'}
@@ -1112,12 +1587,6 @@ const EnterprisePanel = ({ user }) => {
                     <p className="text-[11px] text-slate-400 dark:text-slate-500">
                       {ch.fecha ? new Date(ch.fecha).toLocaleDateString(lang === 'en' ? 'en-US' : 'es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
                     </p>
-                    <a
-                      href={`/?challenge=${ch.id_imagen}`}
-                      className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 transition"
-                    >
-                      {lang === 'en' ? 'Play' : 'Jugar'}
-                    </a>
                   </div>
                 </div>
               </div>
@@ -1129,73 +1598,205 @@ const EnterprisePanel = ({ user }) => {
   )
 
   const renderSettings = () => (
-    <div className="space-y-5 max-w-2xl">
-      {/* Nombre + web */}
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden">
-        <div className="px-5 py-4">
-          <label className="block text-xs font-semibold uppercase tracking-widest text-slate-400 mb-2">
-            {lang === 'en' ? 'Company name' : 'Nombre de la empresa'}
-          </label>
-          <input
-            type="text"
-            value={settingsForm.company_name}
-            onChange={e => setSettingsForm(f => ({ ...f, company_name: e.target.value }))}
-            className="w-full bg-transparent text-sm font-medium text-slate-900 dark:text-slate-100 outline-none placeholder:text-slate-400"
-            placeholder={lang === 'en' ? 'Your company name' : 'Nombre de tu empresa'}
-          />
-        </div>
-        <div className="px-5 py-4">
-          <label className="block text-xs font-semibold uppercase tracking-widest text-slate-400 mb-2">
-            {lang === 'en' ? 'Website' : 'Sitio web'}
-          </label>
-          <input
-            type="url"
-            value={settingsForm.website}
-            onChange={e => setSettingsForm(f => ({ ...f, website: e.target.value }))}
-            className="w-full bg-transparent text-sm text-slate-900 dark:text-slate-100 outline-none placeholder:text-slate-400"
-            placeholder="https://empresa.com"
-          />
-        </div>
-        <div className="px-5 py-4">
-          <label className="block text-xs font-semibold uppercase tracking-widest text-slate-400 mb-2">
-            {lang === 'en' ? 'Description' : 'Descripción'}
-          </label>
-          <textarea
-            value={settingsForm.bio}
-            onChange={e => setSettingsForm(f => ({ ...f, bio: e.target.value }))}
-            rows={3}
-            className="w-full bg-transparent text-sm text-slate-900 dark:text-slate-100 outline-none resize-none placeholder:text-slate-400"
-            placeholder={lang === 'en' ? 'What does your company do?' : '¿A qué se dedica tu empresa?'}
-          />
-        </div>
-      </div>
+    <div className="space-y-5">
+      {/* Información Básica */}
+      <div className="grid gap-5 lg:grid-cols-2">
+        {/* Columna Izquierda - Info de la empresa */}
+        <div className="space-y-5">
+          {/* Nombre + web + descripción */}
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden">
+            <div className="px-5 py-4">
+              <label className="block text-xs font-semibold uppercase tracking-widest text-slate-400 mb-2">
+                {lang === 'en' ? 'Company name' : 'Nombre de la empresa'}
+              </label>
+              <input
+                type="text"
+                value={settingsForm.company_name}
+                onChange={e => setSettingsForm(f => ({ ...f, company_name: e.target.value }))}
+                className="w-full bg-transparent text-sm font-medium text-slate-900 dark:text-slate-100 outline-none placeholder:text-slate-400"
+                placeholder={lang === 'en' ? 'Your company name' : 'Nombre de tu empresa'}
+              />
+            </div>
+            <div className="px-5 py-4">
+              <label className="block text-xs font-semibold uppercase tracking-widest text-slate-400 mb-2">
+                {lang === 'en' ? 'Website' : 'Sitio web'}
+              </label>
+              <input
+                type="url"
+                value={settingsForm.website}
+                onChange={e => setSettingsForm(f => ({ ...f, website: e.target.value }))}
+                className="w-full bg-transparent text-sm text-slate-900 dark:text-slate-100 outline-none placeholder:text-slate-400"
+                placeholder="https://empresa.com"
+              />
+            </div>
+            <div className="px-5 py-4">
+              <label className="block text-xs font-semibold uppercase tracking-widest text-slate-400 mb-2">
+                {lang === 'en' ? 'Description' : 'Descripción'}
+              </label>
+              <textarea
+                value={settingsForm.bio}
+                onChange={e => setSettingsForm(f => ({ ...f, bio: e.target.value }))}
+                rows={3}
+                className="w-full bg-transparent text-sm text-slate-900 dark:text-slate-100 outline-none resize-none placeholder:text-slate-400"
+                placeholder={lang === 'en' ? 'What does your company do?' : '¿A qué se dedica tu empresa?'}
+              />
+            </div>
+          </div>
 
-      {/* Dificultades */}
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-5 py-4">
-        <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-3">
-          {lang === 'en' ? 'Allowed difficulties' : 'Dificultades permitidas'}
-        </p>
-        <div className="flex gap-2">
-          {[
-            { key: 'Easy',   label: lang === 'en' ? 'Easy' : 'Fácil',   on: 'bg-emerald-500 text-white border-emerald-500', off: 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400' },
-            { key: 'Medium', label: lang === 'en' ? 'Medium' : 'Medio',  on: 'bg-amber-500 text-white border-amber-500',    off: 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400' },
-            { key: 'Hard',   label: lang === 'en' ? 'Hard' : 'Difícil',  on: 'bg-rose-500 text-white border-rose-500',      off: 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400' },
-          ].map(({ key, label, on, off }) => {
-            const active = settingsForm.allowed_diffs.includes(key)
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setSettingsForm(f => ({
-                  ...f,
-                  allowed_diffs: active ? f.allowed_diffs.filter(d => d !== key) : [...f.allowed_diffs, key],
-                }))}
-                className={`rounded-xl border px-4 py-1.5 text-xs font-semibold transition ${active ? on : off}`}
+          {/* Dificultades + Industria */}
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-5 py-4">
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-3">
+              {lang === 'en' ? 'Allowed difficulties' : 'Dificultades permitidas'}
+            </p>
+            <div className="flex gap-2 mb-4">
+              {[
+                { key: 'Easy',   label: lang === 'en' ? 'Easy' : 'Fácil',   on: 'bg-emerald-500 text-white border-emerald-500', off: 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400' },
+                { key: 'Medium', label: lang === 'en' ? 'Medium' : 'Medio',  on: 'bg-amber-500 text-white border-amber-500',    off: 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400' },
+                { key: 'Hard',   label: lang === 'en' ? 'Hard' : 'Difícil',  on: 'bg-rose-500 text-white border-rose-500',      off: 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400' },
+              ].map(({ key, label, on, off }) => {
+                const active = settingsForm.allowed_diffs.includes(key)
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setSettingsForm(f => ({
+                      ...f,
+                      allowed_diffs: active ? f.allowed_diffs.filter(d => d !== key) : [...f.allowed_diffs, key],
+                    }))}
+                    className={`rounded-lg border px-4 py-1.5 text-xs font-semibold transition ${active ? on : off}`}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                {lang === 'en' ? 'Industry Type' : 'Tipo de Industria'}
+              </label>
+              <select
+                value={settingsForm.industry_type || 'marketing'}
+                onChange={e => setSettingsForm(f => ({ ...f, industry_type: e.target.value }))}
+                className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100"
               >
-                {label}
+                <option value="marketing">📢 {lang === 'en' ? 'Marketing & Advertising' : 'Marketing y Publicidad'}</option>
+                <option value="ecommerce">🛒 {lang === 'en' ? 'E-commerce & Retail' : 'E-commerce y Retail'}</option>
+                <option value="education">📚 {lang === 'en' ? 'Education & Training' : 'Educación y Capacitación'}</option>
+                <option value="tech">💻 {lang === 'en' ? 'Technology & Software' : 'Tecnología y Software'}</option>
+                <option value="healthcare">🏥 {lang === 'en' ? 'Healthcare & Wellness' : 'Salud y Bienestar'}</option>
+                <option value="realestate">🏠 {lang === 'en' ? 'Real Estate & Architecture' : 'Bienes Raíces y Arquitectura'}</option>
+                <option value="food">🍽️ {lang === 'en' ? 'Food & Beverage' : 'Alimentos y Bebidas'}</option>
+                <option value="design">🎨 {lang === 'en' ? 'Design & Creative' : 'Diseño y Creatividad'}</option>
+                <option value="other">{lang === 'en' ? 'Other' : 'Otro'}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Columna Derecha - Configuraciones avanzadas */}
+        <div className="space-y-5">
+          {/* Torneos + Desafíos por defecto */}
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-5 py-4">
+            <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                  {lang === 'en' ? 'Tournaments' : 'Torneos'}
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  {lang === 'en' ? 'Enable competitive tournaments' : 'Habilitar torneos competitivos'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSettingsForm(f => ({ ...f, tournament_enabled: !f.tournament_enabled }))}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
+                  settingsForm.tournament_enabled ? 'bg-violet-600' : 'bg-slate-300 dark:bg-slate-600'
+                }`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+                  settingsForm.tournament_enabled ? 'translate-x-6' : 'translate-x-1'
+                }`} />
               </button>
-            )
-          })}
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  {lang === 'en' ? 'Default Challenge Type' : 'Tipo de Desafío por Defecto'}
+                </label>
+                <select
+                  value={settingsForm.default_challenge_type || 'standard'}
+                  onChange={e => setSettingsForm(f => ({ ...f, default_challenge_type: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100"
+                >
+                  <option value="standard">🎯 {lang === 'en' ? 'Standard' : 'Estándar'}</option>
+                  <option value="creativity">🎨 {lang === 'en' ? 'Creativity' : 'Creatividad'}</option>
+                  <option value="speed_challenge">⚡ {lang === 'en' ? 'Speed' : 'Velocidad'}</option>
+                  <option value="color_matching">🎨 {lang === 'en' ? 'Color Matching' : 'Colores'}</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  {lang === 'en' ? 'Difficulty Mode' : 'Modo de Dificultad'}
+                </label>
+                <select
+                  value={settingsForm.default_challenge_mode || 'static'}
+                  onChange={e => setSettingsForm(f => ({ ...f, default_challenge_mode: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100"
+                >
+                  <option value="static">📊 {lang === 'en' ? 'Static' : 'Estático'}</option>
+                  <option value="adaptive">🎯 {lang === 'en' ? 'Adaptive' : 'Adaptativo'}</option>
+                  <option value="progressive">📈 {lang === 'en' ? 'Progressive' : 'Progresivo'}</option>
+                </select>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  {settingsForm.default_challenge_mode === 'adaptive' && (lang === 'en' 
+                    ? 'Adjusts to performance'
+                    : 'Se ajusta al desempeño')}
+                  {settingsForm.default_challenge_mode === 'progressive' && (lang === 'en'
+                    ? 'Increases each round'
+                    : 'Aumenta cada ronda')}
+                  {settingsForm.default_challenge_mode === 'static' && (lang === 'en'
+                    ? 'Fixed difficulty'
+                    : 'Dificultad fija')}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Métricas y Training compactos */}
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-5 py-4">
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-3">
+              {lang === 'en' ? 'Tracking & Training' : 'Seguimiento y Capacitación'}
+            </p>
+            
+            <div className="space-y-2">
+              {[
+                { key: 'trackTimePerAttempt', label: lang === 'en' ? 'Track time' : 'Rastrear tiempo', metric: true },
+                { key: 'trackImprovementRate', label: lang === 'en' ? 'Track improvement' : 'Rastrear mejora', metric: true },
+                { key: 'generateMonthlyReports', label: lang === 'en' ? 'Monthly reports' : 'Reportes mensuales', metric: true },
+                { key: 'enableProgressTracking', label: lang === 'en' ? 'Progress tracking' : 'Seguimiento de progreso', metric: false },
+                { key: 'enableLeaderboards', label: lang === 'en' ? 'Leaderboards' : 'Rankings', metric: false },
+              ].map(({ key, label, metric }) => (
+                <label key={key} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={metric ? (settingsForm.performance_metrics?.[key] ?? true) : (settingsForm.training_config?.[key] ?? true)}
+                    onChange={e => setSettingsForm(f => ({
+                      ...f,
+                      [metric ? 'performance_metrics' : 'training_config']: {
+                        ...(metric ? f.performance_metrics : f.training_config),
+                        [key]: e.target.checked
+                      }
+                    }))}
+                    className="rounded border-slate-300 dark:border-slate-600 text-violet-600 focus:ring-violet-500"
+                  />
+                  <span className="text-xs text-slate-700 dark:text-slate-300">{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1298,7 +1899,7 @@ const EnterprisePanel = ({ user }) => {
                 ? `/user/${userInfo.username}`
                 : request.user_id ? `/perfil?id=${request.user_id}` : null
               return (
-                <div key={request.id} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3">
+                <div key={request.id} className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="h-8 w-8 rounded-full overflow-hidden bg-slate-200 dark:bg-slate-700 shrink-0 flex items-center justify-center">
                       {avatarUrl ? (
@@ -1361,7 +1962,7 @@ const EnterprisePanel = ({ user }) => {
         ) : enterpriseRequests.filter(r => r.status === 'pending').length > 0 ? (
           <div className="space-y-3">
             {enterpriseRequests.filter(r => r.status === 'pending').map((request) => (
-              <div key={request.id} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3">
+              <div key={request.id} className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3">
                 <p className="font-semibold text-slate-900 dark:text-slate-100 text-sm">{request.user_email}</p>
                 {request.message && (
                   <p className="text-xs text-slate-500 mt-1 italic">"{request.message}"</p>
@@ -1399,7 +2000,7 @@ const EnterprisePanel = ({ user }) => {
               type="email"
               value={inviteEmail}
               onChange={(e) => setInviteEmail(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm"
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm"
               placeholder={lang === 'en' ? 'user@example.com' : 'usuario@ejemplo.com'}
             />
           </div>
@@ -1409,7 +2010,7 @@ const EnterprisePanel = ({ user }) => {
               value={inviteMessage}
               onChange={(e) => setInviteMessage(e.target.value)}
               rows={4}
-              className="w-full rounded-xl border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm resize-none"
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm resize-none"
               placeholder={lang === 'en' ? 'Optional note for the invite' : 'Nota opcional para la invitación'}
             />
           </div>
@@ -1472,6 +2073,7 @@ const EnterprisePanel = ({ user }) => {
         {/* Tab Content */}
         <div>
           {activeTab === 'dashboard' && renderDashboard()}
+          {activeTab === 'leaderboard' && renderLeaderboard()}
           {activeTab === 'users' && renderUsers()}
           {activeTab === 'settings' && renderSettings()}
           {activeTab === 'requests' && renderRequests()}
@@ -1487,62 +2089,82 @@ const EnterprisePanel = ({ user }) => {
           onClick={closeChallengeModal}
         >
           <div
-            className="w-full max-w-xl rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl"
+            className="w-full max-w-2xl max-h-[90vh] rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            {/* Header fijo */}
+            <div className="flex items-center justify-between p-5 pb-4 border-b border-slate-200 dark:border-slate-800 shrink-0">
+              <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
                 {lang === 'en' ? 'Create custom challenge' : 'Crear desafío personalizado'}
               </h3>
               <button
                 type="button"
                 onClick={closeChallengeModal}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:bg-slate-800 hover:text-slate-600"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 transition"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={createChallenge} className="space-y-4">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-900">
-                  {lang === 'en' ? 'Challenge image' : 'Imagen del desafío'}
-                </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleChallengeImageChange}
-                  className="w-full rounded-xl border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
-                  required
-                />
-                {challengeImagePreview && (
-                  <img src={challengeImagePreview} alt="preview" className="mt-3 h-40 w-full rounded-xl object-cover border border-slate-200" />
-                )}
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-900">
-                  {lang === 'en' ? 'Original prompt' : 'Prompt original'}
-                </label>
-                <textarea
-                  value={challengeForm.prompt}
-                  onChange={(e) => setChallengeForm(f => ({ ...f, prompt: e.target.value }))}
-                  rows={4}
-                  className="w-full rounded-xl border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm resize-none"
-                  placeholder={lang === 'en' ? 'Describe the expected image prompt...' : 'Describe el prompt esperado de la imagen...'}
-                  required
-                />
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
+            {/* Contenido con scroll */}
+            <div className="overflow-y-auto px-5 py-4 flex-1">
+              <form id="challenge-form" onSubmit={createChallenge} className="space-y-3.5">
+                {/* Imagen */}
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-900">
-                    {lang === 'en' ? 'Difficulty' : 'Dificultad'}
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
+                    {lang === 'en' ? 'Challenge image' : 'Imagen del desafío'} <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleChallengeImageChange}
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs dark:bg-slate-800 dark:text-slate-100"
+                    required
+                  />
+                  {challengeImagePreview && (
+                    <img src={challengeImagePreview} alt="preview" className="mt-2 h-32 w-full rounded-lg object-cover border border-slate-200 dark:border-slate-700" />
+                  )}
+                </div>
+
+                {/* Prompt original */}
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
+                    {lang === 'en' ? 'Original prompt' : 'Prompt original'} <span className="text-rose-500">*</span>
+                  </label>
+                  <textarea
+                    value={challengeForm.prompt}
+                    onChange={(e) => setChallengeForm(f => ({ ...f, prompt: e.target.value }))}
+                    rows={2}
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs resize-none dark:bg-slate-800 dark:text-slate-100"
+                    placeholder={lang === 'en' ? 'Describe the expected image prompt...' : 'Describe el prompt esperado de la imagen...'}
+                    required
+                  />
+                </div>
+
+                {/* Descripción extendida */}
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
+                    {lang === 'en' ? 'Description (optional)' : 'Descripción (opcional)'}
+                  </label>
+                  <textarea
+                    value={challengeForm.description}
+                    onChange={(e) => setChallengeForm(f => ({ ...f, description: e.target.value }))}
+                    rows={2}
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs resize-none dark:bg-slate-800 dark:text-slate-100"
+                    placeholder={lang === 'en' ? 'Additional context or instructions...' : 'Contexto adicional o instrucciones...'}
+                  />
+                </div>
+
+                {/* Dificultad y Temática */}
+                <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
+                    {lang === 'en' ? 'Difficulty' : 'Dificultad'} <span className="text-rose-500">*</span>
                   </label>
                   <select
                     value={challengeForm.difficulty}
                     onChange={(e) => setChallengeForm(f => ({ ...f, difficulty: e.target.value }))}
-                    className="w-full rounded-xl border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm bg-white"
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs bg-white dark:bg-slate-800 dark:text-slate-100"
                   >
                     <option value="Easy">Easy</option>
                     <option value="Medium">Medium</option>
@@ -1550,43 +2172,198 @@ const EnterprisePanel = ({ user }) => {
                   </select>
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-900">
-                    {lang === 'en' ? 'Theme' : 'Temática'}
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
+                    {lang === 'en' ? 'Theme' : 'Temática'} <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={challengeForm.theme}
                     onChange={(e) => setChallengeForm(f => ({ ...f, theme: e.target.value }))}
-                    className="w-full rounded-xl border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs dark:bg-slate-800 dark:text-slate-100"
                     placeholder={lang === 'en' ? 'e.g. Cyberpunk city' : 'Ej: Ciudad cyberpunk'}
                     required
                   />
                 </div>
               </div>
 
-              {challengeStatus && (
-                <p className="text-sm text-slate-600 dark:text-slate-400">{challengeStatus}</p>
-              )}
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={closeChallengeModal}
-                  className="rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                >
-                  {lang === 'en' ? 'Cancel' : 'Cancelar'}
-                </button>
-                <button
-                  type="submit"
-                  disabled={creatingChallenge}
-                  className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-60"
-                >
-                  {creatingChallenge
-                    ? (lang === 'en' ? 'Creating...' : 'Creando...')
-                    : (lang === 'en' ? 'Create challenge' : 'Crear desafío')}
-                </button>
+              {/* Tiempo límite, Intentos máximos, Palabras mínimas */}
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
+                    {lang === 'en' ? 'Time limit (sec)' : 'Tiempo límite (seg)'}
+                  </label>
+                  <input
+                    type="number"
+                    min="30"
+                    max="600"
+                    value={challengeForm.timeLimit}
+                    onChange={(e) => setChallengeForm(f => ({ ...f, timeLimit: parseInt(e.target.value) || 180 }))}
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs dark:bg-slate-800 dark:text-slate-100"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
+                    {lang === 'en' ? 'Max attempts' : 'Intentos máx'}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="10"
+                    value={challengeForm.maxAttempts}
+                    onChange={(e) => setChallengeForm(f => ({ ...f, maxAttempts: parseInt(e.target.value) || 0 }))}
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs dark:bg-slate-800 dark:text-slate-100"
+                    placeholder="0 = ∞"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
+                    {lang === 'en' ? 'Min words' : 'Palabras mín'}
+                  </label>
+                  <input
+                    type="number"
+                    min="5"
+                    max="50"
+                    value={challengeForm.minWords}
+                    onChange={(e) => setChallengeForm(f => ({ ...f, minWords: parseInt(e.target.value) || 10 }))}
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs dark:bg-slate-800 dark:text-slate-100"
+                  />
+                </div>
               </div>
-            </form>
+
+              {/* Fechas de inicio y fin */}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
+                    {lang === 'en' ? 'Start date (optional)' : 'Fecha inicio (opcional)'}
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={challengeForm.startDate}
+                    onChange={(e) => setChallengeForm(f => ({ ...f, startDate: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs dark:bg-slate-800 dark:text-slate-100"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
+                    {lang === 'en' ? 'End date (optional)' : 'Fecha fin (opcional)'}
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={challengeForm.endDate}
+                    onChange={(e) => setChallengeForm(f => ({ ...f, endDate: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs dark:bg-slate-800 dark:text-slate-100"
+                  />
+                </div>
+              </div>
+
+              {/* Visibilidad, Puntos, Modo de evaluación */}
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
+                    {lang === 'en' ? 'Visibility' : 'Visibilidad'}
+                  </label>
+                  <select
+                    value={challengeForm.visibility}
+                    onChange={(e) => setChallengeForm(f => ({ ...f, visibility: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs bg-white dark:bg-slate-800 dark:text-slate-100"
+                  >
+                    <option value="private">{lang === 'en' ? 'Private (team only)' : 'Privado (solo equipo)'}</option>
+                    <option value="public">{lang === 'en' ? 'Public' : 'Público'}</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
+                    {lang === 'en' ? 'Points' : 'Puntos'}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="1000"
+                    step="10"
+                    value={challengeForm.points}
+                    onChange={(e) => setChallengeForm(f => ({ ...f, points: parseInt(e.target.value) || 100 }))}
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs dark:bg-slate-800 dark:text-slate-100"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
+                    {lang === 'en' ? 'Evaluation' : 'Evaluación'}
+                  </label>
+                  <select
+                    value={challengeForm.evaluationMode}
+                    onChange={(e) => setChallengeForm(f => ({ ...f, evaluationMode: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs bg-white dark:bg-slate-800 dark:text-slate-100"
+                  >
+                    <option value="standard">{lang === 'en' ? 'Standard' : 'Estándar'}</option>
+                    <option value="strict">{lang === 'en' ? 'Strict' : 'Estricto'}</option>
+                    <option value="flexible">{lang === 'en' ? 'Flexible' : 'Flexible'}</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Tags */}
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
+                  {lang === 'en' ? 'Tags (comma separated)' : 'Tags (separados por coma)'}
+                </label>
+                <input
+                  type="text"
+                  value={challengeForm.tags.join(', ')}
+                  onChange={(e) => setChallengeForm(f => ({ ...f, tags: e.target.value.split(',').map(t => t.trim()) }))}
+                  className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs dark:bg-slate-800 dark:text-slate-100"
+                  placeholder={lang === 'en' ? 'e.g. landscape, nature, sunset' : 'Ej: paisaje, naturaleza, atardecer'}
+                />
+              </div>
+
+              {/* Hints/Pistas */}
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
+                  {lang === 'en' ? 'Hints (optional)' : 'Pistas (opcional)'}
+                </label>
+                <div className="space-y-2">
+                  {challengeForm.hints.map((hint, i) => (
+                    <input
+                      key={i}
+                      type="text"
+                      value={hint}
+                      onChange={(e) => {
+                        const newHints = [...challengeForm.hints]
+                        newHints[i] = e.target.value
+                        setChallengeForm(f => ({ ...f, hints: newHints }))
+                      }}
+                      className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs dark:bg-slate-800 dark:text-slate-100"
+                      placeholder={`${lang === 'en' ? 'Hint' : 'Pista'} ${i + 1}`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {challengeStatus && (
+                <p className="text-xs text-slate-600 dark:text-slate-400">{challengeStatus}</p>
+              )}
+              </form>
+            </div>
+
+            {/* Footer fijo */}
+            <div className="flex items-center justify-end gap-2 p-5 pt-4 border-t border-slate-200 dark:border-slate-800 shrink-0">
+              <button
+                type="button"
+                onClick={closeChallengeModal}
+                className="rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                {lang === 'en' ? 'Cancel' : 'Cancelar'}
+              </button>
+              <button
+                type="submit"
+                form="challenge-form"
+                disabled={creatingChallenge}
+                className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-60"
+              >
+                {creatingChallenge
+                  ? (lang === 'en' ? 'Creating...' : 'Creando...')
+                  : (lang === 'en' ? 'Create challenge' : 'Crear desafío')}
+              </button>
+            </div>
           </div>
         </div>
       )}

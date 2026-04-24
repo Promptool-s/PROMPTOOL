@@ -6,6 +6,7 @@ import { useAuth } from './hooks/useAuth'
 import { useLang } from './contexts/LangContext'
 import AuthModal from './components/AuthModal'
 import firstAttemptSvg from './assets/medals/first_attempt.svg'
+import { proxyImg } from './utils/imgProxy'
 
 function Countdown({ targetDate }) {
   const [timeLeft, setTimeLeft] = useState({})
@@ -407,7 +408,7 @@ function TournamentsApp() {
                                       <div className="flex items-center gap-2">
                                         <div className="h-6 w-6 overflow-hidden rounded-full bg-slate-100 flex items-center justify-center shrink-0">
                                           {u?.avatar_url
-                                            ? <img src={u.avatar_url} alt="" className="h-full w-full object-cover" />
+                                            ? <img src={proxyImg(u.avatar_url)} alt="" className="h-full w-full object-cover" />
                                             : <span className="text-xs font-bold text-slate-500">{getDisplayName(u).substring(0,2).toUpperCase()}</span>
                                           }
                                         </div>

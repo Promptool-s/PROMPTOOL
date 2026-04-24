@@ -7,6 +7,7 @@ import { useLang } from '../contexts/LangContext'
 import { supabase } from '../supabaseClient'
 import AuthModal from './AuthModal'
 import CompanyPanel from './CompanyPanel'
+import { proxyImg } from '../utils/imgProxy'
 
 const Header = ({ companyRefreshKey = 0 }) => {
   const { user, loading, signInWithGoogle, signInWithEmail, signUpWithEmail, signOut } = useAuth()
@@ -361,7 +362,7 @@ const Header = ({ companyRefreshKey = 0 }) => {
 
   const getUserAvatar = () => {
     if (user?.user_metadata?.avatar_url) {
-      return <img src={user.user_metadata.avatar_url} alt="Avatar" className="h-full w-full object-cover" />
+      return <img src={proxyImg(user.user_metadata.avatar_url)} alt="Avatar" className="h-full w-full object-cover" />
     }
     const name = user?.user_metadata?.nombre || user?.email || 'U'
     return <span className="text-sm font-semibold text-slate-700">{name.substring(0, 2).toUpperCase()}</span>
@@ -433,7 +434,7 @@ const Header = ({ companyRefreshKey = 0 }) => {
                           className="flex items-center gap-3 px-3 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50">
                           <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 border border-slate-200">
                             {u.avatar_url
-                              ? <img src={u.avatar_url} alt={name} className="h-full w-full object-cover" />
+                              ? <img src={proxyImg(u.avatar_url)} alt={name} className="h-full w-full object-cover" />
                               : <span className="text-xs font-semibold text-slate-600">{name.substring(0, 2).toUpperCase()}</span>
                             }
                           </div>
@@ -481,7 +482,7 @@ const Header = ({ companyRefreshKey = 0 }) => {
                   >
                     <div className="relative h-5 w-5 rounded-md overflow-hidden bg-violet-100 shrink-0 flex items-center justify-center">
                       {companyData.avatar_url
-                        ? <img src={companyData.avatar_url} alt="" className="h-full w-full object-cover" />
+                        ? <img src={proxyImg(companyData.avatar_url)} alt="" className="h-full w-full object-cover" />
                         : <span className="text-[9px] font-bold text-violet-600">
                             {(companyData.company_name || companyData.nombre_display || 'E').substring(0, 2).toUpperCase()}
                           </span>
@@ -554,7 +555,7 @@ const Header = ({ companyRefreshKey = 0 }) => {
                             <div className="mb-1 flex items-start gap-2.5">
                               {item.senderAvatar ? (
                                 <div className="relative shrink-0 mt-0.5">
-                                  <img src={item.senderAvatar} alt="" className="h-8 w-8 rounded-full object-cover border border-slate-200 dark:border-slate-700" />
+                                  <img src={proxyImg(item.senderAvatar)} alt="" className="h-8 w-8 rounded-full object-cover border border-slate-200 dark:border-slate-700" />
                                   {item.senderVerified && (
                                     <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-violet-600 ring-1 ring-white dark:ring-slate-900" title="Verificado">
                                       <svg className="h-2 w-2 text-white" viewBox="0 0 12 12" fill="currentColor"><path d="M10.28 2.28L4.5 8.06 1.72 5.28a1 1 0 00-1.44 1.44l3.5 3.5a1 1 0 001.44 0l6.5-6.5a1 1 0 00-1.44-1.44z"/></svg>

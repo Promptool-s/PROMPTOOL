@@ -4,6 +4,7 @@ import Footer from './components/Footer'
 import { useAuth } from './hooks/useAuth'
 import { useLang } from './contexts/LangContext'
 import { supabase } from './supabaseClient'
+import { nowAR } from './utils/dateAR'
 
 function SupportApp() {
   const { user, loading: authLoading } = useAuth()
@@ -92,7 +93,7 @@ function SupportApp() {
         mensaje: newMessage,
         es_admin: false,
       }])
-      await supabase.from('tickets').update({ updated_at: new Date().toISOString() }).eq('id_ticket', selectedTicket.id_ticket)
+      await supabase.from('tickets').update({ updated_at: nowAR() }).eq('id_ticket', selectedTicket.id_ticket)
       setNewMessage('')
       fetchMessages(selectedTicket.id_ticket)
     } catch (err) {

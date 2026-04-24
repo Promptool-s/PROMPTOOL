@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import GUIDE_LIBRARY from '../data/guides'
 import { useLang } from '../contexts/LangContext'
-import { getRank } from '../services/eloService'
 
 const ScoreCircle = ({ value }) => {
   const [animatedValue, setAnimatedValue] = useState(0)
@@ -41,7 +40,7 @@ const getDifficultyConfig = (difficulty = 'Medium') => {
   }
 }
 
-const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, strengths = [], improvements = [], recommendedGuideIds = [], onRetry, eloDelta = null }) => {
+const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, strengths = [], improvements = [], recommendedGuideIds = [], onRetry, onReset, onNewRandom, mode, eloDelta = null }) => {
   const { t, lang } = useLang()
   const [sharing, setSharing] = useState(false)
   const safeScore = Math.max(0, Math.min(100, Number(scorePercent) || 0))
@@ -176,95 +175,96 @@ const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, stren
 
   return (
     <div className="space-y-3 animate-in fade-in duration-300">
-      {/* Score + análisis */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+
+      {/* ── Score + análisis ── */}
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
         <div className="flex items-start gap-5">
-          <div className="shrink-0 flex flex-col items-center gap-1">
+          <div className="shrink-0 flex flex-col items-center gap-2">
             <ScoreCircle value={safeScore} />
-            <div className="flex items-center gap-1.5 mt-1">
-              <span className="text-xs text-slate-400">{difficultyConfig.label}</span>
-              <span className="text-slate-300">·</span>
-              <span className={`text-xs font-medium ${isPass ? 'text-emerald-600' : 'text-rose-500'}`}>
-                {isPass ? t('levelPassed') : t('keepTrying')}
-              </span>
-            </div>
-            {eloDelta !== null && (() => {
-              const rank = getRank(1000) // solo para el color
-              const isPos = eloDelta >= 0
-              return (
-                <div className={`mt-1 flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                  isPos ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'
-                }`}>
-                  <span>{isPos ? '▲' : '▼'}</span>
-                  <span>{isPos ? '+' : ''}{eloDelta} ELO</span>
-                </div>
-              )
-            })()}
+            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+              isPass ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400'
+            }`}>
+              {isPass ? t('levelPassed') : t('keepTrying')}
+            </span>
+            {eloDelta !== null && (
+              <div className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                eloDelta >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-rose-50 dark:bg-rose-900/30 text-rose-500 dark:text-rose-400'
+              }`}>
+                <span>{eloDelta >= 0 ? '▲' : '▼'}</span>
+                <span>{eloDelta >= 0 ? '+' : ''}{eloDelta} ELO</span>
+              </div>
+            )}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{t('aiAnalysis')}</p>
-              <div className="flex items-center gap-2">
-                {!isPass && onRetry && (
-                  <button type="button" onClick={onRetry}
-                    className="text-xs font-medium text-slate-500 hover:text-slate-800 transition underline underline-offset-2">
-                    {lang === 'en' ? 'Try again' : 'Reintentar'}
-                  </button>
-                )}
-                <button type="button" onClick={handleShare} disabled={sharing}
-                  className="flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-slate-700 transition disabled:opacity-40">
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  {sharing ? '...' : (lang === 'en' ? 'Save' : 'Guardar')}
-                </button>
-              </div>
-            </div>
-            <p className="text-sm leading-relaxed text-slate-700">
-              {explanation || t('analysisUnavailable')}
-            </p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2">{t('aiAnalysis')}</p>
+            <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">{explanation || t('analysisUnavailable')}</p>
           </div>
         </div>
       </div>
 
-      {/* Fortalezas */}
-      {strengths.length > 0 && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 mb-2">{t('strengths')}</p>
-          <div className="flex flex-wrap gap-1.5">
-            {strengths.map((s, i) => (
-              <span key={i} className="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200/60">{s}</span>
-            ))}
-          </div>
+      {/* ── Fortalezas + Mejoras + Guías en una sola card ── */}
+      {(strengths.length > 0 || improvements.length > 0 || recommendedGuides.length > 0) && (
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 space-y-4">
+          {strengths.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-500 mb-2">{t('strengths')}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {strengths.map((s, i) => (
+                  <span key={i} className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">{s}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          {improvements.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-600 dark:text-amber-500 mb-2">{t('improvements')}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {improvements.map((m, i) => (
+                  <span key={i} className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-400">{m}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          {recommendedGuides.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-violet-600 dark:text-violet-500 mb-2">{t('learnMore')}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {recommendedGuides.map((guide) => (
+                  <a key={guide.id} href={`/guides.html#guia-${guide.id}`}
+                    className="rounded-lg bg-violet-50 dark:bg-violet-900/20 border border-violet-100 dark:border-violet-800 px-2.5 py-1 text-xs font-medium text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900/30 transition">
+                    {guide.title}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* A mejorar */}
-      {improvements.length > 0 && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 mb-2">{t('improvements')}</p>
-          <div className="flex flex-wrap gap-1.5">
-            {improvements.map((m, i) => (
-              <span key={i} className="rounded-md bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-600 ring-1 ring-rose-200/60">{m}</span>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* ── Acciones ── */}
+      <div className="flex gap-2">
+        {onRetry && !isPass && (
+          <button type="button" onClick={onRetry}
+            className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700">
+            {lang === 'en' ? 'Try again' : 'Reintentar'}
+          </button>
+        )}
+        {(onNewRandom || (onReset && !onNewRandom)) && (
+          <button
+            type="button"
+            onClick={onNewRandom || onReset}
+            className="flex-1 rounded-xl px-4 py-3 text-sm font-semibold text-white transition"
+            style={{ backgroundColor: 'rgb(var(--color-accent))' }}
+            onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgb(var(--color-accent-2))'}
+            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgb(var(--color-accent))'}
+          >
+            {onNewRandom
+              ? (lang === 'en' ? 'New image' : 'Nueva imagen')
+              : (lang === 'en' ? 'Play again' : 'Jugar de nuevo')}
+          </button>
+        )}
+      </div>
 
-      {/* Guías recomendadas */}
-      {recommendedGuides.length > 0 && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 mb-2">{t('learnMore')}</p>
-          <div className="flex flex-wrap gap-1.5">
-            {recommendedGuides.map((guide) => (
-              <a key={guide.id} href={`/guides.html#guia-${guide.id}`}
-                className="rounded-md bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-600 ring-1 ring-indigo-200/60 hover:bg-indigo-100 transition">
-                {guide.title}
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

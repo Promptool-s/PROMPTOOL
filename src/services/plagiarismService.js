@@ -9,6 +9,7 @@
  */
 
 import { supabase } from '../supabaseClient'
+import { nowAR } from '../utils/dateAR'
 
 // ── Utilidades de texto ──────────────────────────────────────────────────────
 
@@ -123,36 +124,50 @@ export const analyzePlagiarism = async ({
   }
 
   // ── 2. Comparar con intentos anteriores del mismo usuario ─────────────────
+  // NOTA: En modo empresa, el organizador puede usar el mismo prompt para testear
+  // Por eso, solo comparamos si NO es un desafío de empresa
   try {
-    const { data: prevAttempts } = await supabase
-      .from('intentos')
-      .select('prompt_usuario, puntaje_similitud, id_imagen')
-      .eq('id_usuario', userId)
-      .neq('id_imagen', imageId) // diferente imagen — si es igual imagen es retry normal
-      .order('fecha_hora', { ascending: false })
-      .limit(20)
+    // Verificar si esta imagen es un desafío de empresa
+    const { data: imageInfo } = await supabase
+      .from('imagenes_ia')
+      .select('company_id')
+      .eq('id_imagen', imageId)
+      .maybeSingle()
 
-    if (prevAttempts?.length) {
-      const fpCurrent = fingerprint(prompt)
-      let maxTextSim = 0, maxCosine = 0, maxFp = 0
+    // Si es un desafío de empresa, no aplicar detección de plagio por similitud
+    const isCompanyChallenge = imageInfo?.company_id != null
 
-      for (const prev of prevAttempts) {
-        if (!prev.prompt_usuario) continue
-        const ts = textSimilarity(prompt, prev.prompt_usuario)
-        const cs = cosineSimilarity(prompt, prev.prompt_usuario)
-        const fpPrev = fingerprint(prev.prompt_usuario)
-        const fps = fingerprintSimilarity(fpCurrent, fpPrev)
-        maxTextSim = Math.max(maxTextSim, ts)
-        maxCosine = Math.max(maxCosine, cs)
-        maxFp = Math.max(maxFp, fps)
+    if (!isCompanyChallenge) {
+      const { data: prevAttempts } = await supabase
+        .from('intentos')
+        .select('prompt_usuario, puntaje_similitud, id_imagen')
+        .eq('id_usuario', userId)
+        .neq('id_imagen', imageId) // diferente imagen — si es igual imagen es retry normal
+        .order('fecha_hora', { ascending: false })
+        .limit(20)
+
+      if (prevAttempts?.length) {
+        const fpCurrent = fingerprint(prompt)
+        let maxTextSim = 0, maxCosine = 0, maxFp = 0
+
+        for (const prev of prevAttempts) {
+          if (!prev.prompt_usuario) continue
+          const ts = textSimilarity(prompt, prev.prompt_usuario)
+          const cs = cosineSimilarity(prompt, prev.prompt_usuario)
+          const fpPrev = fingerprint(prev.prompt_usuario)
+          const fps = fingerprintSimilarity(fpCurrent, fpPrev)
+          maxTextSim = Math.max(maxTextSim, ts)
+          maxCosine = Math.max(maxCosine, cs)
+          maxFp = Math.max(maxFp, fps)
+        }
+
+        if (maxTextSim >= THRESHOLDS.textSimilarityFlag)
+          reasons.push(`text_similarity:${Math.round(maxTextSim * 100)}%`)
+        if (maxCosine >= THRESHOLDS.cosineSimilarityFlag)
+          reasons.push(`cosine_similarity:${Math.round(maxCosine * 100)}%`)
+        if (maxFp >= THRESHOLDS.fingerprintFlag)
+          reasons.push(`fingerprint:${Math.round(maxFp * 100)}%`)
       }
-
-      if (maxTextSim >= THRESHOLDS.textSimilarityFlag)
-        reasons.push(`text_similarity:${Math.round(maxTextSim * 100)}%`)
-      if (maxCosine >= THRESHOLDS.cosineSimilarityFlag)
-        reasons.push(`cosine_similarity:${Math.round(maxCosine * 100)}%`)
-      if (maxFp >= THRESHOLDS.fingerprintFlag)
-        reasons.push(`fingerprint:${Math.round(maxFp * 100)}%`)
     }
   } catch {
     // fail open — comparison error
@@ -173,7 +188,7 @@ export const analyzePlagiarism = async ({
       elapsed_seconds: elapsedSeconds,
       reasons,
       severity,
-      created_at: new Date().toISOString(),
+      created_at: nowAR(),
     }])
 
     // Contar flags totales del usuario

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../supabaseClient'
 import { useLang } from '../contexts/LangContext'
+import { proxyImg } from '../utils/imgProxy'
 
 const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSignUpWithEmail, inviteCompany = null }) => {
   const { t, lang } = useLang()
@@ -132,7 +133,7 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
           {inviteCompany && (
             <div className="mx-6 mt-4 flex items-center gap-3 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5">
               {inviteCompany.avatar_url && (
-                <img src={inviteCompany.avatar_url} alt="" className="h-8 w-8 rounded-lg object-cover shrink-0" />
+                <img src={proxyImg(inviteCompany.avatar_url)} alt="" className="h-8 w-8 rounded-lg object-cover shrink-0" />
               )}
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-violet-800">

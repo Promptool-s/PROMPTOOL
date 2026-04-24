@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import Header from './components/Header'
 import Footer from './components/Footer'
-import ConfigModal from './components/ConfigModal'
 import ImageCard from './components/ImageCard'
 import LandingPage from './components/LandingPage'
 import AuthModal from './components/AuthModal'
@@ -15,6 +14,8 @@ import { getRecommendedGuides } from './data/guides'
 import { supabase } from './supabaseClient'
 import { useAuth } from './hooks/useAuth'
 import { useLang } from './contexts/LangContext'
+import { proxyImg } from './utils/imgProxy'
+import { nowAR } from './utils/dateAR'
 
 // Columnas reales: id_imagen, url_image, prompt_original, seed, fecha, image_diff, image_theme
 const normalizeImageData = (row) => {
@@ -55,6 +56,74 @@ const getTimePenalty = ({ elapsedSeconds = 0, recommendedSeconds = 0 }, difficul
   }
 }
 
+/**
+ * Calcula tiempo recomendado personalizado basado en el historial del usuario
+ * @param {string} userId - ID del usuario
+ * @param {string} difficulty - Dificultad del desafío
+ * @returns {Promise<number>} - Tiempo recomendado en segundos
+ */
+const getPersonalizedTime = async (userId, difficulty = 'Medium') => {
+  // Tiempos base por dificultad (fallback)
+  const baseTime = {
+    easy: 90,
+    medium: 150,
+    hard: 240
+  }
+  
+  const nd = normalizeDifficulty(difficulty)
+  const defaultTime = baseTime[nd] || baseTime.medium
+
+  if (!userId) return defaultTime
+
+  try {
+    // Obtener últimos 15 intentos del usuario en esta dificultad
+    const { data: attempts } = await supabase
+      .from('intentos')
+      .select('tiempo_respuesta, puntaje_similitud, imagenes_ia!inner(image_diff)')
+      .eq('id_usuario', userId)
+      .eq('imagenes_ia.image_diff', difficulty)
+      .not('tiempo_respuesta', 'is', null)
+      .order('fecha_hora', { ascending: false })
+      .limit(15)
+
+    if (!attempts || attempts.length < 3) {
+      // No hay suficiente historial, usar tiempo base
+      return defaultTime
+    }
+
+    // Calcular tiempo promedio del usuario en esta dificultad
+    const validTimes = attempts
+      .map(a => a.tiempo_respuesta)
+      .filter(t => t > 0 && t < 600) // filtrar outliers (más de 10 min)
+    
+    if (validTimes.length === 0) return defaultTime
+
+    const avgTime = validTimes.reduce((sum, t) => sum + t, 0) / validTimes.length
+
+    // Calcular score promedio para ajustar
+    const avgScore = attempts.reduce((sum, a) => sum + (a.puntaje_similitud || 0), 0) / attempts.length
+
+    // Ajustar tiempo basado en performance:
+    // - Si el usuario tiene buen score (>70), darle menos tiempo (es eficiente)
+    // - Si tiene score bajo (<50), darle más tiempo (necesita más tiempo para pensar)
+    let adjustedTime = avgTime
+    if (avgScore >= 70) {
+      adjustedTime = avgTime * 0.9 // 10% menos tiempo
+    } else if (avgScore < 50) {
+      adjustedTime = avgTime * 1.15 // 15% más tiempo
+    }
+
+    // Asegurar que esté dentro de rangos razonables
+    const minTime = baseTime[nd] * 0.6
+    const maxTime = baseTime[nd] * 1.8
+    
+    return Math.round(Math.max(minTime, Math.min(maxTime, adjustedTime)))
+  } catch (error) {
+    console.error('Error calculating personalized time:', error)
+    return defaultTime
+  }
+}
+
 function App() {
   const { user, signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth()
   const { t, lang } = useLang()
@@ -69,10 +138,7 @@ function App() {
   const [eloDelta, setEloDelta] = useState(null)
   const [submitted, setSubmitted] = useState(false)
   const [mode, setMode] = useState('daily')
-  const [draftMode, setDraftMode] = useState('daily')
   const [difficulty, setDifficulty] = useState('Medium')
-  const [configOpen, setConfigOpen] = useState(false)
-  const [draftDifficulty, setDraftDifficulty] = useState('Medium')
   const [imageData, setImageData] = useState(null)
   const [imageStatus, setImageStatus] = useState('loading')
   const [analyzing, setAnalyzing] = useState(false)
@@ -97,7 +163,20 @@ function App() {
   const [inviteState, setInviteState] = useState(null) // null | 'loading' | 'joined' | 'error' | 'already' | 'prompt_login'
   const [inviteCompany, setInviteCompany] = useState(null) // { company_name, avatar_url }
   const [isRanked, setIsRanked] = useState(true) // toggle modo rankeado
+  const [personalizedTime, setPersonalizedTime] = useState(null) // tiempo personalizado basado en historial
   const recommendedGuideIds = getRecommendedGuides(improvements, suggestions)
+
+  // Calcular tiempo personalizado cuando cambia el usuario o la dificultad
+  useEffect(() => {
+    if (!user?.id || !imageData) return
+    
+    const loadPersonalizedTime = async () => {
+      const time = await getPersonalizedTime(user.id, imageData.image_diff || difficulty)
+      setPersonalizedTime(time)
+    }
+    
+    loadPersonalizedTime()
+  }, [user?.id, imageData?.image_diff, difficulty])
 
   // Cargar desafío de empresa si viene con ?challenge=ID
   useEffect(() => {
@@ -244,19 +323,16 @@ function App() {
     if (!user) {
       setDailyDone(false)
       setMode('daily')
-      setDraftMode('daily')
       return
     }
     const dailyKey = `dailyDoneDate_${user.id}`
     const checkDaily = async () => {
-      // Primero chequear localStorage con clave específica del usuario
       const stored = localStorage.getItem(dailyKey)
       if (stored === new Date().toDateString()) {
         setDailyDone(true)
-        if (!submitted) { setMode('random'); setDraftMode('random') }
+        if (!submitted) { setMode('random') }
         return
       }
-      // Verificar en BD
       const hoy = new Date()
       hoy.setHours(0, 0, 0, 0)
       const { data } = await supabase
@@ -270,7 +346,7 @@ function App() {
       setDailyDone(done)
       if (done) {
         localStorage.setItem(dailyKey, new Date().toDateString())
-        if (!submitted) { setMode('random'); setDraftMode('random') }
+        if (!submitted) { setMode('random') }
       }
     }
     checkDaily()
@@ -396,7 +472,7 @@ function App() {
     setSubmitted(true)
 
     try {
-      const result = await comparePrompts(submittedPrompt, promptReferencia, imageData?.image_diff ?? difficulty)
+      const result = await comparePrompts(submittedPrompt, promptReferencia, imageData?.image_diff ?? difficulty, lang)
       const timePenalty = getTimePenalty(timingData, imageData?.image_diff ?? difficulty, mode)
       const finalScore = Math.max(0, (result.score ?? 0) - timePenalty.penalty)
 
@@ -414,7 +490,7 @@ function App() {
           puntaje_similitud: finalScore,
           id_imagen: imageData.id_imagen,
           id_usuario: user?.id || null,
-          fecha_hora: new Date().toISOString(),
+          fecha_hora: nowAR(),
           strengths: result.strengths ?? [],
           improvements: result.improvements ?? [],
           modo: mode === 'challenge' ? 'challenge' : mode,
@@ -452,7 +528,7 @@ function App() {
               prompt_usuario: submittedPrompt,
               puntaje_similitud: finalScore,
               id_imagen: imageData.id_imagen,
-              fecha_hora: new Date().toISOString(),
+              fecha_hora: nowAR(),
               strengths: result.strengths ?? [],
               improvements: result.improvements ?? [],
               modo: mode,
@@ -541,16 +617,9 @@ function App() {
     }
   }
 
-  const openConfig = () => {
-    setDraftMode(mode)
-    setDraftDifficulty(difficulty)
-    setConfigOpen(true)
-  }
-
   const handleTryApp = () => {
     setShowLanding(false)
     setMode('random')
-    setDraftMode('random')
   }
 
   const handleOpenAuth = () => {
@@ -559,12 +628,6 @@ function App() {
 
   const handleCloseAuth = () => {
     setAuthModalOpen(false)
-  }
-
-  const saveConfig = () => {
-    setMode(draftMode)
-    setDifficulty(draftDifficulty)
-    setConfigOpen(false)
   }
 
   const handleReset = () => {
@@ -602,7 +665,6 @@ function App() {
     handleReset()
     if (mode !== 'random') {
       setMode('random')
-      setDraftMode('random')
     } else {
       // Forzar refetch cambiando a un valor temporal y volviendo
       setImageStatus('loading')
@@ -644,46 +706,28 @@ function App() {
     }
   }
 
+  // Cicla entre daily y random al hacer click en el badge de modo
+  const handleModeToggle = () => {
+    if (mode === 'challenge') return
+    const next = mode === 'daily' ? 'random' : 'daily'
+    setMode(next)
+    handleReset()
+  }
+
   const renderControls = () => (
     <div className="flex items-center gap-2 flex-wrap">
-      {mode !== 'challenge' && (
-        <button type="button" onClick={openConfig}
-          className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-200 dark:hover:bg-slate-700">
-          {t('configure')}
+      {/* Nueva imagen aleatoria — solo en random y cuando no se ha enviado */}
+      {mode === 'random' && !submitted && (
+        <button
+          type="button"
+          onClick={handleNewRandom}
+          title={t('newRandom')}
+          className="flex items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 p-1.5 text-slate-500 dark:text-slate-400 transition hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
         </button>
-      )}
-      {submitted ? (
-        <>
-          {mode !== 'challenge' && (
-            <button
-              type="button"
-              onClick={handleNewRandom}
-              title={t('newRandom')}
-              className="flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-1.5 text-slate-500 dark:text-slate-400 transition hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            </button>
-          )}
-          <button type="button" onClick={handleReset}
-            className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-200 dark:hover:bg-slate-700">
-            {t('reset')}
-          </button>
-        </>
-      ) : (
-        mode === 'random' && (
-          <button
-            type="button"
-            onClick={handleNewRandom}
-            title={t('newRandom')}
-            className="flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-1.5 text-slate-500 dark:text-slate-400 transition hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-          </button>
-        )
       )}
     </div>
   )
@@ -743,7 +787,7 @@ function App() {
                     'border-violet-200 bg-violet-50'
                   }`}>
                     {inviteCompany?.avatar_url && (
-                      <img src={inviteCompany.avatar_url} alt="" className="h-8 w-8 rounded-lg object-cover shrink-0" />
+                      <img src={proxyImg(inviteCompany.avatar_url)} alt="" className="h-8 w-8 rounded-lg object-cover shrink-0" />
                     )}
                     <p className={`text-sm font-medium ${
                       inviteState === 'joined' ? 'text-emerald-800' :
@@ -765,7 +809,7 @@ function App() {
                     <div className="relative shrink-0">
                       <div className="h-9 w-9 rounded-xl overflow-hidden bg-violet-200 flex items-center justify-center border border-violet-300">
                         {challengeCompany.avatar_url
-                          ? <img src={challengeCompany.avatar_url} alt="" className="h-full w-full object-cover" />
+                          ? <img src={proxyImg(challengeCompany.avatar_url)} alt="" className="h-full w-full object-cover" />
                           : <span className="text-xs font-bold text-violet-700">
                               {(challengeCompany.company_name || challengeCompany.nombre_display || 'E').substring(0,2).toUpperCase()}
                             </span>
@@ -802,14 +846,13 @@ function App() {
                     </p>
                   </div>
                 )}
-                {renderControls()}
                 {!submitted ? (
                   <>
                     {mode === 'daily' && dailyDone ? (
                       <div className="rounded-[1.75rem] border border-emerald-200 bg-emerald-50 p-6 text-center">
                         <p className="text-base font-semibold text-emerald-800">{t('dailyDoneTitle')}</p>
                         <p className="mt-1 text-sm text-emerald-600">{t('dailyDoneDesc')}</p>
-                        <button onClick={() => { setMode('random'); setDraftMode('random') }}
+                        <button onClick={() => { setMode('random') }}
                           className="mt-4 rounded-full bg-emerald-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800">
                           {t('goToRandom')}
                         </button>
@@ -830,11 +873,13 @@ function App() {
                         streak={user ? userStreak : 0}
                         imageId={imageData?.id_imagen || null}
                         availableDiffs={availableDiffs}
+                        onModeChange={mode !== 'challenge' ? handleModeToggle : null}
+                        onNewRandom={mode === 'random' && !challengeId ? handleNewRandom : null}
                         onDifficultyChange={mode === 'random' && !challengeId ? (newDiff) => {
                           setDifficulty(newDiff)
-                          setDraftDifficulty(newDiff)
                           handleReset()
                         } : null}
+                        personalizedTime={personalizedTime}
                       />
                     )}
                   </>
@@ -856,6 +901,9 @@ function App() {
                         recommendedGuideIds={recommendedGuideIds}
                         eloDelta={eloDelta}
                         onRetry={scorePercent !== null && scorePercent < 60 ? handleRetry : undefined}
+                        onReset={handleReset}
+                        onNewRandom={mode !== 'challenge' ? handleNewRandom : undefined}
+                        mode={mode}
                       />
                     )}
                   </>
@@ -877,17 +925,6 @@ function App() {
           </div>
         </div>
       </main>
-
-      <ConfigModal
-        open={configOpen}
-        mode={draftMode}
-        difficulty={draftDifficulty}
-        availableDiffs={availableDiffs}
-        onClose={() => setConfigOpen(false)}
-        onSave={saveConfig}
-        onModeChange={setDraftMode}
-        onDifficultyChange={setDraftDifficulty}
-      />
 
       <Footer />
     </div>

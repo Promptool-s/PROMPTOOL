@@ -4,7 +4,16 @@ import flameLitGif from '../assets/flame-lit.gif'
 
 const normalizeDifficulty = (difficulty = 'Medium') => difficulty.toLowerCase()
 
-const getTimerConfig = (mode = 'random', difficulty = 'Medium') => {
+const getTimerConfig = (mode = 'random', difficulty = 'Medium', personalizedTime = null) => {
+  // Si hay tiempo personalizado, usarlo
+  if (personalizedTime && personalizedTime > 0) {
+    const normalized = normalizeDifficulty(difficulty)
+    const targetWords = normalized === 'easy' ? 12 : normalized === 'hard' ? 24 : 18
+    const graceSeconds = Math.round(personalizedTime * 0.25) // 25% del tiempo como gracia
+    return { recommendedSeconds: personalizedTime, targetWords, graceSeconds }
+  }
+  
+  // Tiempos por defecto
   const normalized = normalizeDifficulty(difficulty)
   const isDaily = mode === 'daily'
   if (normalized === 'easy') return isDaily
@@ -24,7 +33,7 @@ const formatTime = (seconds = 0) => {
   return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, '0')}`
 }
 
-const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, disabled = false, mode, difficulty, onTimingChange, paused = false, isRanked = true, onToggleRanked = null, streak = 0, imageId = null, onDifficultyChange = null, availableDiffs = [] }) => {
+const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, disabled = false, mode, difficulty, onTimingChange, paused = false, isRanked = true, onToggleRanked = null, streak = 0, imageId = null, onDifficultyChange = null, onModeChange = null, onNewRandom = null, availableDiffs = [], personalizedTime = null }) => {
   const { t, lang } = useLang()
   const [startedAt, setStartedAt] = useState(null)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
@@ -32,13 +41,11 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
   const [showShortWarning, setShowShortWarning] = useState(false)
   const [restoredDraft, setRestoredDraft] = useState(false)
   const [submitted, setSubmitted] = useState(false)
-  const timerConfig = useMemo(() => getTimerConfig(mode, difficulty), [mode, difficulty])
+  const timerConfig = useMemo(() => getTimerConfig(mode, difficulty, personalizedTime), [mode, difficulty, personalizedTime])
 
-  const DRAFT_KEY = `promptdraft_${mode}_${imageId || 'noimg'}`
+  const DRAFT_KEY = `promptdraft_${imageId || 'noimg'}`
+  const DRAFT_TTL = 5 * 60 * 1000
 
-  const DRAFT_TTL = 5 * 60 * 1000 // 5 minutos en ms
-
-  // Restaurar borrador al montar (solo si hay texto, corresponde a la misma imagen y no expiró)
   useEffect(() => {
     if (!imageId || promptUsuario.trim()) return
     try {
@@ -62,7 +69,6 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imageId])
 
-  // Guardar borrador en localStorage continuamente (solo si no se ha enviado)
   useEffect(() => {
     if (!imageId || !promptUsuario.trim() || submitted) return
     try {
@@ -70,7 +76,6 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
     } catch { /* silencioso */ }
   }, [promptUsuario, elapsedSeconds, DRAFT_KEY, imageId, submitted])
 
-  // Limpiar borrador al enviar
   const clearDraft = () => {
     setSubmitted(true)
     try { localStorage.removeItem(DRAFT_KEY) } catch { /* silencioso */ }
@@ -84,14 +89,12 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
     return () => window.clearInterval(id)
   }, [startedAt, paused, pausedElapsed])
 
-  // Al pausar: guardar los segundos acumulados y resetear startedAt
   useEffect(() => {
     if (!startedAt) return
     if (paused) {
       setPausedElapsed(prev => prev + Math.floor((Date.now() - startedAt) / 1000))
       setStartedAt(null)
     } else {
-      // Al reanudar: nuevo startedAt desde ahora
       setStartedAt(Date.now())
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -120,13 +123,13 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
     if (e.shiftKey && e.key === 'Insert') e.preventDefault()
   }
 
-  const timeBadgeClass = overtimeSeconds > 0 ? 'bg-rose-100 text-rose-700'
-    : remainingRatio > 0.66 ? 'bg-emerald-100 text-emerald-700'
-    : remainingRatio > 0.33 ? 'bg-amber-100 text-amber-700'
-    : 'bg-rose-100 text-rose-700'
+  const timeBadgeClass = overtimeSeconds > 0 ? 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400'
+    : remainingRatio > 0.66 ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+    : remainingRatio > 0.33 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+    : 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400'
 
   return (
-    <form className="space-y-3" onSubmit={e => {
+    <form className="space-y-2.5" onSubmit={e => {
       if (wordsCount < 5 && !showShortWarning) {
         e.preventDefault()
         setShowShortWarning(true)
@@ -136,18 +139,17 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
       clearDraft()
       onSubmit(e)
     }}>
-      {/* Banner de borrador restaurado */}
       {restoredDraft && (
-        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+        <div className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
           <svg className="h-3.5 w-3.5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
           {lang === 'en' ? 'Draft restored' : 'Borrador restaurado'}
         </div>
       )}
-      {/* Racha — junto al label */}
+      
       <div className="flex items-center justify-between">
-        <label className="block text-sm font-medium text-slate-700">{t('writePrompt')}</label>
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t('writePrompt')}</label>
         {streak >= 2 && (
           <div className="flex items-center gap-0.5">
             <img src={flameLitGif} alt="" className="h-6 w-6 object-contain" />
@@ -155,6 +157,7 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
           </div>
         )}
       </div>
+      
       <div className="relative">
         <textarea
           value={promptUsuario}
@@ -165,21 +168,37 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
           }}
           onCopy={handleAntiPaste} onPaste={handleAntiPaste} onCut={handleAntiPaste}
           onDrop={handleAntiPaste} onKeyDown={handleKeyDown}
-          rows="4"
+          rows="3"
           placeholder={t('promptPlaceholder')}
           disabled={disabled}
-          className="w-full min-h-[130px] resize-none rounded-xl border border-slate-200 bg-transparent px-4 py-3 pr-12 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-0 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+          className="w-full min-h-[100px] resize-none rounded-xl border border-slate-200 dark:border-slate-700 bg-transparent px-4 py-3 pr-12 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none transition focus:border-slate-400 dark:focus:border-slate-500 focus:ring-0 disabled:cursor-not-allowed disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:text-slate-400"
         />
-        <div className="pointer-events-none absolute right-3 top-3 rounded-md bg-slate-900/5 px-2 py-0.5 text-xs font-medium tabular-nums text-slate-500">
+        <div className="pointer-events-none absolute right-3 top-3 rounded-md bg-slate-900/5 dark:bg-slate-100/10 px-2 py-0.5 text-xs font-medium tabular-nums text-slate-500 dark:text-slate-400">
           {wordsCount}
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 text-xs font-medium text-slate-500">
-        <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5">
-          <span className="text-slate-400">{t('mode')}</span>
-          <span className="text-slate-700 font-semibold">{mode === 'daily' ? t('daily') : mode === 'challenge' ? (lang === 'en' ? 'Challenge' : 'Desafío') : t('random')}</span>
-        </span>
+      <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
+        {onModeChange ? (
+          <button
+            type="button"
+            onClick={onModeChange}
+            title={lang === 'en' ? 'Click to switch mode' : 'Click para cambiar modo'}
+            className="group inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5 transition hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+          >
+            <span className="text-slate-400 dark:text-slate-500">{t('mode')}</span>
+            <span className="font-semibold text-slate-700 dark:text-slate-300">{mode === 'daily' ? t('daily') : mode === 'challenge' ? (lang === 'en' ? 'Challenge' : 'Desafío') : t('random')}</span>
+            <svg className="h-3 w-3 text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+          </button>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5">
+            <span className="text-slate-400 dark:text-slate-500">{t('mode')}</span>
+            <span className="font-semibold text-slate-700 dark:text-slate-300">{mode === 'daily' ? t('daily') : mode === 'challenge' ? (lang === 'en' ? 'Challenge' : 'Desafío') : t('random')}</span>
+          </span>
+        )}
+
         {onDifficultyChange && availableDiffs.length > 1 ? (
           <button
             type="button"
@@ -190,32 +209,36 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
               onDifficultyChange(next)
             }}
             title={lang === 'en' ? 'Click to change difficulty' : 'Click para cambiar dificultad'}
-            className="group inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 transition hover:bg-slate-200 cursor-pointer"
+            className="group inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5 transition hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
           >
-            <span className="text-slate-400">{t('difficulty')}</span>
+            <span className="text-slate-400 dark:text-slate-500">{t('difficulty')}</span>
             <span className={`font-semibold transition ${
-              normalizeDifficulty(difficulty) === 'easy' ? 'text-emerald-600' :
-              normalizeDifficulty(difficulty) === 'hard' ? 'text-rose-600' :
-              'text-amber-600'
+              normalizeDifficulty(difficulty) === 'easy' ? 'text-emerald-600 dark:text-emerald-500' :
+              normalizeDifficulty(difficulty) === 'hard' ? 'text-rose-600 dark:text-rose-500' :
+              'text-amber-600 dark:text-amber-500'
             }`}>{difficulty}</span>
-            <svg className="h-3 w-3 text-slate-400 group-hover:text-slate-600 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <svg className="h-3 w-3 text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
             </svg>
           </button>
         ) : (
-          <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5">
-            <span className="text-slate-400">{t('difficulty')}</span>
+          <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5">
+            <span className="text-slate-400 dark:text-slate-500">{t('difficulty')}</span>
             <span className={`font-semibold ${
-              normalizeDifficulty(difficulty) === 'easy' ? 'text-emerald-600' :
-              normalizeDifficulty(difficulty) === 'hard' ? 'text-rose-600' :
-              'text-amber-600'
+              normalizeDifficulty(difficulty) === 'easy' ? 'text-emerald-600 dark:text-emerald-500' :
+              normalizeDifficulty(difficulty) === 'hard' ? 'text-rose-600 dark:text-rose-500' :
+              'text-amber-600 dark:text-amber-500'
             }`}>{difficulty}</span>
           </span>
         )}
+
         <span className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${timeBadgeClass}`}>
+          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
           <span className="font-semibold">{formatTime(remainingSeconds)}</span>
         </span>
-        {/* Toggle rankeado — solo si no es challenge */}
+
         {onToggleRanked && (
           <div className="relative group">
             <button
@@ -223,8 +246,8 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
               onClick={() => onToggleRanked(!isRanked)}
               className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition ${
                 isRanked
-                  ? 'bg-violet-100 text-violet-700'
-                  : 'bg-slate-100 text-slate-400'
+                  ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'
               }`}
             >
               <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -236,7 +259,6 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
                   : (lang === 'en' ? 'Unranked' : 'Sin rankeo')}
               </span>
             </button>
-            {/* Tooltip explicativo */}
             <div className="pointer-events-none absolute bottom-full left-0 mb-2 hidden group-hover:block z-50 w-56">
               <div className="rounded-xl bg-slate-900 px-3 py-2.5 text-xs text-white shadow-xl space-y-1.5">
                 {isRanked ? (
@@ -265,31 +287,45 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
             </div>
           </div>
         )}
+
+        {onNewRandom && mode === 'random' && (
+          <button
+            type="button"
+            onClick={onNewRandom}
+            title={t('newRandom')}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5 text-slate-500 dark:text-slate-400 transition hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-300 ml-auto"
+          >
+            <span className="font-semibold text-slate-700 dark:text-slate-300">{lang === 'en' ? 'New image' : 'Nueva imagen'}</span>
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
+        )}
       </div>
 
+      <p className="text-xs text-slate-400 dark:text-slate-500">{t('promptRecommendation')}</p>
+
       {overtimeSeconds > 0 && penaltyOvertimeSeconds === 0 && (
-        <p className="text-xs text-amber-600">
+        <p className="text-xs text-amber-600 dark:text-amber-500">
           {t('mode') === 'Modo'
             ? `Tiempo superado. ${formatTime(timerConfig.graceSeconds - overtimeSeconds)} antes de penalización.`
             : `Time exceeded. ${formatTime(timerConfig.graceSeconds - overtimeSeconds)} before penalty.`}
         </p>
       )}
       {penaltyOvertimeSeconds > 0 && (
-        <p className="text-xs text-rose-600">
+        <p className="text-xs text-rose-600 dark:text-rose-500">
           {t('mode') === 'Modo'
             ? `Penalización activa — ${formatTime(penaltyOvertimeSeconds)} extra.`
             : `Penalty active — ${formatTime(penaltyOvertimeSeconds)} over.`}
         </p>
       )}
 
-      <p className="text-xs text-slate-400">{t('promptRecommendation')}</p>
-
       {showShortWarning && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-          <p className="text-sm font-semibold text-amber-800">
+        <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-4 py-3">
+          <p className="text-sm font-semibold text-amber-800 dark:text-amber-400">
             {lang === 'en' ? 'Your prompt is very short' : 'Tu prompt es muy corto'}
           </p>
-          <p className="text-xs text-amber-600 mt-0.5">
+          <p className="text-xs text-amber-600 dark:text-amber-500 mt-0.5">
             {lang === 'en'
               ? `Only ${wordsCount} word${wordsCount !== 1 ? 's' : ''}. A good prompt usually has 10+ words with visual details, style and lighting. Submit anyway?`
               : `Solo ${wordsCount} palabra${wordsCount !== 1 ? 's' : ''}. Un buen prompt suele tener 10+ palabras con detalles visuales, estilo e iluminación. ¿Enviar igual?`}

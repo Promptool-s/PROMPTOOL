@@ -12,10 +12,12 @@ import flameLitGif from './assets/flame-lit.gif'
 import { useAdmin } from './hooks/useAdmin'
 import { useLang } from './contexts/LangContext'
 import { supabase } from './supabaseClient'
+import { nowAR } from './utils/dateAR'
 import { checkImageSafe } from './services/moderationService'
 import { getRank, getNextRank, ELO_RANKS } from './services/eloService'
 import { calculateElo } from './services/eloService'
 import ImageCropper from './components/ImageCropper'
+import { proxyImg } from './utils/imgProxy'
 
 function getTargetUserId() {
   const params = new URLSearchParams(window.location.search)
@@ -776,7 +778,7 @@ function UsuarioApp() {
             return
           }
           updates.username = editedProfile.username
-          updates.username_last_changed = new Date().toISOString()
+          updates.username_last_changed = nowAR()
         }
       }
       updates.email_publico = editedProfile.email_publico ?? profile?.email_publico ?? true
@@ -1109,8 +1111,8 @@ function UsuarioApp() {
     }
     objectPath = objectPath.replace(/^avatars\//, '')
 
-    // Si quedó una URL externa no-Supabase, mantenerla tal cual.
-    if ((raw.startsWith('http://') || raw.startsWith('https://')) && !storageMatch) return raw
+    // Si quedó una URL externa no-Supabase, pasarla por el proxy para evitar bloqueos institucionales.
+    if ((raw.startsWith('http://') || raw.startsWith('https://')) && !storageMatch) return proxyImg(raw)
 
     const { data } = supabase.storage.from('avatars').getPublicUrl(objectPath)
     return query ? `${data.publicUrl}?${query}` : data.publicUrl
@@ -1687,7 +1689,7 @@ function UsuarioApp() {
                                       className="flex items-center gap-2 rounded-xl bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition">
                                       <div className="h-8 w-8 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-700 shrink-0 flex items-center justify-center">
                                         {member.avatar_url ? (
-                                          <img src={member.avatar_url} alt={memberName} className="h-full w-full object-cover" />
+                                          <img src={proxyImg(member.avatar_url)} alt={memberName} className="h-full w-full object-cover" />
                                         ) : (
                                           <span className="text-xs font-semibold text-slate-500">{memberName.substring(0, 2).toUpperCase()}</span>
                                         )}
@@ -2512,7 +2514,7 @@ function UsuarioApp() {
                       <div className="h-5 w-5 rounded-full overflow-hidden shrink-0 flex items-center justify-center"
                         style={{ backgroundColor: chartColor + '30' }}>
                         {userCompanyData.avatar_url
-                          ? <img src={userCompanyData.avatar_url} alt={companyName} className="h-full w-full object-cover" />
+                          ? <img src={proxyImg(userCompanyData.avatar_url)} alt={companyName} className="h-full w-full object-cover" />
                           : <span className="text-[9px] font-bold" style={{ color: chartColor }}>{companyName.substring(0,2).toUpperCase()}</span>
                         }
                       </div>
@@ -2752,7 +2754,7 @@ function UsuarioApp() {
                                   className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
                                   <div className="h-6 w-6 shrink-0 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
                                     {u.avatar_url
-                                      ? <img src={u.avatar_url} alt="" className="h-full w-full object-cover" />
+                                      ? <img src={proxyImg(u.avatar_url)} alt="" className="h-full w-full object-cover" />
                                       : <span className="text-xs font-bold text-slate-500">{(u.nombre_display || u.nombre || 'U').substring(0,2).toUpperCase()}</span>
                                     }
                                   </div>

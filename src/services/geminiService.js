@@ -175,15 +175,13 @@ const detectPromptLanguage = (text = '') => {
   return 'es' // empate → español
 }
 
-export async function comparePrompts(userPrompt, originalPrompt, difficulty = "Media") {
+export async function comparePrompts(userPrompt, originalPrompt, difficulty = "Media", appLang = null) {
   try {
-    // Detectar idioma del prompt del usuario para responder en el mismo
-    const detectedLang = detectPromptLanguage(userPrompt)
-    const langInstruction = detectedLang === 'es'
-      ? 'Responde en español.'
-      : detectedLang === 'en'
-      ? 'Respond in English.'
-      : `Respond in the same language as the user's prompt (detected: ${detectedLang}).`
+    // App language takes priority; fall back to detecting from the prompt text
+    const detectedLang = appLang || detectPromptLanguage(userPrompt)
+    const langInstruction = detectedLang === 'en'
+      ? 'Respond in English. All fields (explanation, strengths, improvements, suggestions) must be in English.'
+      : 'Responde en español. Todos los campos (explanation, strengths, improvements, suggestions) deben estar en español.'
 
     const nd = String(difficulty).toLowerCase()
 

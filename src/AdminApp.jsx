@@ -3,6 +3,8 @@ import Header from './components/Header'
 import Footer from './components/Footer'
 import { useAuth } from './hooks/useAuth'
 import { supabase } from './supabaseClient'
+import { nowAR } from './utils/dateAR'
+import { proxyImg } from './utils/imgProxy'
 
 async function checkIsAdmin(userId) {
   if (!userId) return false
@@ -399,7 +401,7 @@ function AdminApp() {
               <div className="flex items-center gap-4">
                 <div className="h-14 w-14 overflow-hidden rounded-full border-2 border-indigo-200 bg-white flex items-center justify-center">
                   {selectedUser.avatar_url
-                    ? <img src={selectedUser.avatar_url} alt="" className="h-full w-full object-cover" />
+                    ? <img src={proxyImg(selectedUser.avatar_url)} alt="" className="h-full w-full object-cover" />
                     : <span className="text-lg font-bold text-indigo-400">{(selectedUser.nombre_display || selectedUser.nombre || 'U').substring(0,2).toUpperCase()}</span>
                   }
                 </div>
