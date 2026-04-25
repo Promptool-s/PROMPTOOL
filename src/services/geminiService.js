@@ -31,18 +31,18 @@ const computeWeightedScore = (criteria = {}, difficulty = "Medium") => {
 
   let penalty = 0;
   if (nd === 'hard') {
-    // Hard: penaliza cualquier criterio bajo, no solo los muy bajos
-    if (clamp(criteria.clarity) <= 40) penalty += 18;
-    else if (clamp(criteria.clarity) <= 60) penalty += 8;
-    if (clamp(criteria.visualElements) <= 40) penalty += 16;
-    else if (clamp(criteria.visualElements) <= 60) penalty += 7;
-    if (clamp(criteria.technicalDetails) <= 40) penalty += 14;
-    else if (clamp(criteria.technicalDetails) <= 60) penalty += 6;
-    if (clamp(criteria.styleAtmosphere) <= 40) penalty += 10;
+    // Hard: penaliza criterios bajos pero de forma más gradual y menos agresiva
+    if (clamp(criteria.clarity) <= 40) penalty += 12; // reducido de 18
+    else if (clamp(criteria.clarity) <= 60) penalty += 5; // reducido de 8
+    if (clamp(criteria.visualElements) <= 40) penalty += 10; // reducido de 16
+    else if (clamp(criteria.visualElements) <= 60) penalty += 4; // reducido de 7
+    if (clamp(criteria.technicalDetails) <= 40) penalty += 9; // reducido de 14
+    else if (clamp(criteria.technicalDetails) <= 60) penalty += 4; // reducido de 6
+    if (clamp(criteria.styleAtmosphere) <= 40) penalty += 6; // reducido de 10
   } else {
-    if (clamp(criteria.clarity) <= 20) penalty += 14;
-    if (clamp(criteria.visualElements) <= 20) penalty += 12;
-    if (clamp(criteria.technicalDetails) <= 20) penalty += 10;
+    if (clamp(criteria.clarity) <= 20) penalty += 10; // reducido de 14
+    if (clamp(criteria.visualElements) <= 20) penalty += 8; // reducido de 12
+    if (clamp(criteria.technicalDetails) <= 20) penalty += 6; // reducido de 10
   }
 
   return clamp(Math.round(baseScore - penalty));
@@ -51,35 +51,46 @@ const computeWeightedScore = (criteria = {}, difficulty = "Medium") => {
 const normalizeDifficulty = (difficulty = "Medium") =>
   String(difficulty).toLowerCase()
 
-// Tecnicismos de prompting de imagen — ampliado
+// Tecnicismos de prompting de imagen — ampliado con más términos en español
 const TECHNICAL_TERMS = [
   // Calidad / render
-  '4k','8k','16k','hdr','raw','uhd','hyperreal','photorealistic','fotoreal','realista',
-  'render','rendered','unreal engine','octane','blender','vray','cycles',
+  '4k','8k','16k','hdr','raw','uhd','hyperreal','photorealistic','fotoreal','realista','hiperrealista',
+  'render','rendered','renderizado','unreal engine','octane','blender','vray','cycles','motor gráfico',
   // Iluminación
-  'volumetric','volumetric lighting','rim light','rim lighting','god rays','subsurface scattering',
-  'global illumination','ambient occlusion','soft light','hard light','backlight','golden hour',
-  'blue hour','neon','bioluminescent','iluminación','iluminacion','luz','contraluz',
+  'volumetric','volumetric lighting','iluminación volumétrica','rim light','rim lighting','god rays','subsurface scattering',
+  'global illumination','iluminación global','ambient occlusion','oclusión ambiental','soft light','luz suave',
+  'hard light','luz dura','backlight','contraluz','golden hour','hora dorada','blue hour','hora azul',
+  'neon','bioluminescent','bioluminiscente','iluminación','iluminacion','luz','sombras','sombras suaves',
+  'sombras duras','luz natural','luz artificial','luz direccional','luz difusa',
   // Cámara / óptica
-  'bokeh','depth of field','dof','f/1.4','f/2.8','35mm','50mm','85mm','wide angle','fisheye',
-  'macro','telephoto','tilt-shift','long exposure','motion blur','lens flare','anamorphic',
-  'encuadre','plano','primer plano','plano general','plano detalle',
+  'bokeh','desenfoque','depth of field','dof','profundidad de campo','f/1.4','f/2.8','35mm','50mm','85mm',
+  'wide angle','gran angular','fisheye','ojo de pez','macro','telephoto','teleobjetivo','tilt-shift',
+  'long exposure','larga exposición','motion blur','desenfoque de movimiento','lens flare','destello de lente',
+  'anamorphic','anamórfico','encuadre','plano','primer plano','plano general','plano detalle','plano medio',
   // Estilo artístico
-  'cinematic','noir','cyberpunk','steampunk','baroque','impressionist','expressionist',
-  'watercolor','acuarela','oil painting','óleo','oleo','sketch','concept art','matte painting',
-  'digital art','pixel art','low poly','cel shading','anime','manga','comic',
+  'cinematic','cinematográfico','noir','cyberpunk','steampunk','baroque','barroco','impressionist','impresionista',
+  'expressionist','expresionista','watercolor','acuarela','oil painting','óleo','oleo','pintura al óleo',
+  'sketch','boceto','concept art','arte conceptual','matte painting','digital art','arte digital',
+  'pixel art','low poly','cel shading','anime','manga','comic','cómic','ilustración','illustration',
   // Composición
-  'rule of thirds','golden ratio','symmetry','leading lines','negative space','foreground',
-  'background','midground','composición','composicion','perspectiva','profundidad',
+  'rule of thirds','regla de tercios','golden ratio','proporción áurea','symmetry','simetría','simetrico',
+  'leading lines','líneas guía','negative space','espacio negativo','foreground','primer plano',
+  'background','fondo','midground','plano medio','composición','composicion','perspectiva','profundidad',
+  'punto de fuga','encuadre','framing',
   // Atmósfera / mood
-  'dramatic','dramático','moody','ethereal','surreal','dystopian','utopian','melancholic',
-  'atmospheric','foggy','misty','stormy','serene','atmósfera','atmosfera','ambiente',
+  'dramatic','dramático','moody','ethereal','etéreo','surreal','surrealista','dystopian','distópico',
+  'utopian','utópico','melancholic','melancólico','atmospheric','atmosférico','foggy','neblinoso',
+  'misty','brumoso','stormy','tormentoso','serene','sereno','atmósfera','atmosfera','ambiente','mood',
   // Texturas / materiales
-  'texture','textura','metallic','metálico','glossy','matte','translucent','transparent',
-  'worn','weathered','rusty','smooth','rough','fabric','leather','stone','wood',
+  'texture','textura','metallic','metálico','glossy','brillante','matte','mate','translucent','translúcido',
+  'transparent','transparente','worn','desgastado','weathered','envejecido','rusty','oxidado',
+  'smooth','suave','rough','rugoso','áspero','fabric','tela','leather','cuero','stone','piedra',
+  'wood','madera','metal','cristal','glass','vidrio',
   // Otros técnicos
-  'trending on artstation','award winning','masterpiece','highly detailed','intricate details',
-  'sharp focus','ultra sharp','professional','studio quality','8k resolution',
+  'trending on artstation','award winning','premiado','masterpiece','obra maestra','highly detailed',
+  'muy detallado','intricate details','detalles intrincados','sharp focus','enfoque nítido',
+  'ultra sharp','ultra nítido','professional','profesional','studio quality','calidad de estudio',
+  '8k resolution','resolución 8k','high resolution','alta resolución',
 ]
 
 const evaluatePromptQuality = (userPrompt = "", difficulty = "Medium") => {
@@ -116,15 +127,17 @@ const evaluatePromptQuality = (userPrompt = "", difficulty = "Medium") => {
   if (normalizedDifficulty === 'easy') targetQuality = 42;
   if (normalizedDifficulty === 'hard') targetQuality = 75;
 
-  // Penalidades por prompt pobre
+  // Penalidades por prompt pobre — REDUCIDAS para ser más amigables con primerizos
   let penalty = 0;
   if (quality < targetQuality) {
-    penalty += Math.round((targetQuality - quality) * 0.55);
+    // Reducido de 0.55 a 0.35 para ser menos punitivo
+    penalty += Math.round((targetQuality - quality) * 0.35);
   }
-  if (meaningfulWords.length < 6) penalty += 10;
-  if (lexicalDiversity < 0.5) penalty += 6;
-  if (!hasStructure) penalty += 4;
-  if (technicalHits === 0) penalty += 8;
+  // Penalidades más suaves para prompts cortos o simples
+  if (meaningfulWords.length < 6) penalty += 6; // reducido de 10
+  if (lexicalDiversity < 0.5) penalty += 3; // reducido de 6
+  if (!hasStructure) penalty += 2; // reducido de 4
+  if (technicalHits === 0) penalty += 4; // reducido de 8
 
   // Bonus por tecnicismos — premia prompts técnicamente ricos
   // Escalonado: cada nivel de tecnicismo suma más
@@ -145,7 +158,7 @@ const evaluatePromptQuality = (userPrompt = "", difficulty = "Medium") => {
 
   return {
     quality,
-    penalty: clamp(penalty, 0, 35),
+    penalty: clamp(penalty, 0, 20), // reducido de 35 a 20 para ser menos punitivo
     bonus: clamp(bonus, 0, 28),
     technicalHits,
   };
@@ -197,11 +210,16 @@ HARD MODE — STRICT EVALUATION:
 - Award 85+ only if the prompt is nearly identical in intent, style, and key elements.` : nd === 'easy' ? `
 
 EASY MODE — LENIENT EVALUATION:
-- Be generous. Reward effort and general direction even if details are missing.
-- Focus on whether the user captured the main subject and mood.` : `
+- Be generous and encouraging. Reward effort and general direction even if details are missing.
+- Focus on whether the user captured the main subject and mood.
+- Use positive, motivating language in your feedback.
+- Highlight what they did RIGHT before mentioning improvements.
+- Frame improvements as "next steps" rather than failures.` : `
 
 MEDIUM MODE — BALANCED EVALUATION:
-- Be fair but honest. Reward good attempts, penalize vague or incomplete prompts.`
+- Be fair, honest, and encouraging. Reward good attempts while providing constructive feedback.
+- Use positive language and highlight strengths before improvements.
+- Frame feedback as learning opportunities, not criticisms.`
 
     const prompt = `You are an expert in AI image generation prompts.
 
@@ -223,6 +241,15 @@ Analyze the similarity considering:
 - Clarity: how well-structured and unambiguous the prompt is
 - Difficulty context: ${difficulty}
 
+TONE AND LANGUAGE GUIDELINES:
+- Use encouraging, positive language that motivates learning
+- Start with what the user did well (strengths first)
+- Frame improvements as opportunities to level up, not failures
+- Avoid harsh words like "missing", "failed", "poor", "weak"
+- Use constructive phrases like "could enhance", "next step", "to reach the next level"
+- For beginners (low scores), be extra supportive and specific about small wins
+- Celebrate effort and progress, not just perfection
+
 IMPORTANT SCORING RULES:
 - If the user's prompt includes valid technical terms (bokeh, depth of field, cinematic, volumetric lighting, 4k, render engine, etc.) that are NOT in the original but are coherent with the image, give a HIGH score in technicalDetails (80-100). These additions show mastery.
 - Do NOT penalize the user for being MORE detailed or technical than the original. Extra valid detail is a sign of skill.
@@ -239,10 +266,10 @@ Return ONLY a valid JSON like this:
     "technicalDetails": number between 0 and 100,
     "clarity": number between 0 and 100
   },
-  "explanation": "clear explanation (2 to 4 sentences, concrete and specific) — in the user's language",
-  "strengths": ["concrete strength 1", "concrete strength 2", "concrete strength 3"],
-  "improvements": ["concrete improvement 1", "concrete improvement 2", "concrete improvement 3"],
-  "suggestions": "brief summary of improvements in 1 or 2 sentences — in the user's language"
+  "explanation": "clear, encouraging explanation (2 to 4 sentences, concrete and specific, START with what they did well) — in the user's language",
+  "strengths": ["specific positive achievement 1", "specific positive achievement 2", "specific positive achievement 3"],
+  "improvements": ["constructive next step 1 (frame as opportunity)", "constructive next step 2 (frame as opportunity)", "constructive next step 3 (frame as opportunity)"],
+  "suggestions": "brief, motivating summary of next steps in 1 or 2 sentences (positive tone) — in the user's language"
 }`;
 
 
@@ -307,10 +334,18 @@ Return ONLY a valid JSON like this:
     return {
       score: adjustedScore,
       criteria,
-      explanation: String(parsed.explanation || "").trim(),
-      strengths: sanitizeList(parsed.strengths, ["Base inicial reconocible"]),
-      improvements: sanitizeList(parsed.improvements, ["Agregar más precisión visual y técnica"]),
-      suggestions: String(parsed.suggestions || "").trim(),
+      explanation: String(parsed.explanation || "").trim() || (detectedLang === 'en' 
+        ? "Good start! Keep practicing to improve your prompting skills." 
+        : "¡Buen comienzo! Seguí practicando para mejorar tus habilidades de prompting."),
+      strengths: sanitizeList(parsed.strengths, detectedLang === 'en' 
+        ? ["You captured the basic concept", "Good effort on your first try"] 
+        : ["Capturaste el concepto básico", "Buen esfuerzo en tu primer intento"]),
+      improvements: sanitizeList(parsed.improvements, detectedLang === 'en' 
+        ? ["Try adding more visual details", "Consider including style or mood descriptors"] 
+        : ["Intentá agregar más detalles visuales", "Considerá incluir descriptores de estilo o atmósfera"]),
+      suggestions: String(parsed.suggestions || "").trim() || (detectedLang === 'en'
+        ? "Keep experimenting! Each attempt helps you learn what works best."
+        : "¡Seguí experimentando! Cada intento te ayuda a aprender qué funciona mejor."),
     };
 
   } catch (error) {
