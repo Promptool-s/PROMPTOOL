@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { supabase } from '../supabaseClient'
 import { useLang } from '../contexts/LangContext'
 import { proxyImg } from '../utils/imgProxy'
+import { checkRateLimit, formatTimeRemaining } from '../services/rateLimitService'
+import { sanitizeUsername } from '../utils/inputSanitizer'
 
 const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSignUpWithEmail, inviteCompany = null }) => {
   const { t, lang } = useLang()
@@ -18,20 +20,29 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
   const [loading, setLoading] = useState(false)
   const [acceptTerms, setAcceptTerms] = useState(false)
   const [acceptEmails, setAcceptEmails] = useState(false)
+  const [rateLimitWarning, setRateLimitWarning] = useState(null)
 
   if (!open) return null
 
-  const sanitizeUsername = (val) => val.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20)
+  const sanitizeUsernameInput = (val) => val.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20)
 
   const checkUsername = async (val) => {
     if (!val || val.length < 3) { setUsernameStatus(null); return }
     setUsernameStatus('checking')
+    
+    // Validate username format
+    const result = sanitizeUsername(val)
+    if (!result.valid) {
+      setUsernameStatus('invalid')
+      return
+    }
+    
     const { data } = await supabase.from('usuarios').select('id_usuario').ilike('username', val).maybeSingle()
     setUsernameStatus(data ? 'taken' : 'ok')
   }
 
   const handleUsernameChange = (e) => {
-    const val = sanitizeUsername(e.target.value)
+    const val = sanitizeUsernameInput(e.target.value)
     setUsername(val)
     checkUsername(val)
   }
@@ -39,7 +50,33 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
   const handleEmailAuth = async (e) => {
     e.preventDefault()
     setError('')
+    setRateLimitWarning(null)
     setLoading(true)
+
+    // Check rate limit before attempting auth
+    const endpoint = mode === 'signup' ? 'signup' : 'login'
+    const rateLimit = await checkRateLimit(endpoint)
+    
+    if (!rateLimit.allowed) {
+      const timeRemaining = formatTimeRemaining(rateLimit.resetAt, lang)
+      setError(
+        lang === 'en' 
+          ? `Too many attempts. Please try again in ${timeRemaining}.`
+          : `Demasiados intentos. Intentá de nuevo en ${timeRemaining}.`
+      )
+      setLoading(false)
+      return
+    }
+
+    // Show warning if approaching limit
+    if (rateLimit.attemptsLeft <= 2 && rateLimit.attemptsLeft > 0) {
+      setRateLimitWarning(
+        lang === 'en'
+          ? `${rateLimit.attemptsLeft} attempt${rateLimit.attemptsLeft !== 1 ? 's' : ''} remaining`
+          : `${rateLimit.attemptsLeft} intento${rateLimit.attemptsLeft !== 1 ? 's' : ''} restante${rateLimit.attemptsLeft !== 1 ? 's' : ''}`
+      )
+    }
+
     try {
       if (mode === 'signup') {
         if (!nombre.trim()) { setError(t('nameRequired')); setLoading(false); return }
@@ -301,8 +338,22 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
               </div>
             )}
 
+            {rateLimitWarning && !error && (
+              <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 flex items-center gap-2">
+                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                {rateLimitWarning}
+              </div>
+            )}
+
             {error && (
-              <p className="text-xs text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2">{error}</p>
+              <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2 flex items-center gap-2">
+                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {error}
+              </div>
             )}
 
             {mode === 'signin' && (

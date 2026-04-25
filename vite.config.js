@@ -164,6 +164,29 @@ module.exports = defineConfig({
         terms: resolve(__dirname, 'terms.html'),
         privacy: resolve(__dirname, 'privacy.html'),
       },
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-charts': ['recharts'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+        }
+      }
     },
+    chunkSizeWarningLimit: 1000,
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+      }
+    }
   },
+  optimizeDeps: {
+    include: ['react', 'react-dom', '@supabase/supabase-js', 'recharts']
+  },
+  server: {
+    hmr: {
+      overlay: false
+    }
+  }
 })

@@ -22,7 +22,8 @@ const copy = {
     cta2: 'Iniciar sesión',
     stat1: 'intentos', stat2: 'usuarios', stat3: 'imágenes',
     howTag: 'Cómo funciona',
-    howTitle: 'Tres pasos, un desafío diario',
+    howTitle: 'Mira cómo funciona en tiempo real',
+    howDesc: 'Esta es una demostración real del juego. Observa cómo se escribe un prompt, se envía y se compara con el original.',
     steps: [
       { n: '01', t: 'Ves la imagen', d: 'Cada día hay una imagen nueva generada por IA. Tu misión: adivinar el prompt que la creó.' },
       { n: '02', t: 'Escribes tu prompt', d: 'Describes la imagen con tus palabras. Puedes intentarlo varias veces para mejorar tu score.' },
@@ -88,7 +89,8 @@ const copy = {
     cta2: 'Sign in',
     stat1: 'attempts', stat2: 'users', stat3: 'images',
     howTag: 'How it works',
-    howTitle: 'Three steps, one daily challenge',
+    howTitle: 'See how it works in real time',
+    howDesc: 'This is a real demonstration of the game. Watch how a prompt is written, submitted, and compared to the original.',
     steps: [
       { n: '01', t: 'See the image', d: 'Every day there is a new AI-generated image. Your mission: guess the prompt that created it.' },
       { n: '02', t: 'Write your prompt', d: 'Describe the image in your own words. You can try multiple times to improve your score.' },
@@ -186,7 +188,7 @@ const Slide = ({ item, visible }) => (
     <div className="relative flex-1 overflow-hidden rounded-2xl select-none" onContextMenu={e => e.preventDefault()} onDragStart={e => e.preventDefault()}>
       <img src={proxyImg(item.url_image)} alt="" className="h-full w-full object-cover pointer-events-none" draggable={false} loading="lazy" />
       <div className="absolute inset-0" onContextMenu={e => e.preventDefault()} />
-      <div className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-slate-950/90 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/80 to-transparent" />
     </div>
     <div className="mt-3 space-y-2 px-1 select-none" onCopy={e => e.preventDefault()}>
       <div className="flex items-center gap-2.5">
@@ -209,7 +211,7 @@ const Dots = ({ total, current, onSelect, dark }) => (
   <div className="flex items-center justify-center gap-1.5 pt-1">
     {Array.from({ length: total }).map((_, i) => (
       <button key={i} onClick={() => onSelect(i)} aria-label={`Slide ${i + 1}`}
-        className={`rounded-full transition-all duration-300 ${i === current ? 'h-1.5 w-5 bg-violet-500' : `h-1.5 w-1.5 ${dark ? 'bg-white/20 hover:bg-white/40' : 'bg-slate-300 hover:bg-slate-400'}`}`} />
+        className={`rounded-full transition-all duration-300 ${i === current ? 'h-1.5 w-5 bg-violet-500' : `h-1.5 w-1.5 ${dark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-slate-300 hover:bg-slate-400'}`}`} />
     ))}
   </div>
 )
@@ -231,11 +233,11 @@ const CommunitySlideshow = ({ dark, lang }) => {
           .gte('puntaje_similitud', 70)
           .not('prompt_usuario', 'is', null)
           .order('fecha_hora', { ascending: false })
-          .limit(200)
+          .limit(500)
 
         if (error || !data) return
 
-        // Group by user, pick best per user, then shuffle
+        // Group by user, pick best per user
         const byUser = {}
         for (const row of data) {
           if (!row.imagenes_ia?.url_image) continue
@@ -247,12 +249,14 @@ const CommunitySlideshow = ({ dark, lang }) => {
         }
 
         const pool = Object.values(byUser)
-        // Shuffle
+        
+        // Shuffle the entire pool using Fisher-Yates
         for (let i = pool.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
           [pool[i], pool[j]] = [pool[j], pool[i]]
         }
 
+        // Take random 10 from shuffled pool
         setSlides(pool.slice(0, 10).map(row => ({
           url_image: row.imagenes_ia.url_image,
           prompt_usuario: row.prompt_usuario,
@@ -291,6 +295,61 @@ const CommunitySlideshow = ({ dark, lang }) => {
   )
 }
 
+// ── Animated Stats Component ──────────────────────────────────────────────
+const AnimatedStats = ({ stats, dark }) => {
+  const [isVisible, setIsVisible] = useState(false)
+  const statsRef = useRef(null)
+  const card = dark ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'
+  const subtle = dark ? 'text-slate-500' : 'text-slate-500'
+  
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !isVisible) {
+          setIsVisible(true)
+        }
+      },
+      { threshold: 0.3 }
+    )
+    
+    if (statsRef.current) {
+      observer.observe(statsRef.current)
+    }
+    
+    return () => observer.disconnect()
+  }, [isVisible])
+  
+  return (
+    <div ref={statsRef} className="grid grid-cols-2 gap-4">
+      {stats.map((stat, i) => (
+        <div 
+          key={stat.label} 
+          className={`rounded-xl border p-5 ${card} group relative transition-all duration-300 hover:scale-105 hover:shadow-lg ${
+            isVisible ? 'animate-in fade-in slide-in-from-bottom-4' : 'opacity-0'
+          }`}
+          style={{ animationDelay: `${i * 100}ms`, animationDuration: '600ms', animationFillMode: 'both' }}
+          title={stat.desc}
+        >
+          <p className={`text-3xl font-bold ${stat.color} transition-transform duration-300 group-hover:scale-110`}>
+            {stat.value}
+          </p>
+          <p className={`text-sm mt-2 ${subtle}`}>{stat.label}</p>
+          
+          {/* Tooltip on hover */}
+          <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-lg text-xs whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 ${
+            dark ? 'bg-slate-700 text-slate-200' : 'bg-slate-800 text-white'
+          } shadow-lg z-10`}>
+            {stat.desc}
+            <div className={`absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent ${
+              dark ? 'border-t-slate-700' : 'border-t-slate-800'
+            }`} />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── Chart ──────────────────────────────────────────────────────────────────
 const CHART_DATA = [
   { day: 'M', score: 42 }, { day: 'T', score: 55 }, { day: 'W', score: 51 },
@@ -298,22 +357,56 @@ const CHART_DATA = [
   { day: 'S', score: 81 },
 ]
 
-const StatsChart = ({ dark }) => (
-  <ResponsiveContainer width="100%" height={110}>
-    <AreaChart data={CHART_DATA} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
-      <defs>
-        <linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.25} />
-          <stop offset="95%" stopColor="#7c3aed" stopOpacity={0} />
-        </linearGradient>
-      </defs>
-      <XAxis dataKey="day" tick={{ fontSize: 10, fill: dark ? '#475569' : '#94a3b8' }} axisLine={false} tickLine={false} />
-      <YAxis tick={{ fontSize: 10, fill: dark ? '#475569' : '#94a3b8' }} axisLine={false} tickLine={false} domain={[0, 100]} />
-      <Tooltip contentStyle={{ background: dark ? '#1e293b' : '#fff', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 11 }} formatter={v => [`${v}%`, 'Score']} />
-      <Area type="monotone" dataKey="score" stroke="#7c3aed" strokeWidth={2} fill="url(#sg)" dot={{ r: 3, fill: '#7c3aed', strokeWidth: 0 }} />
-    </AreaChart>
-  </ResponsiveContainer>
-)
+const StatsChart = ({ dark }) => {
+  const [isVisible, setIsVisible] = useState(false)
+  const chartRef = useRef(null)
+  
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !isVisible) {
+          setIsVisible(true)
+        }
+      },
+      { threshold: 0.3 }
+    )
+    
+    if (chartRef.current) {
+      observer.observe(chartRef.current)
+    }
+    
+    return () => observer.disconnect()
+  }, [isVisible])
+  
+  return (
+    <div ref={chartRef}>
+      <ResponsiveContainer width="100%" height={110}>
+        <AreaChart data={CHART_DATA} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
+          <defs>
+            <linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.25} />
+              <stop offset="95%" stopColor="#7c3aed" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <XAxis dataKey="day" tick={{ fontSize: 10, fill: dark ? '#475569' : '#94a3b8' }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fontSize: 10, fill: dark ? '#475569' : '#94a3b8' }} axisLine={false} tickLine={false} domain={[0, 100]} />
+          <Tooltip contentStyle={{ background: dark ? '#1e293b' : '#fff', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 11 }} formatter={v => [`${v}%`, 'Score']} />
+          <Area 
+            type="monotone" 
+            dataKey="score" 
+            stroke="#7c3aed" 
+            strokeWidth={2} 
+            fill="url(#sg)" 
+            dot={{ r: 3, fill: '#7c3aed', strokeWidth: 0 }} 
+            isAnimationActive={isVisible}
+            animationDuration={1200}
+            animationEasing="ease-out"
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
 
 // ── Org icons (no emoji) ───────────────────────────────────────────────────
 const OrgIcon = ({ type, dark }) => {
@@ -335,6 +428,293 @@ const OrgIcon = ({ type, dark }) => {
   )
 }
 
+// ── Interactive Demo Component ────────────────────────────────────────────
+const InteractiveDemo = ({ dark, lang }) => {
+  const [step, setStep] = useState(0)
+  const [typedText, setTypedText] = useState('')
+  const [cursorPos, setCursorPos] = useState({ x: 0, y: 0, visible: false })
+  const [showComparison, setShowComparison] = useState(false)
+  const [score, setScore] = useState(0)
+  const [isClicking, setIsClicking] = useState(false)
+  const [isVisible, setIsVisible] = useState(false)
+  const demoRef = useRef(null)
+  
+  // Datos reales de ejemplo - gato astronauta
+  const demoImage = 'https://image-generator.com/assets/img/ai-generated-image-main.png'
+  const userPrompt = 'Orange cat in astronaut suit in space with stars and Earth behind'
+  const targetScore = 73
+  
+  const card = dark ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'
+  const muted = dark ? 'text-slate-400' : 'text-slate-600'
+  
+  // Sugerencias de mejora
+  const improvements = lang === 'en' ? [
+    'Add more details about the cat\'s appearance (breed, size, expression)',
+    'Specify the lighting style (cinematic, natural, dramatic)',
+    'Describe the astronaut suit in more detail',
+    'Mention the art style (photorealistic, digital art, illustration)'
+  ] : [
+    'Agrega más detalles sobre la apariencia del gato (raza, tamaño, expresión)',
+    'Especifica el estilo de iluminación (cinematográfica, natural, dramática)',
+    'Describe el traje de astronauta con más detalle',
+    'Menciona el estilo artístico (fotorrealista, arte digital, ilustración)'
+  ]
+  
+  // Guías recomendadas
+  const recommendedGuides = lang === 'en' ? [
+    { title: 'How to describe artistic styles', tag: 'Basic' },
+    { title: 'Visual description techniques', tag: 'Intermediate' },
+    { title: 'Prompts for image generation', tag: 'Advanced' }
+  ] : [
+    { title: 'Cómo describir estilos artísticos', tag: 'Básico' },
+    { title: 'Técnicas de descripción visual', tag: 'Intermedio' },
+    { title: 'Prompts para generación de imágenes', tag: 'Avanzado' }
+  ]
+  
+  // Intersection Observer para detectar cuando la demo es visible
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !isVisible) {
+          setIsVisible(true)
+        }
+      },
+      { threshold: 0.3 }
+    )
+    
+    if (demoRef.current) {
+      observer.observe(demoRef.current)
+    }
+    
+    return () => observer.disconnect()
+  }, [isVisible])
+  
+  // Reset y loop de animación
+  useEffect(() => {
+    if (!isVisible) return
+    
+    const resetTimer = setTimeout(() => {
+      setStep(0)
+      setTypedText('')
+      setCursorPos({ x: 0, y: 0, visible: false })
+      setShowComparison(false)
+      setScore(0)
+      setIsClicking(false)
+    }, 18000) // 18 segundos total (reducido de 19)
+    
+    return () => clearTimeout(resetTimer)
+  }, [step, isVisible])
+  
+  useEffect(() => {
+    if (!isVisible) return
+    
+    if (step === 0) {
+      const timer = setTimeout(() => setStep(1), 2500) // 2.5 segundos de pausa inicial (reducido de 3.5)
+      return () => clearTimeout(timer)
+    }
+    
+    if (step === 1) {
+      if (typedText.length < userPrompt.length) {
+        const timer = setTimeout(() => {
+          setTypedText(userPrompt.slice(0, typedText.length + 1))
+        }, 25)
+        return () => clearTimeout(timer)
+      } else {
+        setTimeout(() => setStep(2), 400)
+      }
+    }
+    
+    if (step === 2) {
+      setCursorPos({ x: 0, y: 0, visible: true })
+      const timer = setTimeout(() => {
+        setCursorPos({ x: 50, y: 100, visible: true })
+        setTimeout(() => setStep(3), 600)
+      }, 200)
+      return () => clearTimeout(timer)
+    }
+    
+    if (step === 3) {
+      setIsClicking(true)
+      setTimeout(() => {
+        setIsClicking(false)
+        setCursorPos({ x: 50, y: 100, visible: false })
+        setTimeout(() => {
+          setShowComparison(true)
+          setStep(4)
+        }, 100)
+      }, 150)
+    }
+    
+    if (step === 4) {
+      if (score < targetScore) {
+        const timer = setTimeout(() => {
+          setScore(prev => Math.min(prev + 3, targetScore))
+        }, 25)
+        return () => clearTimeout(timer)
+      }
+    }
+  }, [step, typedText, score, isVisible])
+  
+  return (
+    <div ref={demoRef} className={`rounded-2xl border p-6 lg:p-8 ${card} relative overflow-hidden`}>
+      <div className="grid lg:grid-cols-2 gap-6 lg:gap-8">
+        
+        {/* Left: Image - altura fija para evitar estiramiento */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className={`text-xs font-semibold ${muted}`}>
+              {lang === 'en' ? 'Today\'s Challenge' : 'Desafío de hoy'}
+            </span>
+            <span className="text-xs px-2 py-1 rounded-full bg-violet-500/15 text-violet-500 font-semibold">
+              {lang === 'en' ? 'Daily' : 'Diario'}
+            </span>
+          </div>
+          <div className="relative aspect-[4/3] rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-900">
+            <img 
+              src={demoImage} 
+              alt="Demo challenge" 
+              className="w-full h-full object-cover object-center"
+              loading="lazy"
+              style={{ objectPosition: '50% 35%' }}
+            />
+          </div>
+        </div>
+        
+        {/* Right: Prompt input and comparison */}
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <label className={`text-xs font-semibold ${muted}`}>
+              {lang === 'en' ? 'Your prompt' : 'Tu prompt'}
+            </label>
+            <div className={`relative rounded-xl border ${dark ? 'border-slate-600 bg-slate-900' : 'border-slate-300 bg-white'} p-2.5 ${showComparison ? 'min-h-[60px]' : 'min-h-[100px]'} transition-all duration-300`}>
+              <p className="text-sm leading-relaxed">
+                {typedText}
+                {step === 1 && <span className="inline-block w-0.5 h-4 bg-violet-500 animate-pulse ml-0.5" />}
+              </p>
+            </div>
+          </div>
+          
+          {/* Submit button - solo visible antes del resultado */}
+          {!showComparison && (
+            <div className="relative">
+              <button 
+                className={`w-full rounded-lg px-4 py-2.5 text-sm font-semibold transition-all ${
+                  step >= 2 
+                    ? `bg-violet-600 text-white shadow-lg shadow-violet-500/30 ${isClicking ? 'scale-95 shadow-violet-500/50' : 'scale-100'}` 
+                    : dark 
+                      ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                      : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                }`}
+                disabled={step < 2}
+              >
+                {lang === 'en' ? 'Submit prompt' : 'Enviar prompt'}
+              </button>
+              
+              {/* Animated cursor */}
+              {cursorPos.visible && (
+                <div 
+                  className="absolute pointer-events-none transition-all duration-700 ease-out z-10"
+                  style={{ 
+                    left: `${cursorPos.x}%`, 
+                    top: `${cursorPos.y}%`,
+                    transform: `translate(-25%, -25%) ${isClicking ? 'scale(0.9)' : 'scale(1)'}`
+                  }}
+                >
+                  <svg className="w-6 h-6 drop-shadow-lg transition-transform" viewBox="0 0 24 24" fill="none">
+                    <path d="M5.5 3.5L18.5 12L11 13.5L8.5 20.5L5.5 3.5Z" fill="white" stroke="black" strokeWidth="1.5" strokeLinejoin="round"/>
+                    <path d="M11 13.5L14.5 17" stroke="black" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Comparison result */}
+          {showComparison && (
+            <div className="space-y-2.5 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              {/* Score badge */}
+              <div className={`rounded-xl border p-3 ${
+                score >= 70 
+                  ? dark ? 'border-emerald-800 bg-emerald-900/20' : 'border-emerald-200 bg-emerald-50'
+                  : dark ? 'border-amber-800 bg-amber-900/20' : 'border-amber-200 bg-amber-50'
+              }`}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className={`text-xs font-semibold ${
+                    score >= 70
+                      ? dark ? 'text-emerald-400' : 'text-emerald-700'
+                      : dark ? 'text-amber-400' : 'text-amber-700'
+                  }`}>
+                    {lang === 'en' ? 'Similarity Score' : 'Score de similitud'}
+                  </span>
+                  <span className={`text-2xl font-black ${
+                    score >= 70
+                      ? dark ? 'text-emerald-400' : 'text-emerald-600'
+                      : dark ? 'text-amber-400' : 'text-amber-600'
+                  }`}>
+                    {score}%
+                  </span>
+                </div>
+                <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                  <div 
+                    className={`h-full transition-all duration-1000 ease-out ${
+                      score >= 70
+                        ? 'bg-gradient-to-r from-emerald-500 to-emerald-400'
+                        : 'bg-gradient-to-r from-amber-500 to-amber-400'
+                    }`}
+                    style={{ width: `${score}%` }}
+                  />
+                </div>
+              </div>
+              
+              {/* Suggestions for improvement */}
+              <div className={`rounded-xl border p-3 ${dark ? 'border-violet-800 bg-violet-900/20' : 'border-violet-200 bg-violet-50'}`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="w-3.5 h-3.5 text-violet-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                  <span className={`text-xs font-semibold ${dark ? 'text-violet-400' : 'text-violet-700'}`}>
+                    {lang === 'en' ? 'How to improve' : 'Cómo mejorar'}
+                  </span>
+                </div>
+                <ul className="space-y-1.5">
+                  {improvements.map((improvement, i) => (
+                    <li key={i} className="flex items-start gap-2 text-xs leading-relaxed">
+                      <span className="text-violet-500 shrink-0 mt-0.5">•</span>
+                      <span className={dark ? 'text-slate-300' : 'text-slate-700'}>{improvement}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              
+              {/* Recommended guides */}
+              <div className={`rounded-xl border p-3 ${dark ? 'border-blue-800 bg-blue-900/20' : 'border-blue-200 bg-blue-50'}`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="w-3.5 h-3.5 text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                  </svg>
+                  <span className={`text-xs font-semibold ${dark ? 'text-blue-400' : 'text-blue-700'}`}>
+                    {lang === 'en' ? 'Recommended guides' : 'Guías recomendadas'}
+                  </span>
+                </div>
+                <div className="space-y-1.5">
+                  {recommendedGuides.map((guide, i) => (
+                    <div key={i} className={`flex items-center justify-between text-xs p-2 rounded-lg ${dark ? 'bg-slate-800/50' : 'bg-white/50'}`}>
+                      <span className={`${dark ? 'text-slate-300' : 'text-slate-700'} text-xs leading-tight`}>{guide.title}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ml-2 ${dark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-700'}`}>
+                        {guide.tag}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main ───────────────────────────────────────────────────────────────────
 const LandingPage = ({ onOpenAuth, onTryApp }) => {
   const { theme } = useTheme()
@@ -352,34 +732,38 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  const base = dark ? 'bg-slate-950 text-white' : 'bg-white text-slate-900'
-  const card = dark ? 'border-white/10 bg-slate-900' : 'border-slate-100 bg-slate-50'
-  const muted = dark ? 'text-slate-300' : 'text-slate-500'
-  const subtle = dark ? 'text-slate-400' : 'text-slate-400'
+  const base = dark ? 'bg-slate-900 text-white' : 'bg-gray-50 text-slate-900'
+  const card = dark ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'
+  const muted = dark ? 'text-slate-400' : 'text-slate-600'
+  const subtle = dark ? 'text-slate-500' : 'text-slate-500'
 
   return (
     <div className={base}>
 
       {/* ── HERO ── */}
-      <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col justify-center px-6 py-16 lg:px-8">
-        <div className="grid items-center gap-12 lg:grid-cols-2">
+      <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col justify-center px-6 py-20 lg:px-8">
+        <div className="grid items-center gap-16 lg:grid-cols-2">
           <div className="space-y-8">
-            <span className={`inline-flex items-center gap-2 rounded-full border px-4 py-1 text-xs ${dark ? 'border-white/12 bg-white/4 text-slate-300' : 'border-slate-200 bg-slate-50 text-slate-500'}`}>
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            <span className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs ${dark ? 'border-slate-700 bg-slate-800 text-slate-400' : 'border-slate-300 bg-white text-slate-600'}`}>
+              <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
               {c.badge}
             </span>
-            <div className="space-y-4">
-              <h1 className="text-5xl font-black tracking-tight sm:text-6xl lg:text-7xl">
+            <div className="space-y-6">
+              <h1 className="text-5xl font-black leading-tight tracking-tight sm:text-6xl lg:text-7xl">
                 {c.h1a}{' '}<span className="text-violet-500">{c.h1b}</span>
               </h1>
-              <p className={`max-w-md text-base leading-7 ${muted}`}>{c.sub}</p>
+              <p className={`max-w-md text-lg leading-relaxed ${muted}`}>{c.sub}</p>
             </div>
-            <div className="flex flex-wrap gap-3">
-              <button type="button" onClick={onTryApp} className="inline-flex items-center justify-center rounded-full bg-violet-600 px-7 py-3 text-sm font-semibold text-white hover:bg-violet-500 transition">{c.cta1}</button>
-              <button type="button" onClick={onOpenAuth} className={`inline-flex items-center justify-center rounded-full border px-7 py-3 text-sm font-semibold transition ${dark ? 'border-white/20 text-white hover:bg-white/6' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}>{c.cta2}</button>
+            <div className="flex flex-wrap gap-4">
+              <button type="button" onClick={onTryApp} className="inline-flex items-center justify-center rounded-lg bg-violet-600 px-8 py-3.5 text-sm font-semibold text-white hover:bg-violet-700 transition">
+                {c.cta1}
+              </button>
+              <button type="button" onClick={onOpenAuth} className={`inline-flex items-center justify-center rounded-lg border px-8 py-3.5 text-sm font-semibold transition ${dark ? 'border-slate-700 text-white hover:bg-slate-800' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`}>
+                {c.cta2}
+              </button>
             </div>
           </div>
-          <div className={`relative overflow-hidden rounded-3xl border p-5 shadow-xl lg:h-[520px] ${card}`}>
+          <div className={`relative overflow-hidden rounded-2xl border p-6 lg:h-[520px] ${card}`}>
             <div className="relative h-full">
               <CommunitySlideshow dark={dark} lang={lang} />
             </div>
@@ -404,78 +788,70 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
         </div>
       </div>
 
-      {/* ── HOW IT WORKS ── */}
-      <div className="px-6 py-24 lg:px-8">
+      {/* ── HOW IT WORKS - INTERACTIVE DEMO ── */}
+      <div className="px-6 py-section lg:px-8">
         <div className="mx-auto max-w-6xl">
           <Reveal>
-            <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? 'text-violet-400' : 'text-violet-600'}`}>{c.howTag}</p>
-            <h2 className="text-3xl font-bold mb-12">{c.howTitle}</h2>
+            <div className="text-center mb-16">
+              <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${dark ? 'text-violet-400' : 'text-violet-600'}`}>{c.howTag}</p>
+              <h2 className="text-4xl font-bold mb-6">{c.howTitle}</h2>
+              <p className={`text-lg leading-relaxed max-w-2xl mx-auto ${muted}`}>{c.howDesc}</p>
+            </div>
           </Reveal>
-          <div className="grid gap-5 sm:grid-cols-3">
-            {c.steps.map(({ n, t, d }, i) => (
-              <Reveal key={n} delay={i * 100}>
-                <div className={`rounded-2xl border p-6 h-full ${card}`}>
-                  <p className="text-5xl font-black text-violet-500/20 mb-4 leading-none">{n}</p>
-                  <p className="font-semibold mb-2">{t}</p>
-                  <p className={`text-sm leading-6 ${muted}`}>{d}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
+          <Reveal delay={100}>
+            <InteractiveDemo dark={dark} lang={lang} />
+          </Reveal>
         </div>
       </div>
 
       {/* ── PROGRESS ── */}
-      <div className="px-6 py-24 lg:px-8">
-        <div className="mx-auto max-w-6xl grid gap-16 lg:grid-cols-2 items-center">
+      <div className="px-6 py-section lg:px-8">
+        <div className="mx-auto max-w-6xl grid gap-20 lg:grid-cols-2 items-center">
           <Reveal>
-            <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? 'text-violet-400' : 'text-violet-600'}`}>{c.progressTag}</p>
-            <h2 className="text-3xl font-bold mb-4">{c.progressTitle}</h2>
-            <p className={`text-base leading-7 mb-8 ${muted}`}>{c.progressDesc}</p>
-            <div className="grid grid-cols-2 gap-3">
-              {[['74%', c.statsLabels[0], 'text-emerald-500'], ['12d', c.statsLabels[1], 'text-amber-500'], ['96%', c.statsLabels[2], 'text-violet-500'], ['#38', c.statsLabels[3], 'text-sky-500']].map(([v, l, col]) => (
-                <div key={l} className={`rounded-xl border p-4 ${card}`}>
-                  <p className={`text-2xl font-bold ${col}`}>{v}</p>
-                  <p className={`text-xs mt-1 ${subtle}`}>{l}</p>
-                </div>
-              ))}
-            </div>
+            <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${dark ? 'text-violet-400' : 'text-violet-600'}`}>{c.progressTag}</p>
+            <h2 className="text-4xl font-bold mb-6">{c.progressTitle}</h2>
+            <p className={`text-lg leading-relaxed mb-10 ${muted}`}>{c.progressDesc}</p>
+            <AnimatedStats stats={[
+              { value: '74%', label: c.statsLabels[0], color: 'text-emerald-500', desc: lang === 'en' ? 'Average similarity across all attempts' : 'Similitud promedio en todos los intentos' },
+              { value: '12d', label: c.statsLabels[1], color: 'text-amber-500', desc: lang === 'en' ? 'Consecutive days playing' : 'Días consecutivos jugando' },
+              { value: '96%', label: c.statsLabels[2], color: 'text-violet-500', desc: lang === 'en' ? 'Your highest score achieved' : 'Tu puntaje más alto logrado' },
+              { value: '#38', label: c.statsLabels[3], color: 'text-sky-500', desc: lang === 'en' ? 'Your position in the global ranking' : 'Tu posición en el ranking global' }
+            ]} dark={dark} />
           </Reveal>
           <Reveal delay={120}>
-            <div className={`rounded-2xl border p-6 ${card}`}>
-              <p className={`text-xs font-semibold uppercase tracking-widest mb-1 ${subtle}`}>{c.chartTitle}</p>
-              <p className="text-2xl font-bold mb-4">{c.chartSub}</p>
+            <div className={`rounded-2xl border p-8 ${card}`}>
+              <p className={`text-xs font-semibold uppercase tracking-widest mb-2 ${subtle}`}>{c.chartTitle}</p>
+              <p className="text-3xl font-bold mb-6">{c.chartSub}</p>
               <StatsChart dark={dark} />
-              <p className={`text-xs mt-3 ${dark ? 'text-slate-600' : 'text-slate-400'}`}>{c.chartNote}</p>
             </div>
           </Reveal>
         </div>
       </div>
 
       {/* ── COMMUNITY ── */}
-      <div className="px-6 py-24 lg:px-8">
-        <div className="mx-auto max-w-6xl grid gap-16 lg:grid-cols-2 items-center">
+      <div className="px-6 py-section lg:px-8">
+        <div className="mx-auto max-w-6xl grid gap-20 lg:grid-cols-2 items-center">
           <Reveal>
-            <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? 'text-violet-400' : 'text-violet-600'}`}>{c.communityTag}</p>
-            <h2 className="text-3xl font-bold mb-4">{c.communityTitle}</h2>
-            <p className={`text-base leading-7 mb-6 ${muted}`}>{c.communityDesc}</p>
-            <ul className="space-y-3">
+            <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${dark ? 'text-violet-400' : 'text-violet-600'}`}>{c.communityTag}</p>
+            <h2 className="text-4xl font-bold mb-6">{c.communityTitle}</h2>
+            <p className={`text-lg leading-relaxed mb-8 ${muted}`}>{c.communityDesc}</p>
+            <ul className="space-y-4">
               {c.communityItems.map(item => (
-                <li key={item} className="flex items-center gap-3 text-sm">
-                  <span className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" />
+                <li key={item} className="flex items-center gap-3 text-base leading-relaxed">
+                  <span className="h-2 w-2 rounded-full bg-violet-500 shrink-0" />
                   <span className={dark ? 'text-slate-300' : 'text-slate-600'}>{item}</span>
                 </li>
               ))}
             </ul>
           </Reveal>
           <Reveal delay={100}>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               {[['alex_p', '94%', 1420, 1], ['marta_r', '88%', 1380, 2], ['juandev', '83%', 1310, 3], ['sofia_m', '79%', 1270, 4]].map(([name, score, elo, rank]) => (
-                <div key={name} className={`rounded-xl border p-4 flex items-center gap-3 ${card}`}>
-                  <span className={`text-base font-black tabular-nums ${rank === 1 ? 'text-amber-400' : rank === 2 ? 'text-slate-400' : rank === 3 ? 'text-amber-700 dark:text-amber-600' : 'text-slate-500 dark:text-slate-400'}`}>#{rank}</span>
+                <div key={name} className={`rounded-xl border p-5 flex items-center gap-3 ${card}`}>
+                  <span className={`text-lg font-black tabular-nums ${rank === 1 ? 'text-amber-400' : rank === 2 ? 'text-slate-400' : rank === 3 ? 'text-amber-700 dark:text-amber-600' : 'text-slate-500 dark:text-slate-400'}`}>#{rank}</span>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold truncate dark:text-slate-200">{name}</p>
-                    <p className={`text-xs ${subtle}`}>{score} · {elo} ELO</p>
+                    <p className={`text-xs leading-relaxed ${subtle}`}>{score} · {elo} ELO</p>
                   </div>
                 </div>
               ))}
@@ -485,20 +861,20 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
       </div>
 
       {/* ── TOURNAMENTS ── */}
-      <div className="px-6 py-24 lg:px-8">
-        <div className="mx-auto max-w-6xl grid gap-16 lg:grid-cols-2 items-center">
+      <div className="px-6 py-section lg:px-8">
+        <div className="mx-auto max-w-6xl grid gap-20 lg:grid-cols-2 items-center">
           <Reveal>
-            <div className={`rounded-2xl border p-6 space-y-4 ${card}`}>
+            <div className={`rounded-2xl border p-8 space-y-5 ${card}`}>
               <div className="flex items-center justify-between">
-                <span className="rounded-full bg-emerald-500/15 text-emerald-500 text-xs font-semibold px-2.5 py-0.5">{c.tourLive}</span>
+                <span className="rounded-full bg-violet-500/15 text-violet-500 text-xs font-semibold px-3 py-1">{c.tourLive}</span>
                 <span className={`text-xs ${subtle}`}>{c.tourEnds}</span>
               </div>
-              <p className="text-lg font-bold">{c.tourName}</p>
-              <p className={`text-sm leading-6 ${muted}`}>{c.tourCardDesc}</p>
-              <div className="flex items-center gap-3 pt-1">
+              <p className="text-xl font-bold">{c.tourName}</p>
+              <p className={`text-base leading-relaxed ${muted}`}>{c.tourCardDesc}</p>
+              <div className="flex items-center gap-3 pt-2">
                 <div className="flex -space-x-2">
                   {['A','B','C','D'].map(l => (
-                    <div key={l} className={`h-7 w-7 rounded-full border-2 flex items-center justify-center text-[10px] font-bold text-violet-400 bg-violet-500/15 ${dark ? 'border-slate-900' : 'border-white'}`}>{l}</div>
+                    <div key={l} className={`h-8 w-8 rounded-full border-2 flex items-center justify-center text-xs font-bold text-violet-400 bg-violet-500/15 ${dark ? 'border-slate-900' : 'border-white'}`}>{l}</div>
                   ))}
                 </div>
                 <span className={`text-xs ${subtle}`}>+48 {c.tourParticipants}</span>
@@ -506,13 +882,13 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
             </div>
           </Reveal>
           <Reveal delay={100}>
-            <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? 'text-violet-400' : 'text-violet-600'}`}>{c.tourTag}</p>
-            <h2 className="text-3xl font-bold mb-4">{c.tourTitle}</h2>
-            <p className={`text-base leading-7 mb-6 ${muted}`}>{c.tourDesc}</p>
-            <ul className="space-y-3">
+            <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${dark ? 'text-violet-400' : 'text-violet-600'}`}>{c.tourTag}</p>
+            <h2 className="text-4xl font-bold mb-6">{c.tourTitle}</h2>
+            <p className={`text-lg leading-relaxed mb-8 ${muted}`}>{c.tourDesc}</p>
+            <ul className="space-y-4">
               {c.tourItems.map(item => (
-                <li key={item} className="flex items-center gap-3 text-sm">
-                  <span className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" />
+                <li key={item} className="flex items-center gap-3 text-base leading-relaxed">
+                  <span className="h-2 w-2 rounded-full bg-violet-500 shrink-0" />
                   <span className={dark ? 'text-slate-300' : 'text-slate-600'}>{item}</span>
                 </li>
               ))}
@@ -522,7 +898,7 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
       </div>
 
       {/* ── GUIDES ── */}
-      <div className="px-6 py-24 lg:px-8">
+      <div className="px-6 py-section lg:px-8">
         <div className="mx-auto max-w-6xl grid gap-16 lg:grid-cols-2 items-center">
           <Reveal>
             <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? 'text-violet-400' : 'text-violet-600'}`}>{c.guidesTag}</p>
@@ -545,7 +921,7 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
             <div className="space-y-3">
               {c.guides.map(({ t, tag, time }, i) => (
                 <div key={t} className={`rounded-xl border p-4 flex items-center gap-4 ${card}`}>
-                  <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${dark ? 'bg-violet-500/12' : 'bg-violet-50'}`}>
+                  <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${dark ? 'bg-violet-500/15' : 'bg-violet-100'}`}>
                     <svg className="h-5 w-5 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
                     </svg>
@@ -586,7 +962,7 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
             {c.orgCards.map(({ icon, t, d }, i) => (
               <Reveal key={t} delay={i * 60}>
                 <div className={`rounded-2xl border p-6 h-full ${card}`}>
-                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center mb-4 ${dark ? 'bg-violet-500/12' : 'bg-violet-50'}`}>
+                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center mb-4 ${dark ? 'bg-violet-500/15' : 'bg-violet-100'}`}>
                     <OrgIcon type={icon} dark={dark} />
                   </div>
                   <p className="font-semibold mb-2">{t}</p>
@@ -661,17 +1037,17 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
                 <button 
                   type="button" 
                   onClick={onTryApp} 
-                  className="inline-flex items-center justify-center rounded-full bg-violet-600 px-8 py-3.5 text-base font-semibold text-white hover:bg-violet-500 transition shadow-lg shadow-violet-600/25 hover:shadow-xl hover:shadow-violet-600/30"
+                  className="inline-flex items-center justify-center rounded-lg bg-violet-600 px-8 py-3.5 text-base font-semibold text-white hover:bg-violet-700 transition"
                 >
                   {c.ctaPlay}
                 </button>
                 <button 
                   type="button" 
                   onClick={onOpenAuth} 
-                  className={`inline-flex items-center justify-center rounded-full border-2 px-8 py-3.5 text-base font-semibold transition ${
+                  className={`inline-flex items-center justify-center rounded-lg border-2 px-8 py-3.5 text-base font-semibold transition ${
                     dark 
-                      ? 'border-white/20 text-white hover:bg-white/10' 
-                      : 'border-slate-300 text-slate-700 hover:bg-slate-50'
+                      ? 'border-slate-700 text-white hover:bg-slate-800' 
+                      : 'border-slate-300 text-slate-700 hover:bg-slate-100'
                   }`}
                 >
                   {c.ctaSignup}

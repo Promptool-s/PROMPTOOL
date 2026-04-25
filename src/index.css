@@ -1,6 +1,40 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ════════════════════════════════════════════
+   Global Typography & Spacing
+   ════════════════════════════════════════════ */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    background-color: rgb(var(--color-canvas));
+    color: rgb(var(--color-text-1));
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  
+  /* Consistent line-height for body text */
+  p, li, td, th, label, span {
+    line-height: 1.6;
+  }
+  
+  /* Tighter line-height for headings */
+  h1, h2, h3, h4, h5, h6 {
+    line-height: 1.2;
+    font-weight: 700;
+  }
+}
 
 /* ════════════════════════════════════════════
    Design tokens
@@ -45,11 +79,13 @@ html { scroll-behavior: smooth; }
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
   background-color: rgb(var(--color-canvas));
   color: rgb(var(--color-text-1));
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
@@ -269,6 +305,29 @@ html.dark .recharts-tooltip-wrapper .recharts-default-tooltip {
 }
 .guide-card { animation: guide-card-enter 420ms ease-out both; }
 @media (prefers-reduced-motion: reduce) { .guide-card { animation: none; } }
+
+/* Animate-in utilities */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-in-from-bottom-4 {
+  from { transform: translateY(1rem); }
+  to { transform: translateY(0); }
+}
+
+.animate-in {
+  animation-fill-mode: both;
+}
+
+.fade-in {
+  animation-name: fade-in;
+}
+
+.slide-in-from-bottom-4 {
+  animation-name: slide-in-from-bottom-4;
+}
 
 /* ── Profile stat circles ── */
 @keyframes circle-fill {

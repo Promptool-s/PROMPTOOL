@@ -162,6 +162,19 @@ const Header = ({ companyRefreshKey = 0 }) => {
         guideRows = []
       }
 
+      let challengeRows = []
+      try {
+        const { data } = await supabase
+          .from('challenge_notifications')
+          .select('id, challenge_id, company_id, title, message, created_at, imagenes_ia(id_imagen, url_image, image_theme, image_diff), usuarios!challenge_notifications_company_id_fkey(company_name, avatar_url, verified)')
+          .eq('target_user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(30)
+        challengeRows = data || []
+      } catch (_) {
+        challengeRows = []
+      }
+
       const readSet = new Set((readRows || []).map(r => `${r.source_type}:${r.source_id}`))
       const items = []
 
@@ -213,6 +226,28 @@ const Header = ({ companyRefreshKey = 0 }) => {
           body: g.message || (lang === 'en' ? 'You have a recommended guide.' : 'Tienes una guía recomendada.'),
           actionUrl: g.guide_url || (g.guide_slug ? `/guides#${g.guide_slug}` : '/guides'),
           guide: g,
+        })
+      })
+
+      ;(challengeRows || []).forEach((c) => {
+        const sourceType = 'challenge_notification'
+        const sourceId = String(c.id)
+        const sourceKey = `${sourceType}:${sourceId}`
+        const companyName = c.usuarios?.company_name || (lang === 'en' ? 'Your company' : 'Tu empresa')
+        const challengeTheme = c.imagenes_ia?.image_theme || (lang === 'en' ? 'Challenge' : 'Desafío')
+        items.push({
+          id: `challenge-${c.id}`,
+          sourceType,
+          sourceId,
+          read: readSet.has(sourceKey),
+          createdAt: c.created_at,
+          title: c.title || (lang === 'en' ? 'New challenge available' : 'Nuevo desafío disponible'),
+          body: c.message || (lang === 'en' ? `${companyName} created a new challenge: ${challengeTheme}` : `${companyName} creó un nuevo desafío: ${challengeTheme}`),
+          actionUrl: `/?challenge=${c.challenge_id}`,
+          senderAvatar: c.usuarios?.avatar_url || null,
+          senderVerified: c.usuarios?.verified || false,
+          challengeImage: c.imagenes_ia?.url_image || null,
+          challengeDiff: c.imagenes_ia?.image_diff || null,
         })
       })
 
@@ -389,7 +424,7 @@ const Header = ({ companyRefreshKey = 0 }) => {
 
   return (
     <>
-      <header className="relative z-[100] border-b border-slate-200/90 bg-white/90 backdrop-blur-xl transition-shadow duration-300 ease-out hover:shadow-sm">
+      <header className="sticky top-0 z-[100] border-b border-slate-200/90 bg-white/95 backdrop-blur-xl transition-shadow duration-300 ease-out hover:shadow-sm">
         <div className="mx-auto flex max-w-7xl items-center gap-4 px-6 py-3">
 
           {/* Logo */}
@@ -560,7 +595,20 @@ const Header = ({ companyRefreshKey = 0 }) => {
                         ) : notifications.map((item) => (
                           <div key={item.id} className={`border-b border-slate-100 dark:border-slate-800 px-4 py-3 last:border-b-0 ${item.read ? 'bg-white dark:bg-slate-900' : 'bg-indigo-50/40 dark:bg-indigo-950/30'}`}>
                             <div className="mb-1 flex items-start gap-2.5">
-                              {item.senderAvatar ? (
+                              {item.challengeImage ? (
+                                <div className="relative shrink-0 mt-0.5">
+                                  <img src={item.challengeImage} alt="" className="h-12 w-12 rounded-lg object-cover border border-slate-200 dark:border-slate-700" />
+                                  {item.challengeDiff && (
+                                    <span className={`absolute -bottom-1 -right-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                                      item.challengeDiff.toLowerCase() === 'easy' ? 'bg-emerald-500 text-white' :
+                                      item.challengeDiff.toLowerCase() === 'hard' ? 'bg-rose-500 text-white' :
+                                      'bg-amber-500 text-white'
+                                    }`}>
+                                      {item.challengeDiff}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : item.senderAvatar ? (
                                 <div className="relative shrink-0 mt-0.5">
                                   <img src={proxyImg(item.senderAvatar)} alt="" className="h-8 w-8 rounded-full object-cover border border-slate-200 dark:border-slate-700" />
                                   {item.senderVerified && (
@@ -587,11 +635,17 @@ const Header = ({ companyRefreshKey = 0 }) => {
                                 <a
                                   href={item.actionUrl}
                                   onClick={() => markNotificationRead(item)}
-                                  className="rounded-lg border border-slate-200 dark:border-slate-700 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                  className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition ${
+                                    item.sourceType === 'challenge_notification'
+                                      ? 'border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/40'
+                                      : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                  }`}
                                 >
-                                  {item.sourceType === 'guide_suggestion'
-                                    ? (lang === 'en' ? 'Open guide' : 'Abrir guía')
-                                    : (lang === 'en' ? 'Open' : 'Abrir')}
+                                  {item.sourceType === 'challenge_notification'
+                                    ? (lang === 'en' ? '🎯 Play challenge' : '🎯 Jugar desafío')
+                                    : item.sourceType === 'guide_suggestion'
+                                      ? (lang === 'en' ? 'Open guide' : 'Abrir guía')
+                                      : (lang === 'en' ? 'Open' : 'Abrir')}
                                 </a>
                               )}
 

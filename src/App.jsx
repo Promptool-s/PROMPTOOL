@@ -1,11 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import Header from './components/Header'
 import Footer from './components/Footer'
 import ImageCard from './components/ImageCard'
-import LandingPage from './components/LandingPage'
-import AuthModal from './components/AuthModal'
-import EnterprisePanel from './components/EnterprisePanel'
 import PromptInput from './components/PromptInput'
 import ResultPanel from './components/ResultPanel'
 import { comparePrompts } from './services/geminiService'
@@ -17,6 +14,11 @@ import { useAuth } from './hooks/useAuth'
 import { useLang } from './contexts/LangContext'
 import { proxyImg } from './utils/imgProxy'
 import { nowAR } from './utils/dateAR'
+
+// Lazy load de componentes pesados que no se usan inmediatamente
+const LandingPage = lazy(() => import('./components/LandingPage'))
+const AuthModal = lazy(() => import('./components/AuthModal'))
+const EnterprisePanel = lazy(() => import('./components/EnterprisePanel'))
 
 // Columnas reales: id_imagen, url_image, prompt_original, seed, fecha, image_diff, image_theme
 const normalizeImageData = (row) => {
@@ -812,12 +814,13 @@ function App() {
     const last = attemptHistory[attemptHistory.length - 1]
     const prev = attemptHistory.length > 1 ? attemptHistory[attemptHistory.length - 2] : null
     const trend = prev ? last.score - prev.score : 0
-    const accentColor = '#8b5cf6'
+    const accentColor = '#7c3aed' // Violet-600 más oscuro
+    const isDark = document.documentElement.classList.contains('dark')
 
     return (
       <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 pt-3 pb-2">
         <div className="flex items-center justify-between mb-2">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
             {lang === 'en' ? 'Your progress' : 'Tu progreso'}
           </p>
           <div className="flex items-center gap-3">
@@ -826,7 +829,7 @@ function App() {
                 {trend > 0 ? '▲ +' : '▼ '}{trend}pts
               </span>
             )}
-            <span className="text-[10px] text-slate-400 dark:text-slate-500">
+            <span className="text-[10px] text-slate-500 dark:text-slate-400">
               {lang === 'en' ? 'Best ' : 'Mejor '}
               <span className="font-bold text-slate-700 dark:text-slate-200">{best}%</span>
             </span>
@@ -836,14 +839,14 @@ function App() {
           <AreaChart data={chartData} margin={{ top: 8, right: 4, left: -28, bottom: 0 }}>
             <defs>
               <linearGradient id="progressGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={accentColor} stopOpacity={0.2} />
-                <stop offset="95%" stopColor={accentColor} stopOpacity={0} />
+                <stop offset="5%" stopColor={accentColor} stopOpacity={0.3} />
+                <stop offset="95%" stopColor={accentColor} stopOpacity={0.05} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-            <XAxis dataKey="n" tick={{ fontSize: 9, fill: '#94a3b8' }} tickLine={false} axisLine={false}
+            <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#334155' : '#e2e8f0'} vertical={false} />
+            <XAxis dataKey="n" tick={{ fontSize: 10, fill: isDark ? '#64748b' : '#64748b', fontWeight: 600 }} tickLine={false} axisLine={false}
               tickFormatter={v => '#' + v} />
-            <YAxis domain={[0, 100]} tick={{ fontSize: 9, fill: '#94a3b8' }} tickLine={false} axisLine={false}
+            <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: isDark ? '#64748b' : '#64748b', fontWeight: 600 }} tickLine={false} axisLine={false}
               tickFormatter={v => v + '%'} ticks={[0, 50, 100]} />
             <Tooltip
               content={({ active, payload }) => {
@@ -852,16 +855,16 @@ function App() {
                 const c = d.score >= 70 ? '#10b981' : d.score >= 50 ? '#f59e0b' : '#ef4444'
                 return (
                   <div className="rounded-xl border border-slate-200 bg-white dark:bg-slate-800 dark:border-slate-700 px-3 py-2 shadow-lg text-xs space-y-1 min-w-[90px]">
-                    <p className="text-slate-400">{lang === 'en' ? 'Attempt' : 'Intento'} #{d.n}</p>
+                    <p className="text-slate-500 dark:text-slate-400 font-medium">{lang === 'en' ? 'Attempt' : 'Intento'} #{d.n}</p>
                     <p className="text-base font-bold" style={{ color: c }}>{d.score}%</p>
                   </div>
                 )
               }}
             />
-            <Area type="monotone" dataKey="score" stroke={accentColor} strokeWidth={2}
+            <Area type="monotone" dataKey="score" stroke={accentColor} strokeWidth={2.5}
               fill="url(#progressGrad)"
-              dot={{ r: 3, fill: accentColor, strokeWidth: 0 }}
-              activeDot={{ r: 5, fill: accentColor }}
+              dot={{ r: 3.5, fill: accentColor, strokeWidth: 0 }}
+              activeDot={{ r: 5, fill: accentColor, stroke: isDark ? '#1e293b' : '#fff', strokeWidth: 2 }}
               isAnimationActive animationDuration={800} animationEasing="ease-out"
             />
           </AreaChart>
@@ -1076,15 +1079,21 @@ function App() {
   if (!user && showLanding) {
     return (
       <div className="min-h-screen bg-slate-950 text-white">
-        <LandingPage onOpenAuth={handleOpenAuth} onTryApp={handleTryApp} />
-        <AuthModal
-          open={authModalOpen}
-          onClose={handleCloseAuth}
-          onSignInWithGoogle={signInWithGoogle}
-          onSignInWithEmail={signInWithEmail}
-          onSignUpWithEmail={signUpWithEmail}
-          inviteCompany={inviteState === 'prompt_login' ? inviteCompany : null}
-        />
+        <Suspense fallback={
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-200 border-t-violet-600" />
+          </div>
+        }>
+          <LandingPage onOpenAuth={handleOpenAuth} onTryApp={handleTryApp} />
+          <AuthModal
+            open={authModalOpen}
+            onClose={handleCloseAuth}
+            onSignInWithGoogle={signInWithGoogle}
+            onSignInWithEmail={signInWithEmail}
+            onSignUpWithEmail={signUpWithEmail}
+            inviteCompany={inviteState === 'prompt_login' ? inviteCompany : null}
+          />
+        </Suspense>
       </div>
     )
   }
@@ -1093,13 +1102,21 @@ function App() {
   if (user && userTypeLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-900">
-        <div className="text-center text-slate-600">{t('loading') || 'Loading...'}</div>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-violet-600" />
       </div>
     )
   }
 
   if (user && userType === 'enterprise') {
-    return <EnterprisePanel user={user} />
+    return (
+      <Suspense fallback={
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-violet-600" />
+        </div>
+      }>
+        <EnterprisePanel user={user} />
+      </Suspense>
+    )
   }
 
   // Si es individual, mostrar juego
@@ -1312,23 +1329,47 @@ function App() {
       {revealPrompt && (
         <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm"
           onClick={() => setRevealPrompt(false)}>
-          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 shadow-2xl overflow-hidden"
+          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 shadow-2xl overflow-hidden"
             onClick={e => e.stopPropagation()}>
             {/* Header */}
             <div className="px-5 pt-5 pb-4 text-center">
               <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 dark:bg-amber-900/40">
                 <svg className="h-6 w-6 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
               <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                {lang === 'en' ? 'Original prompt unlocked' : 'Prompt original desbloqueado'}
+                {lang === 'en' ? '⚠️ Warning: Final decision' : '⚠️ Advertencia: Decisión final'}
               </h3>
-              <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
                 {lang === 'en'
-                  ? 'You\'ve used all your attempts. You can reveal the original prompt to learn from it, or keep trying on your own.'
-                  : 'Usaste todos tus intentos. Podés ver el prompt original para aprender, o seguir intentando por tu cuenta.'}
+                  ? 'If you reveal the original prompt, you will NOT be able to continue playing this challenge.'
+                  : 'Si ves el prompt original, NO vas a poder seguir jugando este desafío.'}
               </p>
+              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                {lang === 'en'
+                  ? 'You\'ve used all your attempts. You can reveal the prompt to learn from it, or keep trying to improve your score.'
+                  : 'Usaste todos tus intentos. Podés ver el prompt para aprender, o seguir intentando mejorar tu puntaje.'}
+              </p>
+            </div>
+
+            {/* Advertencia destacada */}
+            <div className="mx-4 mb-4 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 p-3">
+              <div className="flex gap-2.5">
+                <svg className="h-5 w-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <div className="flex-1">
+                  <p className="text-xs font-semibold text-rose-900 dark:text-rose-200">
+                    {lang === 'en' ? 'This action is irreversible' : 'Esta acción es irreversible'}
+                  </p>
+                  <p className="text-xs text-rose-700 dark:text-rose-300 mt-0.5">
+                    {lang === 'en'
+                      ? 'Once revealed, the challenge ends and you can\'t submit more attempts.'
+                      : 'Una vez revelado, el desafío termina y no podés enviar más intentos.'}
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* Opciones */}
@@ -1342,22 +1383,17 @@ function App() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
-                {lang === 'en' ? 'Reveal & learn' : 'Ver y aprender'}
+                {lang === 'en' ? 'Reveal & end challenge' : 'Ver y terminar desafío'}
               </button>
-              <p className="text-center text-[10px] text-slate-400 dark:text-slate-500 -mt-1">
-                {lang === 'en'
-                  ? 'This image won\'t appear again in your random games.'
-                  : 'Esta imagen no te va a aparecer más en tus partidas aleatorias.'}
-              </p>
               <button
                 type="button"
                 onClick={() => setRevealPrompt(false)}
-                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center justify-center gap-2"
+                className="w-full rounded-xl border-2 border-violet-500 bg-violet-500 hover:bg-violet-600 px-4 py-3 text-sm font-semibold text-white transition flex items-center justify-center gap-2"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
-                {lang === 'en' ? 'Keep trying' : 'Seguir intentando'}
+                {lang === 'en' ? 'Keep trying (recommended)' : 'Seguir intentando (recomendado)'}
               </button>
             </div>
           </div>

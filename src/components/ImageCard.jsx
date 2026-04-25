@@ -6,7 +6,13 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange }) => {
   const [imgLoaded, setImgLoaded] = useState(false)
 
   const openPreview = () => { setPreviewOpen(true); onPreviewChange?.(true) }
-  const closePreview = () => { setPreviewOpen(false); onPreviewChange?.(false) }
+  const closePreview = () => { 
+    setPreviewOpen(false)
+    onPreviewChange?.(false)
+    // Forzar recarga de la imagen principal al cerrar el modal
+    setImgLoaded(false)
+    setTimeout(() => setImgLoaded(true), 50)
+  }
   const imageUrl = data?.url_image || ''
 
   // Detectar aspect ratio cuando la imagen ya cargó en el <img> — sin doble request
@@ -19,6 +25,9 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange }) => {
   useEffect(() => {
     if (!imageUrl) return
     setImgLoaded(false)
+    // Pequeño delay para asegurar que la imagen se recarga
+    const timer = setTimeout(() => setImgLoaded(true), 10)
+    return () => clearTimeout(timer)
   }, [imageUrl])
 
   useEffect(() => {
@@ -81,6 +90,7 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange }) => {
     return (
       <div className="group/img relative h-full w-full select-none">
         <img
+          key={imageUrl} // Force re-render when URL changes
           src={imageUrl}
           alt="Imagen de referencia"
           className={`h-full w-full object-cover pointer-events-none transition-opacity duration-300 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
@@ -89,6 +99,7 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange }) => {
           fetchpriority="high"
           decoding="async"
           onLoad={handleLoad}
+          onError={() => setImgLoaded(false)}
         />
         {/* Overlay hover — cubre toda la imagen */}
         <div

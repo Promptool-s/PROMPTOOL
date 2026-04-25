@@ -1,5 +1,13 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
+import { checkRateLimit } from '../services/rateLimitService'
+import {
+  sanitizeEmail,
+  sanitizePassword,
+  sanitizeUsername,
+  sanitizeDisplayName,
+  sanitizeCompanyName
+} from '../utils/inputSanitizer'
 
 const ensureUserProfile = async (u) => {
   if (!u) return
@@ -68,27 +76,107 @@ export const useAuth = () => {
   }
 
   const signInWithEmail = async (email, password) => {
+    // Check rate limit first
+    const rateLimit = await checkRateLimit('login')
+    if (!rateLimit.allowed) {
+      const resetTime = rateLimit.resetAt ? new Date(rateLimit.resetAt).toLocaleTimeString() : 'soon'
+      throw new Error(`Too many login attempts. Please try again at ${resetTime}`)
+    }
+
+    // Sanitize password
+    const passwordResult = sanitizePassword(password)
+    if (!passwordResult.valid) {
+      throw new Error(passwordResult.error)
+    }
+
     // Allow login with username — resolve to email first
     let loginEmail = email
     if (!email.includes('@')) {
+      // Sanitize username
+      const usernameResult = sanitizeUsername(email)
+      if (!usernameResult.valid) {
+        throw new Error(usernameResult.error)
+      }
+      
       const { data } = await supabase
         .from('usuarios')
         .select('email')
-        .ilike('username', email)
+        .ilike('username', usernameResult.sanitized)
         .maybeSingle()
       if (!data?.email) throw new Error('Username not found')
       loginEmail = data.email
+    } else {
+      // Sanitize email
+      const emailResult = sanitizeEmail(email)
+      if (!emailResult.valid) {
+        throw new Error(emailResult.error)
+      }
+      loginEmail = emailResult.sanitized
     }
-    const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password })
+
+    const { error } = await supabase.auth.signInWithPassword({ 
+      email: loginEmail, 
+      password: passwordResult.sanitized 
+    })
     if (error) throw error
   }
 
   const signUpWithEmail = async (email, password, nombre, username, userType = 'individual', companyName = null) => {
+    // Check rate limit first
+    const rateLimit = await checkRateLimit('signup')
+    if (!rateLimit.allowed) {
+      const resetTime = rateLimit.resetAt ? new Date(rateLimit.resetAt).toLocaleTimeString() : 'soon'
+      throw new Error(`Too many signup attempts. Please try again at ${resetTime}`)
+    }
+
+    // Sanitize all inputs
+    const emailResult = sanitizeEmail(email)
+    if (!emailResult.valid) {
+      throw new Error(emailResult.error)
+    }
+
+    const passwordResult = sanitizePassword(password)
+    if (!passwordResult.valid) {
+      throw new Error(passwordResult.error)
+    }
+
+    const nombreResult = sanitizeDisplayName(nombre)
+    if (!nombreResult.valid) {
+      throw new Error(nombreResult.error)
+    }
+
+    const usernameResult = sanitizeUsername(username)
+    if (!usernameResult.valid) {
+      throw new Error(usernameResult.error)
+    }
+
+    // Validate user type
+    if (!['individual', 'enterprise'].includes(userType)) {
+      throw new Error('Invalid user type')
+    }
+
+    // Sanitize company name if provided
+    let sanitizedCompanyName = null
+    if (userType === 'enterprise') {
+      if (!companyName) {
+        throw new Error('Company name is required for enterprise accounts')
+      }
+      const companyResult = sanitizeCompanyName(companyName)
+      if (!companyResult.valid) {
+        throw new Error(companyResult.error)
+      }
+      sanitizedCompanyName = companyResult.sanitized
+    }
+
     const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
+      email: emailResult.sanitized,
+      password: passwordResult.sanitized,
       options: {
-        data: { nombre, userType, companyName },
+        data: { 
+          nombre: nombreResult.sanitized, 
+          userType, 
+          companyName: sanitizedCompanyName 
+        },
         emailRedirectTo: window.location.origin,
       },
     })
@@ -97,9 +185,9 @@ export const useAuth = () => {
     if (data.user) {
       const profileData = {
         id_usuario: data.user.id,
-        nombre,
-        username: username || null,
-        email,
+        nombre: nombreResult.sanitized,
+        username: usernameResult.sanitized || null,
+        email: emailResult.sanitized,
         idioma_preferido: 'es',
         adminstate: false,
         user_type: userType || 'individual',
@@ -107,8 +195,8 @@ export const useAuth = () => {
 
       // Si es empresa, agregar campos específicos
       if (userType === 'enterprise') {
-        profileData.company_name = companyName || nombre
-        profileData.nombre_display = companyName || nombre
+        profileData.company_name = sanitizedCompanyName || nombreResult.sanitized
+        profileData.nombre_display = sanitizedCompanyName || nombreResult.sanitized
       }
 
       const { error: dbError } = await supabase.from('usuarios').insert([profileData])

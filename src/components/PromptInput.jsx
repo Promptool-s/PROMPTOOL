@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLang } from '../contexts/LangContext'
 import flameLitGif from '../assets/flame-lit.gif'
+import { sanitizePrompt } from '../utils/inputSanitizer'
 
 const normalizeDifficulty = (difficulty = 'Medium') => difficulty.toLowerCase()
 
@@ -130,11 +131,20 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
 
   return (
     <form className="space-y-2.5" onSubmit={e => {
-      if (wordsCount < 5 && !showShortWarning) {
-        e.preventDefault()
+      e.preventDefault()
+      
+      // Sanitize prompt before submission
+      const promptResult = sanitizePrompt(promptUsuario)
+      if (!promptResult.valid) {
         setShowShortWarning(true)
         return
       }
+
+      if (wordsCount < 5 && !showShortWarning) {
+        setShowShortWarning(true)
+        return
+      }
+      
       setShowShortWarning(false)
       clearDraft()
       onSubmit(e)
@@ -162,8 +172,15 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
         <textarea
           value={promptUsuario}
           onChange={(e) => {
-            if (!startedAt && e.target.value.trim() && !paused) setStartedAt(Date.now())
-            setPromptUsuario(e.target.value)
+            const newValue = e.target.value
+            
+            // Prevent excessively long inputs
+            if (newValue.length > 2000) {
+              return
+            }
+            
+            if (!startedAt && newValue.trim() && !paused) setStartedAt(Date.now())
+            setPromptUsuario(newValue)
             if (showShortWarning) setShowShortWarning(false)
           }}
           onCopy={handleAntiPaste} onPaste={handleAntiPaste} onCut={handleAntiPaste}
@@ -171,7 +188,8 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
           rows="3"
           placeholder={t('promptPlaceholder')}
           disabled={disabled}
-          className="w-full min-h-[100px] resize-none rounded-xl border border-slate-200 dark:border-slate-700 bg-transparent px-4 py-3 pr-12 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none transition focus:border-slate-400 dark:focus:border-slate-500 focus:ring-0 disabled:cursor-not-allowed disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:text-slate-400"
+          maxLength={2000}
+          className="w-full min-h-[100px] resize-none rounded-xl border border-slate-200 dark:border-slate-700 bg-transparent px-4 py-3 pr-20 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none transition focus:border-slate-400 dark:focus:border-slate-500 focus:ring-0 disabled:cursor-not-allowed disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:text-slate-400"
         />
         <div className="pointer-events-none absolute right-3 top-3 rounded-md bg-slate-900/5 dark:bg-slate-100/10 px-2 py-0.5 text-xs font-medium tabular-nums text-slate-500 dark:text-slate-400">
           {wordsCount} {lang === 'en' ? 'words' : 'palabras'}

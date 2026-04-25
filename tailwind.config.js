@@ -9,6 +9,16 @@ module.exports = {
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
       },
+      lineHeight: {
+        'body': '1.6',
+        'tight': '1.2',
+      },
+      spacing: {
+        'section': '6rem',      // 96px - consistent section spacing
+        'section-sm': '4rem',   // 64px - smaller sections
+        'card': '1.5rem',       // 24px - card padding
+        'card-sm': '1rem',      // 16px - smaller card padding
+      },
       colors: {
         accent: {
           DEFAULT: '#6c5af7',
