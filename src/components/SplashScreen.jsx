@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
-const WORD = 'Promptool'
-const CYAN_START = 5 // 'Promp' negro, 'tool' cyan
+const WORD = 'PrompTool'
+const CYAN_START = 5 // 'Promp' negro, 'Tool' cyan
 
 // Velocidad de escritura: ms por carácter
 const CHAR_DELAY = 80
