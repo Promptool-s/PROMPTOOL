@@ -1,8 +1,11 @@
 import { supabase } from '../supabaseClient'
+import { logger } from '../utils/logger'
+import { ErrorTypes } from '../utils/errorHandler'
 
 /**
- * Rate limiting service for authentication endpoints
+ * Enhanced rate limiting service for authentication endpoints
  * Limits: 5 attempts per 15 minutes per IP and endpoint
+ * Prevents spam, abuse, and brute force attacks
  */
 
 // Get client IP address (best effort)
@@ -11,12 +14,15 @@ const getClientIP = async () => {
     // Try to get IP from a public API
     const response = await fetch('https://api.ipify.org?format=json', { timeout: 2000 })
     const data = await response.json()
+    logger.debug('Client IP retrieved', { ip: data.ip })
     return data.ip || 'unknown'
-  } catch {
+  } catch (error) {
     // Fallback to a hash of user agent + timestamp bucket (15min)
     const ua = navigator.userAgent
     const timeBucket = Math.floor(Date.now() / (15 * 60 * 1000))
-    return `fallback-${btoa(ua + timeBucket).slice(0, 32)}`
+    const fallbackId = `fallback-${btoa(ua + timeBucket).slice(0, 32)}`
+    logger.debug('Using fallback IP', { fallbackId })
+    return fallbackId
   }
 }
 
@@ -29,6 +35,8 @@ export const checkRateLimit = async (endpoint = 'login') => {
   try {
     const ip = await getClientIP()
     
+    logger.debug('Checking rate limit', { endpoint, ip })
+    
     const { data, error } = await supabase.rpc('check_rate_limit', {
       p_ip_address: ip,
       p_endpoint: endpoint,
@@ -37,17 +45,27 @@ export const checkRateLimit = async (endpoint = 'login') => {
     })
 
     if (error) {
-      console.error('[RateLimit] Error checking rate limit:', error)
+      logger.error('Rate limit check failed', error, { endpoint, ip })
       // On error, allow the request (fail open)
       return { allowed: true, attemptsLeft: 5, resetAt: null, error: error.message }
     }
 
     if (!data) {
+      logger.warn('Rate limit check returned no data', { endpoint, ip })
       // No data returned, allow the request
       return { allowed: true, attemptsLeft: 5, resetAt: null, error: null }
     }
 
     const result = Array.isArray(data) ? data[0] : data
+    
+    if (!result.allowed) {
+      logger.warn('Rate limit exceeded', {
+        endpoint,
+        ip,
+        attemptsLeft: result.attempts_left,
+        resetAt: result.reset_at,
+      })
+    }
     
     return {
       allowed: result.allowed === true,
@@ -56,7 +74,7 @@ export const checkRateLimit = async (endpoint = 'login') => {
       error: null
     }
   } catch (err) {
-    console.error('[RateLimit] Exception checking rate limit:', err)
+    logger.error('Rate limit check exception', err, { endpoint })
     // On exception, allow the request (fail open)
     return { allowed: true, attemptsLeft: 5, resetAt: null, error: err.message }
   }
@@ -96,17 +114,22 @@ export const formatTimeRemaining = (resetAt, lang = 'es') => {
  */
 export const resetRateLimit = async (ipAddress, endpoint = 'login') => {
   try {
+    logger.info('Resetting rate limit', { ipAddress, endpoint })
+    
     const { error } = await supabase.rpc('reset_rate_limit', {
       p_ip_address: ipAddress,
       p_endpoint: endpoint
     })
 
     if (error) {
+      logger.error('Failed to reset rate limit', error, { ipAddress, endpoint })
       return { success: false, error: error.message }
     }
 
+    logger.info('Rate limit reset successfully', { ipAddress, endpoint })
     return { success: true, error: null }
   } catch (err) {
+    logger.error('Rate limit reset exception', err, { ipAddress, endpoint })
     return { success: false, error: err.message }
   }
 }

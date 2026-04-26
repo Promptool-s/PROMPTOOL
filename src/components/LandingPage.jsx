@@ -194,13 +194,13 @@ const Slide = ({ item, visible }) => (
       <div className="flex items-center gap-2.5">
         {item.avatar_url
           ? <img src={proxyImg(item.avatar_url)} alt="" className="h-7 w-7 rounded-full object-cover ring-1 ring-black/10 pointer-events-none" draggable={false} />
-          : <div className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-500/30 text-xs font-bold text-violet-500">{(item.username || '?')[0].toUpperCase()}</div>
+          : <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan-500/30 text-xs font-bold text-cyan-500">{(item.username || '?')[0].toUpperCase()}</div>
         }
         <span className="text-xs font-medium text-slate-400 dark:text-slate-400">{item.username || 'Anonymous'}</span>
         {item.is_dev && (
           <span className="rounded-md bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-bold text-sky-400 uppercase tracking-wide">DEV</span>
         )}
-        {item.score != null && <span className="ml-auto rounded-full bg-violet-500/15 px-2 py-0.5 text-xs font-semibold text-violet-400">{item.score}%</span>}
+        {item.score != null && <span className="ml-auto rounded-full bg-cyan-500/15 px-2 py-0.5 text-xs font-semibold text-cyan-400">{item.score}%</span>}
       </div>
       <p className="line-clamp-2 text-xs leading-5 text-slate-500 dark:text-slate-400 italic">"{item.prompt_usuario}"</p>
     </div>
@@ -211,7 +211,7 @@ const Dots = ({ total, current, onSelect, dark }) => (
   <div className="flex items-center justify-center gap-1.5 pt-1">
     {Array.from({ length: total }).map((_, i) => (
       <button key={i} onClick={() => onSelect(i)} aria-label={`Slide ${i + 1}`}
-        className={`rounded-full transition-all duration-300 ${i === current ? 'h-1.5 w-5 bg-violet-500' : `h-1.5 w-1.5 ${dark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-slate-300 hover:bg-slate-400'}`}`} />
+        className={`rounded-full transition-all duration-300 ${i === current ? 'h-1.5 w-5 bg-cyan-500' : `h-1.5 w-1.5 ${dark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-slate-300 hover:bg-slate-400'}`}`} />
     ))}
   </div>
 )
@@ -283,7 +283,7 @@ const CommunitySlideshow = ({ dark, lang }) => {
     timerRef.current = setInterval(() => setCurrent(p => (p + 1) % slides.length), 4500)
   }
 
-  if (loading) return <div className="flex h-full items-center justify-center"><div className="h-7 w-7 animate-spin rounded-full border-2 border-violet-400 border-t-transparent" /></div>
+  if (loading) return <div className="flex h-full items-center justify-center"><div className="h-7 w-7 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" /></div>
   if (!slides.length) return <div className="flex h-full items-center justify-center text-sm text-slate-500 dark:text-slate-400">{c.noSlides}</div>
 
   return (
@@ -410,7 +410,7 @@ const StatsChart = ({ dark }) => {
 
 // ── Org icons (no emoji) ───────────────────────────────────────────────────
 const OrgIcon = ({ type, dark }) => {
-  const cls = `h-5 w-5 ${dark ? 'text-violet-400' : 'text-violet-600'}`
+  const cls = `h-5 w-5 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`
   const paths = {
     building: 'M3 21h18M3 7l9-4 9 4M4 7v14M20 7v14M9 21V12h6v9',
     graduation: 'M12 14l9-5-9-5-9 5 9 5zm0 0v6m-4-3.5l4 2 4-2',
@@ -565,7 +565,7 @@ const InteractiveDemo = ({ dark, lang }) => {
             <span className={`text-xs font-semibold ${muted}`}>
               {lang === 'en' ? 'Today\'s Challenge' : 'Desafío de hoy'}
             </span>
-            <span className="text-xs px-2 py-1 rounded-full bg-violet-500/15 text-violet-500 font-semibold">
+            <span className="text-xs px-2 py-1 rounded-full bg-cyan-500/15 text-cyan-500 font-semibold">
               {lang === 'en' ? 'Daily' : 'Diario'}
             </span>
           </div>
@@ -589,7 +589,7 @@ const InteractiveDemo = ({ dark, lang }) => {
             <div className={`relative rounded-xl border ${dark ? 'border-slate-600 bg-slate-900' : 'border-slate-300 bg-white'} p-2.5 ${showComparison ? 'min-h-[60px]' : 'min-h-[100px]'} transition-all duration-300`}>
               <p className="text-sm leading-relaxed">
                 {typedText}
-                {step === 1 && <span className="inline-block w-0.5 h-4 bg-violet-500 animate-pulse ml-0.5" />}
+                {step === 1 && <span className="inline-block w-0.5 h-4 bg-cyan-500 animate-pulse ml-0.5" />}
               </p>
             </div>
           </div>
@@ -600,7 +600,7 @@ const InteractiveDemo = ({ dark, lang }) => {
               <button 
                 className={`w-full rounded-lg px-4 py-2.5 text-sm font-semibold transition-all ${
                   step >= 2 
-                    ? `bg-violet-600 text-white shadow-lg shadow-violet-500/30 ${isClicking ? 'scale-95 shadow-violet-500/50' : 'scale-100'}` 
+                    ? `bg-cyan-600 text-white shadow-lg shadow-cyan-500/30 ${isClicking ? 'scale-95 shadow-cyan-500/50' : 'scale-100'}` 
                     : dark 
                       ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
                       : 'bg-slate-200 text-slate-500 cursor-not-allowed'
@@ -667,19 +667,19 @@ const InteractiveDemo = ({ dark, lang }) => {
               </div>
               
               {/* Suggestions for improvement */}
-              <div className={`rounded-xl border p-3 ${dark ? 'border-violet-800 bg-violet-900/20' : 'border-violet-200 bg-violet-50'}`}>
+              <div className={`rounded-xl border p-3 ${dark ? 'border-cyan-800 bg-cyan-900/20' : 'border-cyan-200 bg-cyan-50'}`}>
                 <div className="flex items-center gap-2 mb-2">
-                  <svg className="w-3.5 h-3.5 text-violet-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-3.5 h-3.5 text-cyan-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                   </svg>
-                  <span className={`text-xs font-semibold ${dark ? 'text-violet-400' : 'text-violet-700'}`}>
+                  <span className={`text-xs font-semibold ${dark ? 'text-cyan-400' : 'text-cyan-700'}`}>
                     {lang === 'en' ? 'How to improve' : 'Cómo mejorar'}
                   </span>
                 </div>
                 <ul className="space-y-1.5">
                   {improvements.map((improvement, i) => (
                     <li key={i} className="flex items-start gap-2 text-xs leading-relaxed">
-                      <span className="text-violet-500 shrink-0 mt-0.5">•</span>
+                      <span className="text-cyan-500 shrink-0 mt-0.5">•</span>
                       <span className={dark ? 'text-slate-300' : 'text-slate-700'}>{improvement}</span>
                     </li>
                   ))}
@@ -744,18 +744,14 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
       <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col justify-center px-6 py-20 lg:px-8">
         <div className="grid items-center gap-16 lg:grid-cols-2">
           <div className="space-y-8">
-            <span className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs ${dark ? 'border-slate-700 bg-slate-800 text-slate-400' : 'border-slate-300 bg-white text-slate-600'}`}>
-              <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
-              {c.badge}
-            </span>
             <div className="space-y-6">
               <h1 className="text-5xl font-black leading-tight tracking-tight sm:text-6xl lg:text-7xl">
-                {c.h1a}{' '}<span className="text-violet-500">{c.h1b}</span>
+                {c.h1a}{' '}<span className="text-cyan-500">{c.h1b}</span>
               </h1>
               <p className={`max-w-md text-lg leading-relaxed ${muted}`}>{c.sub}</p>
             </div>
             <div className="flex flex-wrap gap-4">
-              <button type="button" onClick={onTryApp} className="inline-flex items-center justify-center rounded-lg bg-violet-600 px-8 py-3.5 text-sm font-semibold text-white hover:bg-violet-700 transition">
+              <button type="button" onClick={onTryApp} className="inline-flex items-center justify-center rounded-lg bg-cyan-600 px-8 py-3.5 text-sm font-semibold text-white hover:bg-cyan-700 transition">
                 {c.cta1}
               </button>
               <button type="button" onClick={onOpenAuth} className={`inline-flex items-center justify-center rounded-lg border px-8 py-3.5 text-sm font-semibold transition ${dark ? 'border-slate-700 text-white hover:bg-slate-800' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`}>
@@ -793,7 +789,7 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
         <div className="mx-auto max-w-6xl">
           <Reveal>
             <div className="text-center mb-16">
-              <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${dark ? 'text-violet-400' : 'text-violet-600'}`}>{c.howTag}</p>
+              <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.howTag}</p>
               <h2 className="text-4xl font-bold mb-6">{c.howTitle}</h2>
               <p className={`text-lg leading-relaxed max-w-2xl mx-auto ${muted}`}>{c.howDesc}</p>
             </div>
@@ -808,13 +804,13 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
       <div className="px-6 py-section lg:px-8">
         <div className="mx-auto max-w-6xl grid gap-20 lg:grid-cols-2 items-center">
           <Reveal>
-            <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${dark ? 'text-violet-400' : 'text-violet-600'}`}>{c.progressTag}</p>
+            <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.progressTag}</p>
             <h2 className="text-4xl font-bold mb-6">{c.progressTitle}</h2>
             <p className={`text-lg leading-relaxed mb-10 ${muted}`}>{c.progressDesc}</p>
             <AnimatedStats stats={[
               { value: '74%', label: c.statsLabels[0], color: 'text-emerald-500', desc: lang === 'en' ? 'Average similarity across all attempts' : 'Similitud promedio en todos los intentos' },
               { value: '12d', label: c.statsLabels[1], color: 'text-amber-500', desc: lang === 'en' ? 'Consecutive days playing' : 'Días consecutivos jugando' },
-              { value: '96%', label: c.statsLabels[2], color: 'text-violet-500', desc: lang === 'en' ? 'Your highest score achieved' : 'Tu puntaje más alto logrado' },
+              { value: '96%', label: c.statsLabels[2], color: 'text-cyan-500', desc: lang === 'en' ? 'Your highest score achieved' : 'Tu puntaje más alto logrado' },
               { value: '#38', label: c.statsLabels[3], color: 'text-sky-500', desc: lang === 'en' ? 'Your position in the global ranking' : 'Tu posición en el ranking global' }
             ]} dark={dark} />
           </Reveal>
@@ -832,13 +828,13 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
       <div className="px-6 py-section lg:px-8">
         <div className="mx-auto max-w-6xl grid gap-20 lg:grid-cols-2 items-center">
           <Reveal>
-            <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${dark ? 'text-violet-400' : 'text-violet-600'}`}>{c.communityTag}</p>
+            <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.communityTag}</p>
             <h2 className="text-4xl font-bold mb-6">{c.communityTitle}</h2>
             <p className={`text-lg leading-relaxed mb-8 ${muted}`}>{c.communityDesc}</p>
             <ul className="space-y-4">
               {c.communityItems.map(item => (
                 <li key={item} className="flex items-center gap-3 text-base leading-relaxed">
-                  <span className="h-2 w-2 rounded-full bg-violet-500 shrink-0" />
+                  <span className="h-2 w-2 rounded-full bg-cyan-500 shrink-0" />
                   <span className={dark ? 'text-slate-300' : 'text-slate-600'}>{item}</span>
                 </li>
               ))}
@@ -866,7 +862,7 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
           <Reveal>
             <div className={`rounded-2xl border p-8 space-y-5 ${card}`}>
               <div className="flex items-center justify-between">
-                <span className="rounded-full bg-violet-500/15 text-violet-500 text-xs font-semibold px-3 py-1">{c.tourLive}</span>
+                <span className="rounded-full bg-cyan-500/15 text-cyan-500 text-xs font-semibold px-3 py-1">{c.tourLive}</span>
                 <span className={`text-xs ${subtle}`}>{c.tourEnds}</span>
               </div>
               <p className="text-xl font-bold">{c.tourName}</p>
@@ -874,7 +870,7 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
               <div className="flex items-center gap-3 pt-2">
                 <div className="flex -space-x-2">
                   {['A','B','C','D'].map(l => (
-                    <div key={l} className={`h-8 w-8 rounded-full border-2 flex items-center justify-center text-xs font-bold text-violet-400 bg-violet-500/15 ${dark ? 'border-slate-900' : 'border-white'}`}>{l}</div>
+                    <div key={l} className={`h-8 w-8 rounded-full border-2 flex items-center justify-center text-xs font-bold text-cyan-400 bg-cyan-500/15 ${dark ? 'border-slate-900' : 'border-white'}`}>{l}</div>
                   ))}
                 </div>
                 <span className={`text-xs ${subtle}`}>+48 {c.tourParticipants}</span>
@@ -882,13 +878,13 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
             </div>
           </Reveal>
           <Reveal delay={100}>
-            <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${dark ? 'text-violet-400' : 'text-violet-600'}`}>{c.tourTag}</p>
+            <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.tourTag}</p>
             <h2 className="text-4xl font-bold mb-6">{c.tourTitle}</h2>
             <p className={`text-lg leading-relaxed mb-8 ${muted}`}>{c.tourDesc}</p>
             <ul className="space-y-4">
               {c.tourItems.map(item => (
                 <li key={item} className="flex items-center gap-3 text-base leading-relaxed">
-                  <span className="h-2 w-2 rounded-full bg-violet-500 shrink-0" />
+                  <span className="h-2 w-2 rounded-full bg-cyan-500 shrink-0" />
                   <span className={dark ? 'text-slate-300' : 'text-slate-600'}>{item}</span>
                 </li>
               ))}
@@ -901,18 +897,18 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
       <div className="px-6 py-section lg:px-8">
         <div className="mx-auto max-w-6xl grid gap-16 lg:grid-cols-2 items-center">
           <Reveal>
-            <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? 'text-violet-400' : 'text-violet-600'}`}>{c.guidesTag}</p>
+            <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.guidesTag}</p>
             <h2 className="text-3xl font-bold mb-4">{c.guidesTitle}</h2>
             <p className={`text-base leading-7 mb-6 ${muted}`}>{c.guidesDesc}</p>
             <ul className="space-y-3 mb-6">
               {c.guidesItems.map(item => (
                 <li key={item} className="flex items-center gap-3 text-sm">
-                  <span className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 shrink-0" />
                   <span className={dark ? 'text-slate-300' : 'text-slate-600'}>{item}</span>
                 </li>
               ))}
             </ul>
-            <a href="/guides" className="inline-flex items-center gap-2 text-sm font-semibold text-violet-500 hover:text-violet-400 transition">
+            <a href="/guides" className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-500 hover:text-cyan-400 transition">
               {c.guidesLink}
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
             </a>
@@ -921,8 +917,8 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
             <div className="space-y-3">
               {c.guides.map(({ t, tag, time }, i) => (
                 <div key={t} className={`rounded-xl border p-4 flex items-center gap-4 ${card}`}>
-                  <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${dark ? 'bg-violet-500/15' : 'bg-violet-100'}`}>
-                    <svg className="h-5 w-5 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${dark ? 'bg-cyan-500/15' : 'bg-cyan-100'}`}>
+                    <svg className="h-5 w-5 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
                     </svg>
                   </div>
@@ -953,7 +949,7 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
         <div className="mx-auto max-w-6xl">
           <Reveal>
             <div className="max-w-2xl mb-14">
-              <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? 'text-violet-400' : 'text-violet-600'}`}>{c.orgTag}</p>
+              <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.orgTag}</p>
               <h2 className="text-3xl font-bold mb-4">{c.orgTitle}</h2>
               <p className={`text-base leading-7 ${muted}`}>{c.orgDesc}</p>
             </div>
@@ -962,7 +958,7 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
             {c.orgCards.map(({ icon, t, d }, i) => (
               <Reveal key={t} delay={i * 60}>
                 <div className={`rounded-2xl border p-6 h-full ${card}`}>
-                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center mb-4 ${dark ? 'bg-violet-500/15' : 'bg-violet-100'}`}>
+                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center mb-4 ${dark ? 'bg-cyan-500/15' : 'bg-cyan-100'}`}>
                     <OrgIcon type={icon} dark={dark} />
                   </div>
                   <p className="font-semibold mb-2">{t}</p>
@@ -978,13 +974,13 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
       <div className="px-6 py-24 lg:px-8">
         <div className="mx-auto max-w-6xl grid gap-16 lg:grid-cols-2 items-center">
           <Reveal>
-            <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? 'text-violet-400' : 'text-violet-600'}`}>{c.profileTag}</p>
+            <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.profileTag}</p>
             <h2 className="text-3xl font-bold mb-4">{c.profileTitle}</h2>
             <p className={`text-base leading-7 mb-6 ${muted}`}>{c.profileDesc}</p>
             <ul className="space-y-3">
               {c.profileItems.map(item => (
                 <li key={item} className="flex items-center gap-3 text-sm">
-                  <span className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 shrink-0" />
                   <span className={dark ? 'text-slate-300' : 'text-slate-600'}>{item}</span>
                 </li>
               ))}
@@ -993,7 +989,7 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
           <Reveal delay={100}>
             <div className={`rounded-2xl border p-6 ${card}`}>
               <div className="flex items-center gap-4 mb-6">
-                <div className="h-12 w-12 rounded-full bg-violet-500/20 flex items-center justify-center text-base font-bold text-violet-500">AP</div>
+                <div className="h-12 w-12 rounded-full bg-cyan-500/20 flex items-center justify-center text-base font-bold text-cyan-500">AP</div>
                 <div>
                   <p className="font-bold dark:text-slate-100">alex_prompter</p>
                   <p className={`text-xs ${subtle}`}>{c.profileMember}</p>
@@ -1001,7 +997,7 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
                     {[
                       { label: '#1', color: 'text-amber-400 bg-amber-400/10' },
                       { label: '14d', color: 'text-orange-400 bg-orange-400/10' },
-                      { label: 'ELO', color: 'text-violet-400 bg-violet-400/10' },
+                      { label: 'ELO', color: 'text-cyan-400 bg-cyan-400/10' },
                     ].map(({ label, color }) => (
                       <span key={label} className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${color}`}>{label}</span>
                     ))}
@@ -1011,7 +1007,7 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
               <div className="grid grid-cols-3 gap-3 mb-4">
                 {[['1420', 'ELO'], ['81%', lang === 'en' ? 'Avg' : 'Prom.'], ['14d', lang === 'en' ? 'Streak' : 'Racha']].map(([v, l]) => (
                   <div key={l} className={`rounded-xl p-3 text-center ${dark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-100'}`}>
-                    <p className="text-base font-bold text-violet-500">{v}</p>
+                    <p className="text-base font-bold text-cyan-500">{v}</p>
                     <p className={`text-[11px] ${subtle}`}>{l}</p>
                   </div>
                 ))}
@@ -1037,7 +1033,7 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
                 <button 
                   type="button" 
                   onClick={onTryApp} 
-                  className="inline-flex items-center justify-center rounded-lg bg-violet-600 px-8 py-3.5 text-base font-semibold text-white hover:bg-violet-700 transition"
+                  className="inline-flex items-center justify-center rounded-lg bg-cyan-600 px-8 py-3.5 text-base font-semibold text-white hover:bg-cyan-700 transition"
                 >
                   {c.ctaPlay}
                 </button>

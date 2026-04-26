@@ -21,10 +21,10 @@ module.exports = {
       },
       colors: {
         accent: {
-          DEFAULT: '#6c5af7',
-          hover:   '#5b4adc',
-          light:   '#ede9fe',
-          dark:    '#7c6aff',
+          DEFAULT: '#06b6d4', // cyan-500
+          hover:   '#0891b2', // cyan-600
+          light:   '#cffafe', // cyan-50
+          dark:    '#22d3ee', // cyan-400
         },
       },
       borderRadius: {

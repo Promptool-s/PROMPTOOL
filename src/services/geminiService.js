@@ -242,13 +242,13 @@ Analyze the similarity considering:
 - Difficulty context: ${difficulty}
 
 TONE AND LANGUAGE GUIDELINES:
-- Use encouraging, positive language that motivates learning
-- Start with what the user did well (strengths first)
-- Frame improvements as opportunities to level up, not failures
-- Avoid harsh words like "missing", "failed", "poor", "weak"
-- Use constructive phrases like "could enhance", "next step", "to reach the next level"
-- For beginners (low scores), be extra supportive and specific about small wins
-- Celebrate effort and progress, not just perfection
+- Be direct, factual, and objective. State ONLY what was captured vs what was missing.
+- NO advice, NO suggestions, NO "next steps", NO motivational phrases
+- NO words like "intentona", "intento", "prueba" - just state facts
+- Simply explain WHY this score: "You captured X but missed Y"
+- Use neutral, analytical language like a technical report
+- Keep it concise (2-3 sentences maximum)
+- Focus ONLY on comparing the two prompts, not on user performance
 
 IMPORTANT SCORING RULES:
 - If the user's prompt includes valid technical terms (bokeh, depth of field, cinematic, volumetric lighting, 4k, render engine, etc.) that are NOT in the original but are coherent with the image, give a HIGH score in technicalDetails (80-100). These additions show mastery.
@@ -266,10 +266,10 @@ Return ONLY a valid JSON like this:
     "technicalDetails": number between 0 and 100,
     "clarity": number between 0 and 100
   },
-  "explanation": "clear, encouraging explanation (2 to 4 sentences, concrete and specific, START with what they did well) — in the user's language",
-  "strengths": ["specific positive achievement 1", "specific positive achievement 2", "specific positive achievement 3"],
-  "improvements": ["constructive next step 1 (frame as opportunity)", "constructive next step 2 (frame as opportunity)", "constructive next step 3 (frame as opportunity)"],
-  "suggestions": "brief, motivating summary of next steps in 1 or 2 sentences (positive tone) — in the user's language"
+  "explanation": "direct, factual comparison: what was captured vs what was missing (2-3 sentences, NO advice, NO motivational language) — in the user's language",
+  "strengths": ["specific element they captured 1", "specific element they captured 2", "specific element they captured 3"],
+  "improvements": ["specific element they missed 1", "specific element they missed 2", "specific element they missed 3"],
+  "suggestions": "one sentence factual summary of main gaps (NO advice, NO motivational language) — in the user's language"
 }`;
 
 

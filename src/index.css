@@ -52,8 +52,8 @@
   --color-text-3:      100 116 139;
   --color-text-4:      148 163 184;
   /* Acento de marca */
-  --color-accent:      108 90 247;   /* #6c5af7 — violeta cálido */
-  --color-accent-2:    91  74  220;  /* hover */
+  --color-accent:      6 182 212;    /* #06b6d4 — cyan profesional (Tailwind cyan-500) */
+  --color-accent-2:    8 145 178;    /* hover — cyan-600 */
   --color-accent-text: 255 255 255;
 }
 
@@ -69,9 +69,9 @@ html.dark {
   --color-text-2:      180 180 195;
   --color-text-3:      110 110 128;
   --color-text-4:      68  68  82;
-  --color-accent:      124 106 255;  /* más brillante en dark */
-  --color-accent-2:    108 90  247;
-  --color-accent-text: 255 255 255;
+  --color-accent:      34 211 238;   /* cyan-400 — más brillante en dark */
+  --color-accent-2:    6 182 212;    /* cyan-500 */
+  --color-accent-text: 15 23 42;     /* texto oscuro para mejor contraste */
 }
 
 /* ── Base ── */

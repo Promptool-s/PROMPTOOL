@@ -192,7 +192,7 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
           className="w-full min-h-[100px] resize-none rounded-xl border border-slate-200 dark:border-slate-700 bg-transparent px-4 py-3 pr-20 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none transition focus:border-slate-400 dark:focus:border-slate-500 focus:ring-0 disabled:cursor-not-allowed disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:text-slate-400"
         />
         <div className="pointer-events-none absolute right-3 top-3 rounded-md bg-slate-900/5 dark:bg-slate-100/10 px-2 py-0.5 text-xs font-medium tabular-nums text-slate-500 dark:text-slate-400">
-          {wordsCount} {lang === 'en' ? 'words' : 'palabras'}
+          {wordsCount} {lang === 'en' ? (wordsCount === 1 ? 'word' : 'words') : (wordsCount === 1 ? 'palabra' : 'palabras')}
         </div>
       </div>
 
@@ -217,14 +217,14 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
                     <p className="font-semibold text-sky-300">{lang === 'en' ? 'Daily mode' : 'Modo diario'}</p>
                     <p className="text-slate-300 leading-relaxed">
                       {lang === 'en'
-                        ? 'One image per day, same for all players. Compare your score with the community. Resets at midnight.'
-                        : 'Una imagen por día, igual para todos los jugadores. Compará tu score con la comunidad. Se renueva a medianoche.'}
+                        ? 'One image per day, same for all players. You only get one attempt. Compare your score with the community. Resets at midnight.'
+                        : 'Una imagen por día, igual para todos los jugadores. Solo tenés un intento. Compará tu score con la comunidad. Se renueva a medianoche.'}
                     </p>
                     <p className="text-slate-400">{lang === 'en' ? 'Click to switch to Random.' : 'Click para cambiar a Aleatorio.'}</p>
                   </>
                 ) : mode === 'random' ? (
                   <>
-                    <p className="font-semibold text-violet-300">{lang === 'en' ? 'Random mode' : 'Modo aleatorio'}</p>
+                    <p className="font-semibold text-cyan-300">{lang === 'en' ? 'Random mode' : 'Modo aleatorio'}</p>
                     <p className="text-slate-300 leading-relaxed">
                       {lang === 'en'
                         ? 'A random image from the library. Play as many times as you want and practice at your own pace.'
@@ -391,7 +391,7 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
               onClick={() => onToggleRanked(!isRanked)}
               className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition ${
                 isRanked
-                  ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400'
+                  ? 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'
               }`}
             >
@@ -408,7 +408,7 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
               <div className="rounded-xl bg-slate-900 px-3 py-2.5 text-xs text-white shadow-xl space-y-1.5">
                 {isRanked ? (
                   <>
-                    <p className="font-semibold text-violet-300">{lang === 'en' ? 'Ranked mode ON' : 'Modo rankeado ACTIVADO'}</p>
+                    <p className="font-semibold text-cyan-300">{lang === 'en' ? 'Ranked mode ON' : 'Modo rankeado ACTIVADO'}</p>
                     <p className="text-slate-300 leading-relaxed">
                       {lang === 'en'
                         ? 'This game counts toward your ELO and the leaderboard. You need 5 ranked games to appear in the league.'
@@ -434,17 +434,28 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
         )}
 
         {onNewRandom && mode === 'random' && (
-          <button
-            type="button"
-            onClick={onNewRandom}
-            title={t('newRandom')}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5 text-slate-500 dark:text-slate-400 transition hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-300 ml-auto"
-          >
-            <span className="font-semibold text-slate-700 dark:text-slate-300">{lang === 'en' ? 'New image' : 'Nueva imagen'}</span>
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-          </button>
+          <div className="relative group/newimg ml-auto">
+            <button
+              type="button"
+              onClick={onNewRandom}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5 text-slate-500 dark:text-slate-400 transition hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-300"
+            >
+              <span className="font-semibold text-slate-700 dark:text-slate-300">{lang === 'en' ? 'New image' : 'Nueva imagen'}</span>
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+            <div className="pointer-events-none absolute bottom-full right-0 mb-2 hidden group-hover/newimg:block z-50 w-56">
+              <div className="rounded-xl bg-slate-900 px-3 py-2.5 text-xs text-white shadow-xl">
+                <p className="text-slate-300 leading-relaxed">
+                  {lang === 'en'
+                    ? 'Get a new random image from the library. Your current progress will be lost.'
+                    : 'Obtené una nueva imagen aleatoria de la biblioteca. Tu progreso actual se perderá.'}
+                </p>
+              </div>
+              <div className="mr-3 h-2 w-2 rotate-45 bg-slate-900 -mt-1 ml-auto" />
+            </div>
+          </div>
         )}
       </div>
 

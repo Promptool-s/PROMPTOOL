@@ -412,7 +412,7 @@ function App() {
           return
         }
 
-        let rows = data.map(normalizeImageData)
+        let rows = data.map(normalizeImageData).filter(r => r && r.url_image)
 
         if (mode === 'random') {
           const dailyId = [...rows].sort((a, b) =>
@@ -423,6 +423,10 @@ function App() {
         }
 
         if (cancelled) return
+        if (rows.length === 0) {
+          setImageStatus('empty')
+          return
+        }
 
         const selected = mode === 'daily'
           ? rows[0]
@@ -766,31 +770,7 @@ function App() {
     setPromptRevealed(true)
     setRevealPrompt(false)
     setSubmitted(false)
-    if (user && imageData?.id_imagen) {
-      supabase.from('intentos').insert([{
-        prompt_usuario: '[REVEALED]',
-        puntaje_similitud: 94,
-        id_imagen: imageData.id_imagen,
-        id_usuario: user.id,
-        fecha_hora: nowAR(),
-        modo: mode,
-        is_ranked: false,
-      }]).then(() => {})
-    } else if (!user && imageData?.id_imagen) {
-      // Guardar reveal para asignarlo al registrarse
-      try {
-        const existing = JSON.parse(sessionStorage.getItem('guestAttempts') || '[]')
-        existing.push({
-          prompt_usuario: '[REVEALED]',
-          puntaje_similitud: 94,
-          id_imagen: imageData.id_imagen,
-          fecha_hora: nowAR(),
-          modo: mode,
-          is_ranked: false,
-        })
-        sessionStorage.setItem('guestAttempts', JSON.stringify(existing))
-      } catch { /* silencioso */ }
-    }
+    // NO guardar intento cuando se revela el prompt - es solo para aprendizaje
   }
 
   // Cicla entre daily y random al hacer click en el badge de modo
@@ -803,7 +783,7 @@ function App() {
 
   const getAttemptDotClass = (i) => {
     const base = 'h-2 rounded-full transition-all duration-500'
-    if (i < imageAttempts) return base + ' bg-violet-500 flex-1'
+    if (i < imageAttempts) return base + ' bg-cyan-500 flex-1'
     return base + ' bg-slate-200 dark:bg-slate-700 flex-1'
   }
 
@@ -814,57 +794,69 @@ function App() {
     const last = attemptHistory[attemptHistory.length - 1]
     const prev = attemptHistory.length > 1 ? attemptHistory[attemptHistory.length - 2] : null
     const trend = prev ? last.score - prev.score : 0
-    const accentColor = '#7c3aed' // Violet-600 más oscuro
+    const accentColor = '#06b6d4' // Cyan-500 profesional
     const isDark = document.documentElement.classList.contains('dark')
 
     return (
-      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 pt-3 pb-2">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-            {lang === 'en' ? 'Your progress' : 'Tu progreso'}
+      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 pt-2 pb-1">
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-xs font-bold text-slate-700 dark:text-slate-200">
+            {lang === 'en' ? 'Progress' : 'Progreso'}
           </p>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {trend !== 0 && (
-              <span className={['text-xs font-bold', trend > 0 ? 'text-emerald-500' : 'text-rose-400'].join(' ')}>
-                {trend > 0 ? '▲ +' : '▼ '}{trend}pts
+              <span className={['text-xs font-bold', trend > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'].join(' ')}>
+                {trend > 0 ? '▲' : '▼'}{trend}
               </span>
             )}
-            <span className="text-[10px] text-slate-500 dark:text-slate-400">
-              {lang === 'en' ? 'Best ' : 'Mejor '}
-              <span className="font-bold text-slate-700 dark:text-slate-200">{best}%</span>
-            </span>
+            <div className="relative group/progress">
+              <span className="text-xs text-slate-600 dark:text-slate-300">
+                <span className="font-bold text-slate-900 dark:text-slate-100">{best}%</span>
+              </span>
+              
+              {/* Tooltip hover - aparece abajo y por encima de todo */}
+              <div className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 hidden group-hover/progress:block z-[200] w-48">
+                <div className="mx-auto w-2 h-2 rotate-45 bg-slate-800 dark:bg-slate-700 border-l border-t border-slate-700 dark:border-slate-600 -mb-1" />
+                <div className="rounded-lg bg-slate-800 dark:bg-slate-700 px-3 py-2 text-xs shadow-xl border border-slate-700 dark:border-slate-600">
+                  <p className="font-semibold text-slate-100 mb-1">Tu mejor score</p>
+                  <p className="text-slate-300 dark:text-slate-400 leading-relaxed">
+                    Tu mejor resultado en esta imagen.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-        <ResponsiveContainer width="100%" height={100}>
-          <AreaChart data={chartData} margin={{ top: 8, right: 4, left: -28, bottom: 0 }}>
+        <ResponsiveContainer width="100%" height={60}>
+          <AreaChart data={chartData} margin={{ top: 2, right: 2, left: 5, bottom: 0 }}>
             <defs>
               <linearGradient id="progressGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={accentColor} stopOpacity={0.3} />
-                <stop offset="95%" stopColor={accentColor} stopOpacity={0.05} />
+                <stop offset="5%" stopColor={accentColor} stopOpacity={0.4} />
+                <stop offset="95%" stopColor={accentColor} stopOpacity={0.08} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#334155' : '#e2e8f0'} vertical={false} />
-            <XAxis dataKey="n" tick={{ fontSize: 10, fill: isDark ? '#64748b' : '#64748b', fontWeight: 600 }} tickLine={false} axisLine={false}
-              tickFormatter={v => '#' + v} />
-            <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: isDark ? '#64748b' : '#64748b', fontWeight: 600 }} tickLine={false} axisLine={false}
-              tickFormatter={v => v + '%'} ticks={[0, 50, 100]} />
+            <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#475569' : '#cbd5e1'} vertical={false} />
+            <XAxis dataKey="n" tick={{ fontSize: 10, fill: isDark ? '#94a3b8' : '#64748b', fontWeight: 600 }} tickLine={false} axisLine={false}
+              tickFormatter={v => 'Intento #' + v} />
+            <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: isDark ? '#e2e8f0' : '#334155', fontWeight: 700 }} tickLine={false} axisLine={false}
+              tickFormatter={v => v + '%'} ticks={[0, 25, 50, 75, 100]} width={35} />
             <Tooltip
               content={({ active, payload }) => {
                 if (!active || !payload?.length) return null
                 const d = payload[0].payload
                 const c = d.score >= 70 ? '#10b981' : d.score >= 50 ? '#f59e0b' : '#ef4444'
                 return (
-                  <div className="rounded-xl border border-slate-200 bg-white dark:bg-slate-800 dark:border-slate-700 px-3 py-2 shadow-lg text-xs space-y-1 min-w-[90px]">
-                    <p className="text-slate-500 dark:text-slate-400 font-medium">{lang === 'en' ? 'Attempt' : 'Intento'} #{d.n}</p>
+                  <div className="rounded-xl border border-slate-200 bg-white dark:bg-slate-800 dark:border-slate-700 px-2.5 py-1.5 shadow-lg text-xs">
+                    <p className="text-slate-500 dark:text-slate-400 font-medium">#{d.n}</p>
                     <p className="text-base font-bold" style={{ color: c }}>{d.score}%</p>
                   </div>
                 )
               }}
             />
-            <Area type="monotone" dataKey="score" stroke={accentColor} strokeWidth={2.5}
+            <Area type="monotone" dataKey="score" stroke={accentColor} strokeWidth={2}
               fill="url(#progressGrad)"
-              dot={{ r: 3.5, fill: accentColor, strokeWidth: 0 }}
-              activeDot={{ r: 5, fill: accentColor, stroke: isDark ? '#1e293b' : '#fff', strokeWidth: 2 }}
+              dot={{ r: 3, fill: accentColor, strokeWidth: 0 }}
+              activeDot={{ r: 4, fill: accentColor, stroke: isDark ? '#1e293b' : '#fff', strokeWidth: 2 }}
               isAnimationActive animationDuration={800} animationEasing="ease-out"
             />
           </AreaChart>
@@ -874,28 +866,9 @@ function App() {
   })() : null
 
   // Panel de análisis completo post-reveal
-  const scColor = (s) => s >= 70 ? '#10b981' : s >= 50 ? '#f59e0b' : '#ef4444'
+  // Panel de análisis completo post-reveal - ELIMINADO, solo se muestra en la imagen
   const revealedAnalysisPanel = promptRevealed && imageData?.prompt_original ? (
     <div className="space-y-3 animate-in fade-in duration-300">
-      {/* Header */}
-      <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 px-4 py-4">
-        <div className="flex items-start gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400">
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-            </svg>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-widest text-emerald-700 dark:text-emerald-400 mb-1">
-              {lang === 'en' ? 'Original prompt' : 'Prompt original'}
-            </p>
-            <p className="text-sm text-emerald-900 dark:text-emerald-200 leading-relaxed italic">
-              &ldquo;{imageData.prompt_original}&rdquo;
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Gráfico de progresión */}
       {progressChart}
 
@@ -1030,7 +1003,7 @@ function App() {
       {/* Tooltip hover */}
       <div className="pointer-events-none absolute bottom-full left-0 mb-2 hidden group-hover/attempts:block z-50 w-64">
         <div className="rounded-xl bg-slate-900 px-3 py-2.5 text-xs text-white shadow-xl space-y-1.5">
-          <p className="font-semibold text-violet-300">
+          <p className="font-semibold text-cyan-300">
             {lang === 'en' ? 'How the hint system works' : 'Cómo funciona el sistema de pistas'}
           </p>
           <p className="text-slate-300 leading-relaxed">
@@ -1081,7 +1054,7 @@ function App() {
       <div className="min-h-screen bg-slate-950 text-white">
         <Suspense fallback={
           <div className="min-h-screen flex items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-200 border-t-violet-600" />
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-cyan-200 border-t-cyan-600" />
           </div>
         }>
           <LandingPage onOpenAuth={handleOpenAuth} onTryApp={handleTryApp} />
@@ -1102,7 +1075,7 @@ function App() {
   if (user && userTypeLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-900">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-violet-600" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-cyan-600" />
       </div>
     )
   }
@@ -1111,7 +1084,7 @@ function App() {
     return (
       <Suspense fallback={
         <div className="min-h-screen flex items-center justify-center bg-slate-50">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-violet-600" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-cyan-600" />
         </div>
       }>
         <EnterprisePanel user={user} />
@@ -1142,7 +1115,7 @@ function App() {
                     inviteState === 'joined' ? 'border-emerald-200 bg-emerald-50' :
                     inviteState === 'already' ? 'border-slate-200 bg-slate-50' :
                     inviteState === 'error' ? 'border-rose-200 bg-rose-50' :
-                    'border-violet-200 bg-violet-50'
+                    'border-cyan-200 bg-cyan-50'
                   }`}>
                     {inviteCompany?.avatar_url && (
                       <img src={proxyImg(inviteCompany.avatar_url)} alt="" className="h-8 w-8 rounded-lg object-cover shrink-0" />
@@ -1151,7 +1124,7 @@ function App() {
                       inviteState === 'joined' ? 'text-emerald-800' :
                       inviteState === 'already' ? 'text-slate-600' :
                       inviteState === 'error' ? 'text-rose-700' :
-                      'text-violet-800'
+                      'text-cyan-800'
                     }`}>
                       {inviteState === 'loading' && (lang === 'en' ? 'Joining company...' : 'Uniéndote a la empresa...')}
                       {inviteState === 'joined' && `✓ ${lang === 'en' ? `You joined ${inviteCompany?.company_name || 'the company'}!` : `¡Te uniste a ${inviteCompany?.company_name || 'la empresa'}!`}`}
@@ -1163,18 +1136,18 @@ function App() {
 
                 {/* Banner de desafío de empresa */}
                 {mode === 'challenge' && challengeCompany && (
-                  <div className="flex items-center gap-3 rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3">
+                  <div className="flex items-center gap-3 rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3">
                     <div className="relative shrink-0">
-                      <div className="h-9 w-9 rounded-xl overflow-hidden bg-violet-200 flex items-center justify-center border border-violet-300">
+                      <div className="h-9 w-9 rounded-xl overflow-hidden bg-cyan-200 flex items-center justify-center border border-cyan-300">
                         {challengeCompany.avatar_url
                           ? <img src={proxyImg(challengeCompany.avatar_url)} alt="" className="h-full w-full object-cover" />
-                          : <span className="text-xs font-bold text-violet-700">
+                          : <span className="text-xs font-bold text-cyan-700">
                               {(challengeCompany.company_name || challengeCompany.nombre_display || 'E').substring(0,2).toUpperCase()}
                             </span>
                         }
                       </div>
                       {challengeCompany.verified && (
-                        <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-violet-600 ring-1 ring-white">
+                        <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-cyan-600 ring-1 ring-white">
                           <svg className="h-2 w-2 text-white" viewBox="0 0 12 12" fill="currentColor">
                             <path d="M10.28 2.28L4.5 8.06 1.72 5.28a1 1 0 00-1.44 1.44l3.5 3.5a1 1 0 001.44 0l6.5-6.5a1 1 0 00-1.44-1.44z"/>
                           </svg>
@@ -1182,24 +1155,24 @@ function App() {
                       )}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold text-violet-800">
+                      <p className="text-xs font-semibold text-cyan-800">
                         {lang === 'en' ? 'Company challenge' : 'Desafío de empresa'}
                       </p>
-                      <p className="text-sm font-bold text-violet-900 truncate">
+                      <p className="text-sm font-bold text-cyan-900 truncate">
                         {challengeCompany.company_name || challengeCompany.nombre_display}
                       </p>
                     </div>
                     <div className="ml-auto shrink-0">
-                      <span className="rounded-full bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="rounded-full bg-cyan-600 px-2.5 py-1 text-[11px] font-semibold text-white">
                         {imageData?.image_diff || 'Medium'}
                       </span>
                     </div>
                   </div>
                 )}
                 {mode === 'challenge' && !challengeCompany && (
-                  <div className="flex items-center gap-2 rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3">
-                    <span className="text-violet-600 text-sm">🎯</span>
-                    <p className="text-sm font-semibold text-violet-800">
+                  <div className="flex items-center gap-2 rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3">
+                    <span className="text-cyan-600 text-sm">🎯</span>
+                    <p className="text-sm font-semibold text-cyan-800">
                       {t('companyChallenge') || 'Desafío personalizado de tu empresa'}
                     </p>
                   </div>
@@ -1263,6 +1236,7 @@ function App() {
                           explanation={aiExplanation}
                           suggestions={suggestions}
                           difficulty={imageData?.image_diff ?? difficulty}
+                          strengths={strengths}
                           improvements={improvements}
                           timePenaltyMessage={timePenaltyMessage}
                           recommendedGuideIds={recommendedGuideIds}
@@ -1287,6 +1261,7 @@ function App() {
                   data={imageData ?? {}}
                   imageStatus={imageStatus}
                   onPreviewChange={setImagePreviewOpen}
+                  revealedPrompt={promptRevealed ? imageData?.prompt_original : null}
                 />
                 {/* Overlay imagen vencida */}
                 {submitted && scorePercent > 93 && (
@@ -1339,7 +1314,7 @@ function App() {
                 </svg>
               </div>
               <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                {lang === 'en' ? '⚠️ Warning: Final decision' : '⚠️ Advertencia: Decisión final'}
+                {lang === 'en' ? 'Warning: Final decision' : 'Advertencia: Decisión final'}
               </h3>
               <p className="mt-2 text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
                 {lang === 'en'
@@ -1388,7 +1363,7 @@ function App() {
               <button
                 type="button"
                 onClick={() => setRevealPrompt(false)}
-                className="w-full rounded-xl border-2 border-violet-500 bg-violet-500 hover:bg-violet-600 px-4 py-3 text-sm font-semibold text-white transition flex items-center justify-center gap-2"
+                className="w-full rounded-xl border-2 border-cyan-500 bg-cyan-500 hover:bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition flex items-center justify-center gap-2"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
