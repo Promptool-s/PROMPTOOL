@@ -509,7 +509,7 @@ const InteractiveDemo = ({ dark, lang }) => {
     if (!isVisible) return
     
     if (step === 0) {
-      const timer = setTimeout(() => setStep(1), 2500) // 2.5 segundos de pausa inicial (reducido de 3.5)
+      const timer = setTimeout(() => setStep(1), 1000)
       return () => clearTimeout(timer)
     }
     
@@ -718,7 +718,7 @@ const InteractiveDemo = ({ dark, lang }) => {
 // ── Main ───────────────────────────────────────────────────────────────────
 const LandingPage = ({ onOpenAuth, onTryApp }) => {
   const { theme } = useTheme()
-  const dark = theme === 'dark'
+  const dark = false // La landing siempre en modo claro
   const [lang] = useState(detectLang)
   const [currentSection, setCurrentSection] = useState(0)
   const containerRef = useRef(null)

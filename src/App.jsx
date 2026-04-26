@@ -5,6 +5,7 @@ import Footer from './components/Footer'
 import ImageCard from './components/ImageCard'
 import PromptInput from './components/PromptInput'
 import ResultPanel from './components/ResultPanel'
+import SplashScreen from './components/SplashScreen'
 import { comparePrompts } from './services/geminiService'
 import { analyzePlagiarism, checkSuspension } from './services/plagiarismService'
 import { calculateElo } from './services/eloService'
@@ -131,6 +132,7 @@ function App() {
   const { user, signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth()
   const { t, lang } = useLang()
   const [showLanding, setShowLanding] = useState(true)
+  const [showSplash, setShowSplash] = useState(true)
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const [userType, setUserType] = useState(null)
   const [userTypeLoading, setUserTypeLoading] = useState(false)
@@ -1052,6 +1054,7 @@ function App() {
   if (!user && showLanding) {
     return (
       <div className="min-h-screen bg-slate-950 text-white">
+        {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
         <Suspense fallback={
           <div className="min-h-screen flex items-center justify-center">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-cyan-200 border-t-cyan-600" />
