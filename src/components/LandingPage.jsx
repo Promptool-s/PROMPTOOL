@@ -720,17 +720,86 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
   const { theme } = useTheme()
   const dark = theme === 'dark'
   const [lang] = useState(detectLang)
-  const [showScrollIndicator, setShowScrollIndicator] = useState(true)
+  const [currentSection, setCurrentSection] = useState(0)
+  const containerRef = useRef(null)
+  const sectionRefs = useRef([])
+  const isScrolling = useRef(false)
+  const currentIdx = useRef(0)
   const c = copy[lang]
 
-  // Ocultar indicador de scroll cuando el usuario hace scroll
-  useEffect(() => {
-    const handleScroll = () => {
-      setShowScrollIndicator(window.scrollY < 100)
+  const TOTAL_SECTIONS = 9
+
+  const easeInOutCubic = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+
+  const animateScrollTo = (targetIdx) => {
+    const container = containerRef.current
+    if (!container || isScrolling.current) return
+    const from = container.scrollTop
+    const to = targetIdx * container.clientHeight
+    if (Math.abs(from - to) < 2) return
+    isScrolling.current = true
+    currentIdx.current = targetIdx
+    setCurrentSection(targetIdx)
+    const duration = 750
+    const start = performance.now()
+    const step = (now) => {
+      const elapsed = now - start
+      const progress = Math.min(elapsed / duration, 1)
+      container.scrollTop = from + (to - from) * easeInOutCubic(progress)
+      if (progress < 1) {
+        requestAnimationFrame(step)
+      } else {
+        container.scrollTop = to
+        isScrolling.current = false
+      }
     }
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
+    requestAnimationFrame(step)
+  }
+
+  // Wheel: una sección por evento
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    let wheelTimeout = null
+    const onWheel = (e) => {
+      e.preventDefault()
+      if (isScrolling.current) return
+      clearTimeout(wheelTimeout)
+      wheelTimeout = setTimeout(() => {
+        const next = e.deltaY > 0
+          ? Math.min(currentIdx.current + 1, TOTAL_SECTIONS - 1)
+          : Math.max(currentIdx.current - 1, 0)
+        animateScrollTo(next)
+      }, 30)
+    }
+    container.addEventListener('wheel', onWheel, { passive: false })
+    return () => { container.removeEventListener('wheel', onWheel); clearTimeout(wheelTimeout) }
   }, [])
+
+  // Touch: swipe vertical
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    let touchStartY = 0
+    const onTouchStart = (e) => { touchStartY = e.touches[0].clientY }
+    const onTouchEnd = (e) => {
+      if (isScrolling.current) return
+      const delta = touchStartY - e.changedTouches[0].clientY
+      if (Math.abs(delta) < 40) return
+      const next = delta > 0
+        ? Math.min(currentIdx.current + 1, TOTAL_SECTIONS - 1)
+        : Math.max(currentIdx.current - 1, 0)
+      animateScrollTo(next)
+    }
+    container.addEventListener('touchstart', onTouchStart, { passive: true })
+    container.addEventListener('touchend', onTouchEnd, { passive: true })
+    return () => {
+      container.removeEventListener('touchstart', onTouchStart)
+      container.removeEventListener('touchend', onTouchEnd)
+    }
+  }, [])
+
+  const scrollTo = (i) => animateScrollTo(i)
 
   const base = dark ? 'bg-slate-900 text-white' : 'bg-gray-50 text-slate-900'
   const card = dark ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'
@@ -738,109 +807,121 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
   const subtle = dark ? 'text-slate-500' : 'text-slate-500'
 
   return (
-    <div className={base}>
-
-      {/* ── HERO ── */}
-      <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col justify-center px-6 py-20 lg:px-8">
-        <div className="grid items-center gap-16 lg:grid-cols-2">
-          <div className="space-y-8">
-            <div className="space-y-6">
-              <h1 className="text-5xl font-black leading-tight tracking-tight sm:text-6xl lg:text-7xl">
-                {c.h1a}{' '}<span className="text-cyan-500">{c.h1b}</span>
-              </h1>
-              <p className={`max-w-md text-lg leading-relaxed ${muted}`}>{c.sub}</p>
-            </div>
-            <div className="flex flex-wrap gap-4">
-              <button type="button" onClick={onTryApp} className="inline-flex items-center justify-center rounded-lg bg-cyan-600 px-8 py-3.5 text-sm font-semibold text-white hover:bg-cyan-700 transition">
-                {c.cta1}
-              </button>
-              <button type="button" onClick={onOpenAuth} className={`inline-flex items-center justify-center rounded-lg border px-8 py-3.5 text-sm font-semibold transition ${dark ? 'border-slate-700 text-white hover:bg-slate-800' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`}>
-                {c.cta2}
-              </button>
-            </div>
-          </div>
-          <div className={`relative overflow-hidden rounded-2xl border p-6 lg:h-[520px] ${card}`}>
-            <div className="relative h-full">
-              <CommunitySlideshow dark={dark} lang={lang} />
-            </div>
-          </div>
-        </div>
-        
-        {/* Scroll indicator - solo chevron, más grande y centrado */}
-        <div 
-          className={`fixed bottom-8 left-1/2 -translate-x-1/2 animate-bounce-subtle transition-opacity duration-500 ${
-            showScrollIndicator ? 'opacity-100' : 'opacity-0 pointer-events-none'
-          }`}
-        >
-          <svg 
-            className={`h-8 w-8 ${dark ? 'text-slate-600' : 'text-slate-400'}`}
-            fill="none" 
-            viewBox="0 0 24 24" 
-            stroke="currentColor" 
-            strokeWidth={2}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
+    <div className="fixed inset-0 overflow-hidden">
+      {/* Dots de navegación lateral */}
+      <div className="fixed right-5 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-2.5">
+        {Array.from({ length: TOTAL_SECTIONS }).map((_, i) => (
+          <button
+            key={i}
+            onClick={() => scrollTo(i)}
+            aria-label={`Sección ${i + 1}`}
+            className={`rounded-full transition-all duration-300 ${
+              i === currentSection
+                ? 'h-6 w-2 bg-cyan-500'
+                : `h-2 w-2 ${dark ? 'bg-slate-600 hover:bg-slate-400' : 'bg-slate-300 hover:bg-slate-500'}`
+            }`}
+          />
+        ))}
       </div>
 
-      {/* ── HOW IT WORKS - INTERACTIVE DEMO ── */}
-      <div className="px-6 py-section lg:px-8">
-        <div className="mx-auto max-w-6xl">
-          <Reveal>
-            <div className="text-center mb-16">
+      {/* Contenedor — scroll controlado por JS */}
+      <div
+        ref={containerRef}
+        className={`h-full overflow-y-scroll ${base}`}
+        style={{ overscrollBehavior: 'none' }}
+      >
+
+        {/* ── HERO ── */}
+        <section style={{ minHeight: '100vh' }}
+          className="relative flex items-center px-6 py-20 lg:px-8">
+          <div className="mx-auto w-full max-w-6xl">
+            <div className="grid items-center gap-16 lg:grid-cols-2">
+              <div className="space-y-8">
+                <div className="space-y-6">
+                  <h1 className="text-5xl font-black leading-tight tracking-tight sm:text-6xl lg:text-7xl">
+                    {c.h1a}{' '}<span className="text-cyan-500">{c.h1b}</span>
+                  </h1>
+                  <p className={`max-w-md text-lg leading-relaxed ${muted}`}>{c.sub}</p>
+                </div>
+                <div className="flex flex-wrap gap-4">
+                  <button type="button" onClick={onTryApp} className="inline-flex items-center justify-center rounded-lg bg-cyan-600 px-8 py-3.5 text-sm font-semibold text-white hover:bg-cyan-700 transition">
+                    {c.cta1}
+                  </button>
+                  <button type="button" onClick={onOpenAuth} className={`inline-flex items-center justify-center rounded-lg border px-8 py-3.5 text-sm font-semibold transition ${dark ? 'border-slate-700 text-white hover:bg-slate-800' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`}>
+                    {c.cta2}
+                  </button>
+                </div>
+              </div>
+              <div className={`relative overflow-hidden rounded-2xl border p-6 lg:h-[520px] ${card}`}>
+                <div className="relative h-full">
+                  <CommunitySlideshow dark={dark} lang={lang} />
+                </div>
+              </div>
+            </div>
+            {/* Flecha hacia abajo */}
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
+              <button onClick={() => scrollTo(1)} className={`${dark ? 'text-slate-600 hover:text-slate-400' : 'text-slate-300 hover:text-slate-500'} transition`}>
+                <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* ── HOW IT WORKS ── */}
+        <section style={{ minHeight: '100vh' }}
+          className="flex items-center px-6 py-20 lg:px-8">
+          <div className="mx-auto w-full max-w-6xl">
+            <div className="text-center mb-12">
               <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.howTag}</p>
-              <h2 className="text-4xl font-bold mb-6">{c.howTitle}</h2>
+              <h2 className="text-4xl font-bold mb-4">{c.howTitle}</h2>
               <p className={`text-lg leading-relaxed max-w-2xl mx-auto ${muted}`}>{c.howDesc}</p>
             </div>
-          </Reveal>
-          <Reveal delay={100}>
             <InteractiveDemo dark={dark} lang={lang} />
-          </Reveal>
-        </div>
-      </div>
+          </div>
+        </section>
 
-      {/* ── PROGRESS ── */}
-      <div className="px-6 py-section lg:px-8">
-        <div className="mx-auto max-w-6xl grid gap-20 lg:grid-cols-2 items-center">
-          <Reveal>
-            <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.progressTag}</p>
-            <h2 className="text-4xl font-bold mb-6">{c.progressTitle}</h2>
-            <p className={`text-lg leading-relaxed mb-10 ${muted}`}>{c.progressDesc}</p>
-            <AnimatedStats stats={[
-              { value: '74%', label: c.statsLabels[0], color: 'text-emerald-500', desc: lang === 'en' ? 'Average similarity across all attempts' : 'Similitud promedio en todos los intentos' },
-              { value: '12d', label: c.statsLabels[1], color: 'text-amber-500', desc: lang === 'en' ? 'Consecutive days playing' : 'Días consecutivos jugando' },
-              { value: '96%', label: c.statsLabels[2], color: 'text-cyan-500', desc: lang === 'en' ? 'Your highest score achieved' : 'Tu puntaje más alto logrado' },
-              { value: '#38', label: c.statsLabels[3], color: 'text-sky-500', desc: lang === 'en' ? 'Your position in the global ranking' : 'Tu posición en el ranking global' }
-            ]} dark={dark} />
-          </Reveal>
-          <Reveal delay={120}>
+        {/* ── PROGRESS ── */}
+        <section style={{ minHeight: '100vh' }}
+          className="flex items-center px-6 py-20 lg:px-8">
+          <div className="mx-auto w-full max-w-6xl grid gap-20 lg:grid-cols-2 items-center">
+            <div>
+              <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.progressTag}</p>
+              <h2 className="text-4xl font-bold mb-6">{c.progressTitle}</h2>
+              <p className={`text-lg leading-relaxed mb-10 ${muted}`}>{c.progressDesc}</p>
+              <AnimatedStats stats={[
+                { value: '74%', label: c.statsLabels[0], color: 'text-emerald-500', desc: lang === 'en' ? 'Average similarity across all attempts' : 'Similitud promedio en todos los intentos' },
+                { value: '12d', label: c.statsLabels[1], color: 'text-amber-500', desc: lang === 'en' ? 'Consecutive days playing' : 'Días consecutivos jugando' },
+                { value: '96%', label: c.statsLabels[2], color: 'text-cyan-500', desc: lang === 'en' ? 'Your highest score achieved' : 'Tu puntaje más alto logrado' },
+                { value: '#38', label: c.statsLabels[3], color: 'text-sky-500', desc: lang === 'en' ? 'Your position in the global ranking' : 'Tu posición en el ranking global' }
+              ]} dark={dark} />
+            </div>
             <div className={`rounded-2xl border p-8 ${card}`}>
               <p className={`text-xs font-semibold uppercase tracking-widest mb-2 ${subtle}`}>{c.chartTitle}</p>
               <p className="text-3xl font-bold mb-6">{c.chartSub}</p>
               <StatsChart dark={dark} />
             </div>
-          </Reveal>
-        </div>
-      </div>
+          </div>
+        </section>
 
-      {/* ── COMMUNITY ── */}
-      <div className="px-6 py-section lg:px-8">
-        <div className="mx-auto max-w-6xl grid gap-20 lg:grid-cols-2 items-center">
-          <Reveal>
-            <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.communityTag}</p>
-            <h2 className="text-4xl font-bold mb-6">{c.communityTitle}</h2>
-            <p className={`text-lg leading-relaxed mb-8 ${muted}`}>{c.communityDesc}</p>
-            <ul className="space-y-4">
-              {c.communityItems.map(item => (
-                <li key={item} className="flex items-center gap-3 text-base leading-relaxed">
-                  <span className="h-2 w-2 rounded-full bg-cyan-500 shrink-0" />
-                  <span className={dark ? 'text-slate-300' : 'text-slate-600'}>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </Reveal>
-          <Reveal delay={100}>
+        {/* ── COMMUNITY ── */}
+        <section style={{ minHeight: '100vh' }}
+          className="flex items-center px-6 py-20 lg:px-8">
+          <div className="mx-auto w-full max-w-6xl grid gap-20 lg:grid-cols-2 items-center">
+            <div>
+              <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.communityTag}</p>
+              <h2 className="text-4xl font-bold mb-6">{c.communityTitle}</h2>
+              <p className={`text-lg leading-relaxed mb-8 ${muted}`}>{c.communityDesc}</p>
+              <ul className="space-y-4">
+                {c.communityItems.map(item => (
+                  <li key={item} className="flex items-center gap-3 text-base leading-relaxed">
+                    <span className="h-2 w-2 rounded-full bg-cyan-500 shrink-0" />
+                    <span className={dark ? 'text-slate-300' : 'text-slate-600'}>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               {[['alex_p', '94%', 1420, 1], ['marta_r', '88%', 1380, 2], ['juandev', '83%', 1310, 3], ['sofia_m', '79%', 1270, 4]].map(([name, score, elo, rank]) => (
                 <div key={name} className={`rounded-xl border p-5 flex items-center gap-3 ${card}`}>
@@ -852,14 +933,13 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
                 </div>
               ))}
             </div>
-          </Reveal>
-        </div>
-      </div>
+          </div>
+        </section>
 
-      {/* ── TOURNAMENTS ── */}
-      <div className="px-6 py-section lg:px-8">
-        <div className="mx-auto max-w-6xl grid gap-20 lg:grid-cols-2 items-center">
-          <Reveal>
+        {/* ── TOURNAMENTS ── */}
+        <section style={{ minHeight: '100vh' }}
+          className="flex items-center px-6 py-20 lg:px-8">
+          <div className="mx-auto w-full max-w-6xl grid gap-20 lg:grid-cols-2 items-center">
             <div className={`rounded-2xl border p-8 space-y-5 ${card}`}>
               <div className="flex items-center justify-between">
                 <span className="rounded-full bg-cyan-500/15 text-cyan-500 text-xs font-semibold px-3 py-1">{c.tourLive}</span>
@@ -876,46 +956,45 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
                 <span className={`text-xs ${subtle}`}>+48 {c.tourParticipants}</span>
               </div>
             </div>
-          </Reveal>
-          <Reveal delay={100}>
-            <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.tourTag}</p>
-            <h2 className="text-4xl font-bold mb-6">{c.tourTitle}</h2>
-            <p className={`text-lg leading-relaxed mb-8 ${muted}`}>{c.tourDesc}</p>
-            <ul className="space-y-4">
-              {c.tourItems.map(item => (
-                <li key={item} className="flex items-center gap-3 text-base leading-relaxed">
-                  <span className="h-2 w-2 rounded-full bg-cyan-500 shrink-0" />
-                  <span className={dark ? 'text-slate-300' : 'text-slate-600'}>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </Reveal>
-        </div>
-      </div>
+            <div>
+              <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.tourTag}</p>
+              <h2 className="text-4xl font-bold mb-6">{c.tourTitle}</h2>
+              <p className={`text-lg leading-relaxed mb-8 ${muted}`}>{c.tourDesc}</p>
+              <ul className="space-y-4">
+                {c.tourItems.map(item => (
+                  <li key={item} className="flex items-center gap-3 text-base leading-relaxed">
+                    <span className="h-2 w-2 rounded-full bg-cyan-500 shrink-0" />
+                    <span className={dark ? 'text-slate-300' : 'text-slate-600'}>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
 
-      {/* ── GUIDES ── */}
-      <div className="px-6 py-section lg:px-8">
-        <div className="mx-auto max-w-6xl grid gap-16 lg:grid-cols-2 items-center">
-          <Reveal>
-            <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.guidesTag}</p>
-            <h2 className="text-3xl font-bold mb-4">{c.guidesTitle}</h2>
-            <p className={`text-base leading-7 mb-6 ${muted}`}>{c.guidesDesc}</p>
-            <ul className="space-y-3 mb-6">
-              {c.guidesItems.map(item => (
-                <li key={item} className="flex items-center gap-3 text-sm">
-                  <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 shrink-0" />
-                  <span className={dark ? 'text-slate-300' : 'text-slate-600'}>{item}</span>
-                </li>
-              ))}
-            </ul>
-            <a href="/guides" className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-500 hover:text-cyan-400 transition">
-              {c.guidesLink}
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-            </a>
-          </Reveal>
-          <Reveal delay={100}>
+        {/* ── GUIDES ── */}
+        <section style={{ minHeight: '100vh' }}
+          className="flex items-center px-6 py-20 lg:px-8">
+          <div className="mx-auto w-full max-w-6xl grid gap-16 lg:grid-cols-2 items-center">
+            <div>
+              <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.guidesTag}</p>
+              <h2 className="text-3xl font-bold mb-4">{c.guidesTitle}</h2>
+              <p className={`text-base leading-7 mb-6 ${muted}`}>{c.guidesDesc}</p>
+              <ul className="space-y-3 mb-6">
+                {c.guidesItems.map(item => (
+                  <li key={item} className="flex items-center gap-3 text-sm">
+                    <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 shrink-0" />
+                    <span className={dark ? 'text-slate-300' : 'text-slate-600'}>{item}</span>
+                  </li>
+                ))}
+              </ul>
+              <a href="/guides" className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-500 hover:text-cyan-400 transition">
+                {c.guidesLink}
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+              </a>
+            </div>
             <div className="space-y-3">
-              {c.guides.map(({ t, tag, time }, i) => (
+              {c.guides.map(({ t, tag, time }) => (
                 <div key={t} className={`rounded-xl border p-4 flex items-center gap-4 ${card}`}>
                   <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${dark ? 'bg-cyan-500/15' : 'bg-cyan-100'}`}>
                     <svg className="h-5 w-5 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -927,66 +1006,55 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className={`text-xs ${subtle}`}>{tag}</span>
                       <span className={`text-xs ${subtle}`}>·</span>
-                      <div className="flex items-center gap-1">
-                        <img 
-                          src="https://media.tenor.com/nEoz_3Q6_1YAAAAj/hourglass-time.gif" 
-                          alt="" 
-                          className={`h-3 w-3 ${dark ? 'brightness-75' : 'brightness-100'}`}
-                        />
-                        <span className={`text-xs ${subtle}`}>{time}</span>
-                      </div>
+                      <span className={`text-xs ${subtle}`}>{time}</span>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-          </Reveal>
-        </div>
-      </div>
+          </div>
+        </section>
 
-      {/* ── ORGANIZATIONS ── */}
-      <div className="px-6 py-24 lg:px-8">
-        <div className="mx-auto max-w-6xl">
-          <Reveal>
-            <div className="max-w-2xl mb-14">
+        {/* ── ORGANIZATIONS ── */}
+        <section style={{ minHeight: '100vh' }}
+          className="flex items-center px-6 py-20 lg:px-8">
+          <div className="mx-auto w-full max-w-6xl">
+            <div className="max-w-2xl mb-12">
               <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.orgTag}</p>
               <h2 className="text-3xl font-bold mb-4">{c.orgTitle}</h2>
               <p className={`text-base leading-7 ${muted}`}>{c.orgDesc}</p>
             </div>
-          </Reveal>
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {c.orgCards.map(({ icon, t, d }, i) => (
-              <Reveal key={t} delay={i * 60}>
-                <div className={`rounded-2xl border p-6 h-full ${card}`}>
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {c.orgCards.map(({ icon, t, d }) => (
+                <div key={t} className={`rounded-2xl border p-6 h-full ${card}`}>
                   <div className={`h-10 w-10 rounded-xl flex items-center justify-center mb-4 ${dark ? 'bg-cyan-500/15' : 'bg-cyan-100'}`}>
                     <OrgIcon type={icon} dark={dark} />
                   </div>
                   <p className="font-semibold mb-2">{t}</p>
                   <p className={`text-sm leading-6 ${muted}`}>{d}</p>
                 </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ── PROFILES ── */}
-      <div className="px-6 py-24 lg:px-8">
-        <div className="mx-auto max-w-6xl grid gap-16 lg:grid-cols-2 items-center">
-          <Reveal>
-            <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.profileTag}</p>
-            <h2 className="text-3xl font-bold mb-4">{c.profileTitle}</h2>
-            <p className={`text-base leading-7 mb-6 ${muted}`}>{c.profileDesc}</p>
-            <ul className="space-y-3">
-              {c.profileItems.map(item => (
-                <li key={item} className="flex items-center gap-3 text-sm">
-                  <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 shrink-0" />
-                  <span className={dark ? 'text-slate-300' : 'text-slate-600'}>{item}</span>
-                </li>
               ))}
-            </ul>
-          </Reveal>
-          <Reveal delay={100}>
+            </div>
+          </div>
+        </section>
+
+        {/* ── PROFILES ── */}
+        <section style={{ minHeight: '100vh' }}
+          className="flex items-center px-6 py-20 lg:px-8">
+          <div className="mx-auto w-full max-w-6xl grid gap-16 lg:grid-cols-2 items-center">
+            <div>
+              <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.profileTag}</p>
+              <h2 className="text-3xl font-bold mb-4">{c.profileTitle}</h2>
+              <p className={`text-base leading-7 mb-6 ${muted}`}>{c.profileDesc}</p>
+              <ul className="space-y-3">
+                {c.profileItems.map(item => (
+                  <li key={item} className="flex items-center gap-3 text-sm">
+                    <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 shrink-0" />
+                    <span className={dark ? 'text-slate-300' : 'text-slate-600'}>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
             <div className={`rounded-2xl border p-6 ${card}`}>
               <div className="flex items-center gap-4 mb-6">
                 <div className="h-12 w-12 rounded-full bg-cyan-500/20 flex items-center justify-center text-base font-bold text-cyan-500">AP</div>
@@ -994,11 +1062,7 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
                   <p className="font-bold dark:text-slate-100">alex_prompter</p>
                   <p className={`text-xs ${subtle}`}>{c.profileMember}</p>
                   <div className="flex gap-2 mt-1.5">
-                    {[
-                      { label: '#1', color: 'text-amber-400 bg-amber-400/10' },
-                      { label: '14d', color: 'text-orange-400 bg-orange-400/10' },
-                      { label: 'ELO', color: 'text-cyan-400 bg-cyan-400/10' },
-                    ].map(({ label, color }) => (
+                    {[{ label: '#1', color: 'text-amber-400 bg-amber-400/10' }, { label: '14d', color: 'text-orange-400 bg-orange-400/10' }, { label: 'ELO', color: 'text-cyan-400 bg-cyan-400/10' }].map(({ label, color }) => (
                       <span key={label} className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${color}`}>{label}</span>
                     ))}
                   </div>
@@ -1014,48 +1078,32 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
               </div>
               <StatsChart dark={dark} />
             </div>
-          </Reveal>
-        </div>
-      </div>
+          </div>
+        </section>
 
-      {/* ── CTA ── */}
-      <div className="px-6 py-24 lg:px-8">
-        <div className="mx-auto max-w-4xl">
-          <Reveal>
-            <div className="text-center space-y-6">
-              <h2 className="text-4xl sm:text-5xl font-black tracking-tight">
-                {c.ctaTitle}
-              </h2>
-              <p className={`text-lg max-w-md mx-auto ${muted}`}>
-                {c.ctaDesc}
-              </p>
-              <div className="flex flex-wrap gap-4 justify-center pt-4">
-                <button 
-                  type="button" 
-                  onClick={onTryApp} 
-                  className="inline-flex items-center justify-center rounded-lg bg-cyan-600 px-8 py-3.5 text-base font-semibold text-white hover:bg-cyan-700 transition"
-                >
-                  {c.ctaPlay}
-                </button>
-                <button 
-                  type="button" 
-                  onClick={onOpenAuth} 
-                  className={`inline-flex items-center justify-center rounded-lg border-2 px-8 py-3.5 text-base font-semibold transition ${
-                    dark 
-                      ? 'border-slate-700 text-white hover:bg-slate-800' 
-                      : 'border-slate-300 text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  {c.ctaSignup}
-                </button>
-              </div>
+        {/* ── CTA ── */}
+        <section style={{ minHeight: '100vh' }}
+          className="flex items-center justify-center px-6 py-20 lg:px-8">
+          <div className="mx-auto max-w-4xl text-center space-y-6">
+            <h2 className="text-4xl sm:text-5xl font-black tracking-tight">{c.ctaTitle}</h2>
+            <p className={`text-lg max-w-md mx-auto ${muted}`}>{c.ctaDesc}</p>
+            <div className="flex flex-wrap gap-4 justify-center pt-4">
+              <button type="button" onClick={onTryApp}
+                className="inline-flex items-center justify-center rounded-lg bg-cyan-600 px-8 py-3.5 text-base font-semibold text-white hover:bg-cyan-700 transition">
+                {c.ctaPlay}
+              </button>
+              <button type="button" onClick={onOpenAuth}
+                className={`inline-flex items-center justify-center rounded-lg border-2 px-8 py-3.5 text-base font-semibold transition ${dark ? 'border-slate-700 text-white hover:bg-slate-800' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`}>
+                {c.ctaSignup}
+              </button>
             </div>
-          </Reveal>
-        </div>
-      </div>
+          </div>
+        </section>
 
+      </div>
     </div>
   )
 }
+
 
 export default LandingPage
