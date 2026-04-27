@@ -1163,66 +1163,56 @@ function App() {
   const attemptsIndicator = imageData && !promptRevealed && mode !== 'daily' ? (
     <div className="relative group/attempts">
       <div className={[
-        'rounded-xl border px-3 py-2.5 transition-all',
+        'rounded-xl border px-3.5 py-3 transition-all',
         unlocked
           ? 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20'
-          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'
+          : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50'
       ].join(' ')}>
         <div className="flex items-center gap-3">
           {/* Icono */}
           <div className={[
-            'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all',
+            'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-all',
             unlocked
               ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400'
               : 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500'
           ].join(' ')}>
             {unlocked
-              ? <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" /></svg>
-              : <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" /><path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 118 0v4" /></svg>
+              ? <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" /></svg>
+              : <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" /><path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 118 0v4" /></svg>
             }
           </div>
 
           {/* Texto + barra */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center justify-between mb-2">
               <p className={[
-                'text-xs font-semibold',
-                unlocked ? 'text-amber-800 dark:text-amber-400' : 'text-slate-600 dark:text-slate-300'
+                'text-sm font-semibold',
+                unlocked ? 'text-amber-800 dark:text-amber-300' : 'text-slate-700 dark:text-slate-300'
               ].join(' ')}>
                 {unlocked
-                  ? (lang === 'en' ? '🔓 Prompt unlocked!' : '🔓 ¡Prompt desbloqueado!')
-                  : (lang === 'en' ? 'Prompt hint' : 'Pista del prompt')}
+                  ? (lang === 'en' ? 'Prompt unlocked!' : '¡Prompt desbloqueado!')
+                  : (lang === 'en' 
+                    ? `${remaining} more ${remaining === 1 ? 'try' : 'tries'} to see the original prompt`
+                    : `Hacé ${remaining} ${remaining === 1 ? 'intento más' : 'intentos más'} para ver el prompt original`)}
               </p>
               <span className={[
-                'text-[10px] font-bold tabular-nums',
-                unlocked ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-slate-500'
+                'text-xs font-bold tabular-nums',
+                unlocked ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'
               ].join(' ')}>
                 {imageAttempts}/{MAX_ATTEMPTS_BEFORE_UNLOCK}
               </span>
             </div>
             {/* Barra de progreso */}
-            <div className="flex gap-1">
+            <div className="flex gap-1.5">
               {Array.from({ length: MAX_ATTEMPTS_BEFORE_UNLOCK }).map((_, i) => (
                 <div key={i} className={getAttemptDotClass(i)} />
               ))}
             </div>
-            <p className={[
-              'text-[10px] mt-1.5',
-              unlocked ? 'text-amber-600 dark:text-amber-500' : 'text-slate-400 dark:text-slate-500'
-            ].join(' ')}>
-              {unlocked
-                ? (lang === 'en' ? 'Tap to reveal or keep trying' : 'Tocá para ver o seguir intentando')
-                : imageAttempts === 0
-                  ? (lang === 'en' ? 'Submit prompts to unlock the original' : 'Enviá prompts para desbloquear el original')
-                  : (lang === 'en'
-                    ? remaining + ' more ' + (remaining === 1 ? 'attempt' : 'attempts') + ' to unlock'
-                    : remaining + ' ' + (remaining === 1 ? 'intento' : 'intentos') + ' más para desbloquear')}
-            </p>
           </div>
 
           {/* Flecha si desbloqueado */}
           {unlocked && (
-            <svg className="h-4 w-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="h-5 w-5 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
           )}
@@ -1230,20 +1220,21 @@ function App() {
       </div>
 
       {/* Tooltip hover */}
-      <div className="pointer-events-none absolute bottom-full left-0 mb-2 hidden group-hover/attempts:block z-50 w-64">
+      <div className="pointer-events-none absolute bottom-full left-0 mb-2 hidden group-hover/attempts:block z-50 w-72">
         <div className="rounded-xl bg-slate-900 px-3 py-2.5 text-xs text-white shadow-xl space-y-1.5">
           <p className="font-semibold text-cyan-300">
-            {lang === 'en' ? 'How the hint system works' : 'Cómo funciona el sistema de pistas'}
+            {lang === 'en' ? 'How it works' : '¿Cómo funciona?'}
           </p>
           <p className="text-slate-300 leading-relaxed">
             {lang === 'en'
-              ? 'Each time you submit a prompt, you get closer to unlocking the original. After ' + MAX_ATTEMPTS_BEFORE_UNLOCK + ' attempts you can choose to reveal it and learn from it.'
-              : 'Cada vez que enviás un prompt, te acercás más a desbloquear el original. Después de ' + MAX_ATTEMPTS_BEFORE_UNLOCK + ' intentos podés elegir verlo y aprender de él.'}
+              ? `Try to recreate the image with your own prompt. After ${MAX_ATTEMPTS_BEFORE_UNLOCK} attempts, you'll unlock the original prompt to see how it was made and learn from it!`
+              : `Intentá recrear la imagen con tu propio prompt. Después de ${MAX_ATTEMPTS_BEFORE_UNLOCK} intentos, desbloqueás el prompt original para ver cómo se hizo y aprender de él.`}
           </p>
-          {unlocked
-            ? <p className="text-amber-400 font-medium">{lang === 'en' ? '✓ You can now reveal the original prompt.' : '✓ Ya podés ver el prompt original.'}</p>
-            : <p className="text-slate-400">{lang === 'en' ? 'Keep trying — the more you practice, the better your prompts get.' : 'Seguí intentando — cuanto más practicás, mejores son tus prompts.'}</p>
-          }
+          {unlocked && (
+            <p className="text-amber-400 font-medium">
+              {lang === 'en' ? '✓ Click to reveal the original prompt' : '✓ Hacé clic para ver el prompt original'}
+            </p>
+          )}
         </div>
         <div className="ml-3 h-2 w-2 rotate-45 bg-slate-900 -mt-1" />
       </div>
@@ -1519,9 +1510,9 @@ function App() {
                           personalizedTime={personalizedTime}
                           onOpenConfig={mode !== 'challenge' ? () => setConfigOpen(true) : null}
                           showAnticheatWarning={mode === 'random' && !challengeId && clipboardPermission === 'granted'}
+                          attemptsIndicator={attemptsIndicator}
                         />
                         {progressChart}
-                        {attemptsIndicator}
                         {promptRevealed && revealedAnalysisPanel}
                       </>
                     )}
@@ -1535,6 +1526,7 @@ function App() {
                       </div>
                     ) : (
                       <>
+                        {attemptsIndicator}
                         {progressChart}
                         <ResultPanel
                           scorePercent={scorePercent}
@@ -1547,12 +1539,13 @@ function App() {
                           recommendedGuideIds={recommendedGuideIds}
                           eloDelta={eloDelta}
                           aiCheatDetected={aiCheatDetected}
-                          onRetry={scorePercent !== null && scorePercent < 60 && mode !== 'daily' ? handleRetry : undefined}
-                          onReset={handleReset}
-                          onNewRandom={mode !== 'challenge' ? handleNewRandom : undefined}
+                          onRetry={scorePercent !== null && scorePercent < 60 && mode !== 'daily' && user ? handleRetry : undefined}
+                          onReset={user ? handleReset : undefined}
+                          onNewRandom={mode !== 'challenge' && user ? handleNewRandom : undefined}
                           mode={mode}
+                          user={user}
+                          onOpenAuth={handleOpenAuth}
                         />
-                        {attemptsIndicator}
                       </>
                     )}
                   </>
@@ -1560,8 +1553,8 @@ function App() {
               </div>
             </section>
 
-            <aside className="flex flex-col items-stretch justify-center gap-4 p-4 transition-all duration-500">
-              <div className="w-full relative" style={{ height: 'calc(100vh - 120px)' }}>
+            <aside className="flex flex-col items-stretch justify-start gap-4 p-4 transition-all duration-500">
+              <div className="w-full relative" style={{ height: 'calc(100vh - 120px)', minHeight: '500px' }}>
                 <ImageCard
                   mode={mode}
                   data={imageData ?? {}}

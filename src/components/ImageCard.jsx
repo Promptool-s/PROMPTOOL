@@ -100,22 +100,12 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
 
   const renderContent = () => {
     if (imageStatus === 'loading') {
-      // Si hay imagen anterior, mostrarla con shimmer encima mientras carga la nueva
-      if (imageUrl) {
-        return (
-          <div className="group/img relative h-full w-full select-none">
-            <img
-              src={imageUrl}
-              alt=""
-              className="h-full w-full object-cover pointer-events-none opacity-40"
-              draggable={false}
-            />
-            <div className="absolute inset-0 animate-pulse bg-slate-200/20" />
-          </div>
-        )
-      }
       return (
-        <div className="h-full min-h-[240px] w-full animate-pulse bg-slate-200" />
+        <div className="flex h-full min-h-[400px] w-full flex-col items-center justify-center gap-3 p-6 bg-slate-50 dark:bg-slate-900">
+          {/* Spinner simple y limpio */}
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-slate-200 dark:border-slate-700 border-t-cyan-500" />
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Cargando imagen...</p>
+        </div>
       )
     }
 
@@ -146,6 +136,13 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
     // imageStatus === 'ok'
     return (
       <div className="group/img relative h-full w-full select-none">
+        {/* Skeleton loader simple mientras la imagen carga */}
+        {!imgLoaded && (
+          <div className="absolute inset-0 flex items-center justify-center bg-slate-100 dark:bg-slate-800">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 dark:border-slate-700 border-t-cyan-500" />
+          </div>
+        )}
+        
         <img
           key={imageUrl} // Force re-render when URL changes
           src={imageUrl}
@@ -179,7 +176,7 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
         )}
         
         {/* Overlay hover — cubre toda la imagen */}
-        {!revealedPrompt && (
+        {!revealedPrompt && imgLoaded && (
           <div
             className="absolute inset-0 flex items-center justify-center bg-black/0 transition-all duration-200 group-hover/img:bg-black/30 cursor-zoom-in"
             onClick={() => openPreview()}

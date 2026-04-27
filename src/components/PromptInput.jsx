@@ -43,7 +43,7 @@ const formatTime = (seconds = 0) => {
   return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, '0')}`
 }
 
-const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, disabled = false, mode, difficulty, onTimingChange, paused = false, isRanked = true, onToggleRanked = null, streak = 0, imageId = null, onDifficultyChange = null, onModeChange = null, onNewRandom = null, availableDiffs = [], personalizedTime = null, onOpenConfig = null, showAnticheatWarning = false }) => {
+const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, disabled = false, mode, difficulty, onTimingChange, paused = false, isRanked = true, onToggleRanked = null, streak = 0, imageId = null, onDifficultyChange = null, onModeChange = null, onNewRandom = null, availableDiffs = [], personalizedTime = null, onOpenConfig = null, showAnticheatWarning = false, attemptsIndicator = null }) => {
   const { t, lang } = useLang()
   const [startedAt, setStartedAt] = useState(null)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
@@ -265,8 +265,8 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
         </div>
       )}
       
-      <div className="flex items-center justify-between">
-        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t('writePrompt')}</label>
+      <div className="flex items-center justify-between mb-1">
+        <label className="block text-lg font-bold text-slate-800 dark:text-slate-200">{t('writePrompt')}</label>
         <div className="flex items-center gap-2">
           {streak >= 2 && (
             <div className="flex items-center gap-0.5">
@@ -292,17 +292,20 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
 
       {/* Aviso anti-trampa — solo en modo random */}
       {showAnticheatWarning && (
-        <div className="flex items-start gap-2 rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50 dark:bg-slate-800/50 px-3 py-2">
-          <svg className="h-3.5 w-3.5 shrink-0 mt-0.5 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <div className="flex items-start gap-2.5 rounded-xl border-2 border-amber-300 dark:border-amber-700/80 bg-amber-50 dark:bg-amber-950/50 px-3.5 py-2.5 shadow-sm">
+          <svg className="h-4 w-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
           </svg>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+          <p className="text-xs font-medium text-amber-800 dark:text-amber-300 leading-relaxed">
             {lang === 'en'
               ? 'Copying, pasting or switching windows will change the image. Write your prompt without leaving this tab.'
               : 'Copiar, pegar o cambiar de ventana cambia la imagen. Escribí tu prompt sin salir de esta pestaña.'}
           </p>
         </div>
       )}
+      
+      {/* Indicador de pistas - entre el warning y el textarea */}
+      {attemptsIndicator}
       
       {/* Incognito banner — standalone, above the textarea */}
       {incognitoActive && (

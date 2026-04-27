@@ -12,14 +12,9 @@ export function proxyImg(url) {
   const raw = String(url).trim()
   if (!raw.startsWith('http://') && !raw.startsWith('https://')) return raw
 
+  // En desarrollo: usar URLs directas de Supabase (sin caché)
+  // El caché solo funciona en producción con Vercel
   if (IS_DEV) {
-    // Solo cachear imágenes de imagenes_ia (tienen UUID en la URL)
-    // Los avatares y otras imágenes de Supabase Storage van directo
-    if (raw.includes('imagenes_ia/')) {
-      const id = extractUUID(raw)
-      if (id) return `/.img-cache/${id}`
-    }
-    // Todo lo demás: directo (avatares, enterprise-challenges, etc.)
     return raw
   }
 

@@ -101,6 +101,19 @@ body {
   }
 }
 
+/* ── Loading bar animation ── */
+@keyframes loading {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(250%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
 .animate-bounce-subtle {
   animation: bounce-subtle 2.5s ease-in-out infinite;
 }

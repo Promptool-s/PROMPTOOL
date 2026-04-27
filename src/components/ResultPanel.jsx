@@ -51,7 +51,7 @@ const getDifficultyConfig = (difficulty = 'Medium') => {
   }
 }
 
-const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, strengths = [], improvements = [], recommendedGuideIds = [], onRetry, onReset, onNewRandom, mode, eloDelta = null, aiCheatDetected = null }) => {
+const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, strengths = [], improvements = [], recommendedGuideIds = [], onRetry, onReset, onNewRandom, mode, eloDelta = null, aiCheatDetected = null, user = null, onOpenAuth = null }) => {
   const { t, lang } = useLang()
   const [sharing, setSharing] = useState(false)
   const safeScore = Math.max(0, Math.min(100, Number(scorePercent) || 0))
@@ -309,25 +309,50 @@ const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, stren
 
       {/* ── Acciones ── */}
       <div className="flex gap-2">
-        {onRetry && !isPass && (
-          <button type="button" onClick={onRetry}
-            className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700">
-            {lang === 'en' ? 'Retry' : 'Reintentar'}
-          </button>
-        )}
-        {(onNewRandom || (onReset && !onNewRandom)) && (
-          <button
-            type="button"
-            onClick={onNewRandom || onReset}
-            className="flex-1 rounded-xl px-3 py-2 text-sm font-semibold text-white transition"
-            style={{ backgroundColor: 'rgb(var(--color-accent))' }}
-            onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgb(var(--color-accent-2))'}
-            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgb(var(--color-accent))'}
-          >
-            {onNewRandom
-              ? (lang === 'en' ? 'New image' : 'Nueva imagen')
-              : (lang === 'en' ? 'Play again' : 'Jugar de nuevo')}
-          </button>
+        {!user ? (
+          /* Usuario no logueado - mostrar botones de sign in */
+          <>
+            {!isPass && (
+              <button type="button" onClick={onOpenAuth}
+                className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700">
+                {lang === 'en' ? 'Sign in to retry' : 'Inicia sesión para reintentar'}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onOpenAuth}
+              className="flex-1 rounded-xl px-3 py-2 text-sm font-semibold text-white transition"
+              style={{ backgroundColor: 'rgb(var(--color-accent))' }}
+              onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgb(var(--color-accent-2))'}
+              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgb(var(--color-accent))'}
+            >
+              {lang === 'en' ? 'Sign in for new image' : 'Inicia sesión para nueva imagen'}
+            </button>
+          </>
+        ) : (
+          /* Usuario logueado - botones normales */
+          <>
+            {onRetry && !isPass && (
+              <button type="button" onClick={onRetry}
+                className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700">
+                {lang === 'en' ? 'Retry' : 'Reintentar'}
+              </button>
+            )}
+            {(onNewRandom || (onReset && !onNewRandom)) && (
+              <button
+                type="button"
+                onClick={onNewRandom || onReset}
+                className="flex-1 rounded-xl px-3 py-2 text-sm font-semibold text-white transition"
+                style={{ backgroundColor: 'rgb(var(--color-accent))' }}
+                onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgb(var(--color-accent-2))'}
+                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgb(var(--color-accent))'}
+              >
+                {onNewRandom
+                  ? (lang === 'en' ? 'New image' : 'Nueva imagen')
+                  : (lang === 'en' ? 'Play again' : 'Jugar de nuevo')}
+              </button>
+            )}
+          </>
         )}
       </div>
 
