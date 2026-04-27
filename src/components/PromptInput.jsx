@@ -5,6 +5,14 @@ import { sanitizePrompt } from '../utils/inputSanitizer'
 
 const normalizeDifficulty = (difficulty = 'Medium') => difficulty.toLowerCase()
 
+// Read incognito state from localStorage (set by ConfigModal)
+const getIncognitoActive = () => {
+  try {
+    const p = JSON.parse(localStorage.getItem('pt_privacy') || '{}')
+    return !!p.incognitoMode
+  } catch { return false }
+}
+
 const getTimerConfig = (mode = 'random', difficulty = 'Medium', personalizedTime = null) => {
   // Si hay tiempo personalizado, usarlo
   if (personalizedTime && personalizedTime > 0) {
@@ -34,7 +42,7 @@ const formatTime = (seconds = 0) => {
   return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, '0')}`
 }
 
-const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, disabled = false, mode, difficulty, onTimingChange, paused = false, isRanked = true, onToggleRanked = null, streak = 0, imageId = null, onDifficultyChange = null, onModeChange = null, onNewRandom = null, availableDiffs = [], personalizedTime = null }) => {
+const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, disabled = false, mode, difficulty, onTimingChange, paused = false, isRanked = true, onToggleRanked = null, streak = 0, imageId = null, onDifficultyChange = null, onModeChange = null, onNewRandom = null, availableDiffs = [], personalizedTime = null, onOpenConfig = null }) => {
   const { t, lang } = useLang()
   const [startedAt, setStartedAt] = useState(null)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
@@ -42,7 +50,15 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
   const [showShortWarning, setShowShortWarning] = useState(false)
   const [restoredDraft, setRestoredDraft] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [incognitoActive, setIncognitoActive] = useState(getIncognitoActive)
   const timerConfig = useMemo(() => getTimerConfig(mode, difficulty, personalizedTime), [mode, difficulty, personalizedTime])
+
+  // Listen for privacy changes from ConfigModal
+  useEffect(() => {
+    const handler = (e) => setIncognitoActive(!!e.detail?.incognitoMode)
+    window.addEventListener('pt:privacy-change', handler)
+    return () => window.removeEventListener('pt:privacy-change', handler)
+  }, [])
 
   const DRAFT_KEY = `promptdraft_${imageId || 'noimg'}`
   const DRAFT_TTL = 5 * 60 * 1000
@@ -160,15 +176,52 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
       
       <div className="flex items-center justify-between">
         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t('writePrompt')}</label>
-        {streak >= 2 && (
-          <div className="flex items-center gap-0.5">
-            <img src={flameLitGif} alt="" className="h-6 w-6 object-contain" />
-            <span className="text-base font-black tabular-nums translate-y-px" style={{ color: '#fb923c', letterSpacing: '-0.02em' }}>{streak}</span>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {streak >= 2 && (
+            <div className="flex items-center gap-0.5">
+              <img src={flameLitGif} alt="" className="h-6 w-6 object-contain" />
+              <span className="text-base font-black tabular-nums translate-y-px" style={{ color: '#fb923c', letterSpacing: '-0.02em' }}>{streak}</span>
+            </div>
+          )}
+          {onOpenConfig && (
+            <button
+              type="button"
+              onClick={onOpenConfig}
+              title={lang === 'en' ? 'Settings' : 'Configuración'}
+              className="flex items-center justify-center rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-300"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
       
       <div className="relative">
+        {/* Incognito active banner */}
+        {incognitoActive && (
+          <div className="absolute -top-px inset-x-0 z-10 flex items-center gap-2 rounded-t-xl border border-b-0 border-amber-300/60 dark:border-amber-700/50 bg-amber-50/95 dark:bg-amber-950/60 px-3 py-1.5 backdrop-blur-sm">
+            <svg className="h-3 w-3 text-amber-500 dark:text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+            </svg>
+            <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300 leading-none">
+              {lang === 'en'
+                ? 'Incognito mode — this attempt won\'t be saved'
+                : 'Modo incógnito — este intento no se guardará'}
+            </span>
+            {onOpenConfig && (
+              <button
+                type="button"
+                onClick={onOpenConfig}
+                className="ml-auto text-[10px] font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200 underline underline-offset-2 transition shrink-0"
+              >
+                {lang === 'en' ? 'Disable' : 'Desactivar'}
+              </button>
+            )}
+          </div>
+        )}
         <textarea
           value={promptUsuario}
           onChange={(e) => {
@@ -189,7 +242,11 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
           placeholder={t('promptPlaceholder')}
           disabled={disabled}
           maxLength={2000}
-          className="w-full min-h-[100px] resize-none rounded-xl border border-slate-200 dark:border-slate-700 bg-transparent px-4 py-3 pr-20 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none transition focus:border-slate-400 dark:focus:border-slate-500 focus:ring-0 disabled:cursor-not-allowed disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:text-slate-400"
+          className={`w-full min-h-[100px] resize-none border border-slate-200 dark:border-slate-700 bg-transparent px-4 py-3 pr-20 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none transition focus:border-slate-400 dark:focus:border-slate-500 focus:ring-0 disabled:cursor-not-allowed disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:text-slate-400 ${
+            incognitoActive
+              ? 'rounded-b-xl rounded-t-none border-t-0 border-amber-300/60 dark:border-amber-700/50'
+              : 'rounded-xl'
+          }`}
         />
         <div className="pointer-events-none absolute right-3 top-3 rounded-md bg-slate-900/5 dark:bg-slate-100/10 px-2 py-0.5 text-xs font-medium tabular-nums text-slate-500 dark:text-slate-400">
           {wordsCount} {lang === 'en' ? (wordsCount === 1 ? 'word' : 'words') : (wordsCount === 1 ? 'palabra' : 'palabras')}
@@ -433,27 +490,72 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
           </div>
         )}
 
-        {onNewRandom && mode === 'random' && (
+        {/* New image button — active in random, locked in daily */}
+        {(onNewRandom || mode === 'daily') && (
           <div className="relative group/newimg ml-auto">
-            <button
-              type="button"
-              onClick={onNewRandom}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5 text-slate-500 dark:text-slate-400 transition hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-300"
-            >
-              <span className="font-semibold text-slate-700 dark:text-slate-300">{lang === 'en' ? 'New image' : 'Nueva imagen'}</span>
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            </button>
-            <div className="pointer-events-none absolute bottom-full right-0 mb-2 hidden group-hover/newimg:block z-50 w-56">
-              <div className="rounded-xl bg-slate-900 px-3 py-2.5 text-xs text-white shadow-xl">
-                <p className="text-slate-300 leading-relaxed">
-                  {lang === 'en'
-                    ? 'Get a new random image from the library. Your current progress will be lost.'
-                    : 'Obtené una nueva imagen aleatoria de la biblioteca. Tu progreso actual se perderá.'}
-                </p>
+            {mode === 'daily' ? (
+              /* ── Locked state (daily mode) ── */
+              <span
+                className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 px-3 py-1.5 cursor-not-allowed select-none opacity-60"
+                aria-disabled="true"
+              >
+                <span className="font-semibold text-slate-400 dark:text-slate-500 text-xs">
+                  {lang === 'en' ? 'New image' : 'Nueva imagen'}
+                </span>
+                {/* Lock icon */}
+                <svg className="h-3 w-3 text-slate-400 dark:text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </span>
+            ) : (
+              /* ── Active state (random mode) ── */
+              <button
+                type="button"
+                onClick={onNewRandom}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5 text-slate-500 dark:text-slate-400 transition hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-300"
+              >
+                <span className="font-semibold text-slate-700 dark:text-slate-300 text-xs">
+                  {lang === 'en' ? 'New image' : 'Nueva imagen'}
+                </span>
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+            )}
+
+            {/* Tooltip */}
+            <div className="pointer-events-none absolute bottom-full right-0 mb-2 hidden group-hover/newimg:block z-50 w-64">
+              <div className="rounded-xl bg-slate-900 dark:bg-slate-950 border border-slate-700 px-3.5 py-3 text-xs text-white shadow-xl space-y-1.5">
+                {mode === 'daily' ? (
+                  <>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <svg className="h-3 w-3 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                      <p className="font-semibold text-slate-200">
+                        {lang === 'en' ? 'Locked in Daily mode' : 'Bloqueado en modo Diario'}
+                      </p>
+                    </div>
+                    <p className="text-slate-400 leading-relaxed">
+                      {lang === 'en'
+                        ? 'The daily challenge has one fixed image for all players. You only get one opportunity — that\'s what makes it fair.'
+                        : 'El desafío diario tiene una imagen fija para todos los jugadores. Solo tenés una oportunidad — eso es lo que lo hace justo.'}
+                    </p>
+                    <p className="text-slate-500 pt-0.5 border-t border-slate-700">
+                      {lang === 'en'
+                        ? 'Switch to Random mode to get new images freely.'
+                        : 'Cambiá a modo Aleatorio para obtener imágenes nuevas libremente.'}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-slate-300 leading-relaxed">
+                    {lang === 'en'
+                      ? 'Get a new random image from the library. Your current progress will be lost.'
+                      : 'Obtené una nueva imagen aleatoria de la biblioteca. Tu progreso actual se perderá.'}
+                  </p>
+                )}
               </div>
-              <div className="mr-3 h-2 w-2 rotate-45 bg-slate-900 -mt-1 ml-auto" />
+              <div className="mr-3 h-2 w-2 rotate-45 bg-slate-900 dark:bg-slate-950 border-r border-b border-slate-700 -mt-1 ml-auto" />
             </div>
           </div>
         )}

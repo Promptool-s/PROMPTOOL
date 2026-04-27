@@ -55,13 +55,20 @@ function AdminApp() {
   const [showSql, setShowSql] = useState(false)
 
   // Tickets
-  const [activeTab, setActiveTab] = useState('tables') // 'tables' | 'tickets'
+  const [activeTab, setActiveTab] = useState('tables') // 'tables' | 'tickets' | 'reports'
   const [tickets, setTickets] = useState([])
   const [selectedTicket, setSelectedTicket] = useState(null)
   const [ticketMessages, setTicketMessages] = useState([])
   const [ticketReply, setTicketReply] = useState('')
   const [sendingReply, setSendingReply] = useState(false)
   const ticketEndRef = useRef(null)
+
+  // Reports
+  const [reports, setReports] = useState([])
+  const [reportsLoading, setReportsLoading] = useState(false)
+  const [selectedReport, setSelectedReport] = useState(null)
+  const [reportReply, setReportReply] = useState('')
+  const [sendingReportReply, setSendingReportReply] = useState(false)
 
   const [toast, setToast] = useState(null)
   const hasRedirected = useRef(false)
@@ -126,6 +133,83 @@ function AdminApp() {
     if (selectedTicket?.id_ticket === id_ticket) setSelectedTicket(t => ({ ...t, estado: 'closed' }))
     showToast('Ticket closed')
   }
+
+  // ── REPORTS ──
+  const fetchReports = async () => {
+    setReportsLoading(true)
+    try {
+      const { data } = await supabase
+        .from('user_reports')
+        .select('*, reporter:usuarios!user_reports_reporter_id_fkey(nombre_display, nombre, username, avatar_url)')
+        .order('created_at', { ascending: false })
+        .limit(100)
+      setReports(data || [])
+    } catch {
+      setReports([])
+    } finally {
+      setReportsLoading(false)
+    }
+  }
+
+  const deleteReport = async (id) => {
+    if (!confirm('Delete this report?')) return
+    await supabase.from('user_reports').delete().eq('id', id)
+    setReports(prev => prev.filter(r => r.id !== id))
+    if (selectedReport?.id === id) setSelectedReport(null)
+    showToast('Report deleted')
+  }
+
+  const updateReportStatus = async (id, status) => {
+    await supabase.from('user_reports').update({ status, reviewer_id: user.id, reviewed_at: new Date().toISOString() }).eq('id', id)
+    setReports(prev => prev.map(r => r.id === id ? { ...r, status } : r))
+    if (selectedReport?.id === id) setSelectedReport(r => ({ ...r, status }))
+    showToast(`Marked as ${status}`)
+  }
+
+  const sendReportResponse = async (e) => {
+    e.preventDefault()
+    if (!reportReply.trim() || !selectedReport) return
+    setSendingReportReply(true)
+    try {
+      // Update report with reviewer notes
+      await supabase.from('user_reports').update({
+        status: 'reviewed',
+        reviewer_id: user.id,
+        reviewer_notes: reportReply,
+        reviewed_at: new Date().toISOString(),
+      }).eq('id', selectedReport.id)
+
+      // Send notification to reporter if they have an account
+      if (selectedReport.reporter_id) {
+        await supabase.from('notification_reads').upsert([]) // ensure table exists
+        // Insert into a generic notifications table or use guide_suggestions as carrier
+        try {
+          await supabase.from('guide_suggestions').insert([{
+            target_user_id: selectedReport.reporter_id,
+            title: 'Respuesta a tu reporte',
+            message: reportReply,
+            guide_slug: null,
+            guide_url: null,
+          }])
+        } catch { /* table may not exist, silent */ }
+      }
+
+      setReports(prev => prev.map(r => r.id === selectedReport.id
+        ? { ...r, status: 'reviewed', reviewer_notes: reportReply }
+        : r))
+      setSelectedReport(r => ({ ...r, status: 'reviewed', reviewer_notes: reportReply }))
+      setReportReply('')
+      showToast('Response sent')
+    } catch (err) {
+      showToast('Error: ' + err.message, 'error')
+    } finally {
+      setSendingReportReply(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === 'reports' && adminChecked && isAdmin) fetchReports()
+  }, [activeTab, adminChecked, isAdmin])
 
   useEffect(() => {
     if (activeTab === 'tickets' && adminChecked && isAdmin) fetchTickets()
@@ -335,12 +419,14 @@ function AdminApp() {
 
         {/* Main tabs */}
         <div className="flex gap-2 border-b border-slate-200 pb-0">
-          {['tables', 'tickets'].map(tab => (
+          {['tables', 'tickets', 'reports'].map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={`px-4 py-2 text-sm font-semibold border-b-2 transition -mb-px ${
                 activeTab === tab ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}>
-              {tab === 'tables' ? 'Tables' : `Tickets ${tickets.filter(t => t.estado === 'open').length > 0 ? `(${tickets.filter(t => t.estado === 'open').length})` : ''}`}
+              {tab === 'tables' ? 'Tables'
+                : tab === 'tickets' ? `Tickets ${tickets.filter(t => t.estado === 'open').length > 0 ? `(${tickets.filter(t => t.estado === 'open').length})` : ''}`
+                : `Reports ${reports.filter(r => r.status === 'pending').length > 0 ? `(${reports.filter(r => r.status === 'pending').length})` : ''}`}
             </button>
           ))}
         </div>
@@ -698,6 +784,141 @@ function AdminApp() {
                       </button>
                     </form>
                   )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── REPORTS TAB ── */}
+        {activeTab === 'reports' && (
+          <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+            {/* Report list */}
+            <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                <p className="text-sm font-semibold text-slate-700">
+                  User reports
+                  {reports.filter(r => r.status === 'pending').length > 0 && (
+                    <span className="ml-2 rounded-full bg-rose-100 text-rose-700 px-2 py-0.5 text-xs font-bold">
+                      {reports.filter(r => r.status === 'pending').length} pending
+                    </span>
+                  )}
+                </p>
+                <button onClick={fetchReports} className="text-xs text-slate-400 hover:text-slate-700">Reload</button>
+              </div>
+              <div className="divide-y divide-slate-50 max-h-[600px] overflow-y-auto">
+                {reportsLoading ? (
+                  <div className="py-8 flex justify-center">
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-slate-700" />
+                  </div>
+                ) : reports.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-slate-400">No reports</p>
+                ) : reports.map(r => {
+                  const reporter = r.reporter
+                  const statusColor = r.status === 'pending'
+                    ? 'bg-rose-100 text-rose-700'
+                    : r.status === 'reviewed'
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-slate-100 text-slate-500'
+                  return (
+                    <button key={r.id} onClick={() => setSelectedReport(r)}
+                      className={`w-full text-left px-4 py-3 transition ${selectedReport?.id === r.id ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusColor}`}>{r.status}</span>
+                        <span className="text-xs text-slate-400">{new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                      </div>
+                      <p className="text-sm font-medium text-slate-700 truncate">
+                        <span className="text-slate-400">{r.target_type}</span> — {r.reason}
+                      </p>
+                      {reporter && (
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {reporter.nombre_display || reporter.nombre || reporter.username || 'Anonymous'}
+                        </p>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Report detail */}
+            <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden flex flex-col" style={{ minHeight: 480 }}>
+              {!selectedReport ? (
+                <div className="flex flex-1 items-center justify-center text-slate-400 text-sm">
+                  Select a report to review it
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4 gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                          selectedReport.status === 'pending' ? 'bg-rose-100 text-rose-700'
+                          : selectedReport.status === 'reviewed' ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-slate-100 text-slate-500'
+                        }`}>{selectedReport.status}</span>
+                        <span className="text-xs text-slate-400">{new Date(selectedReport.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      <p className="font-semibold text-slate-800 capitalize">{selectedReport.target_type} report</p>
+                      <p className="text-sm text-slate-500 mt-0.5">Reason: <span className="font-medium text-slate-700">{selectedReport.reason}</span></p>
+                      {selectedReport.target_id && (
+                        <p className="text-xs text-slate-400 mt-0.5 font-mono">Target ID: {selectedReport.target_id}</p>
+                      )}
+                      {selectedReport.reporter && (
+                        <p className="text-xs text-slate-500 mt-1">
+                          Reported by: <span className="font-medium">{selectedReport.reporter.nombre_display || selectedReport.reporter.nombre || selectedReport.reporter.username || 'Anonymous'}</span>
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        onClick={() => updateReportStatus(selectedReport.id, 'dismissed')}
+                        className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200 transition"
+                      >
+                        Dismiss
+                      </button>
+                      <button
+                        onClick={() => deleteReport(selectedReport.id)}
+                        className="rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-100 transition"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Reviewer notes if already reviewed */}
+                  {selectedReport.reviewer_notes && (
+                    <div className="mx-5 mt-4 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3">
+                      <p className="text-xs font-semibold text-emerald-700 mb-1">Admin response sent:</p>
+                      <p className="text-sm text-emerald-800">{selectedReport.reviewer_notes}</p>
+                    </div>
+                  )}
+
+                  <div className="flex-1" />
+
+                  {/* Reply form */}
+                  <form onSubmit={sendReportResponse} className="border-t border-slate-100 p-4 space-y-3">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                      {selectedReport.reporter_id ? 'Reply to reporter (sends notification)' : 'Add reviewer notes (anonymous reporter)'}
+                    </p>
+                    <div className="flex gap-3">
+                      <input
+                        type="text"
+                        value={reportReply}
+                        onChange={e => setReportReply(e.target.value)}
+                        placeholder={selectedReport.reporter_id ? 'Write a response...' : 'Internal notes...'}
+                        className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm outline-none focus:border-slate-400"
+                        required
+                      />
+                      <button
+                        type="submit"
+                        disabled={sendingReportReply}
+                        className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition disabled:opacity-50"
+                      >
+                        {sendingReportReply ? '...' : selectedReport.reporter_id ? 'Send' : 'Save'}
+                      </button>
+                    </div>
+                  </form>
                 </>
               )}
             </div>

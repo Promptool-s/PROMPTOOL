@@ -59,7 +59,7 @@ const copy = {
     ],
     orgTag: 'Para organizaciones',
     orgTitle: 'Útil para empresas y colegios',
-    orgDesc: 'PromptTool no es solo para uso individual. Equipos de trabajo y aulas pueden usarlo como herramienta de entrenamiento en IA generativa.',
+    orgDesc: 'PrompTool no es solo para uso individual. Equipos de trabajo y aulas pueden usarlo como herramienta de entrenamiento en IA generativa.',
     orgCards: [
       { icon: 'building', t: 'Equipos de trabajo', d: 'Crea una empresa, invita a tu equipo y sigue el progreso de cada miembro desde un panel centralizado.' },
       { icon: 'graduation', t: 'Aulas y colegios', d: 'Ideal para clases de tecnología o diseño. Los estudiantes aprenden prompting de forma práctica y medible.' },
@@ -126,7 +126,7 @@ const copy = {
     ],
     orgTag: 'For organizations',
     orgTitle: 'Built for teams and schools',
-    orgDesc: 'PromptTool is not just for individual use. Work teams and classrooms can use it as a generative AI training tool.',
+    orgDesc: 'PrompTool is not just for individual use. Work teams and classrooms can use it as a generative AI training tool.',
     orgCards: [
       { icon: 'building', t: 'Work teams', d: 'Create a company, invite your team and track each member\'s progress from a centralized dashboard.' },
       { icon: 'graduation', t: 'Classrooms & schools', d: 'Great for technology or design classes. Students learn prompting in a practical, measurable way.' },
@@ -196,13 +196,13 @@ const Slide = ({ item, visible }) => (
           ? <img src={proxyImg(item.avatar_url)} alt="" className="h-7 w-7 rounded-full object-cover ring-1 ring-black/10 pointer-events-none" draggable={false} />
           : <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan-500/30 text-xs font-bold text-cyan-500">{(item.username || '?')[0].toUpperCase()}</div>
         }
-        <span className="text-xs font-medium text-slate-400 dark:text-slate-400">{item.username || 'Anonymous'}</span>
+        <span className="text-xs font-medium text-slate-400">{item.username || 'Anonymous'}</span>
         {item.is_dev && (
           <span className="rounded-md bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-bold text-sky-400 uppercase tracking-wide">DEV</span>
         )}
         {item.score != null && <span className="ml-auto rounded-full bg-cyan-500/15 px-2 py-0.5 text-xs font-semibold text-cyan-400">{item.score}%</span>}
       </div>
-      <p className="line-clamp-2 text-xs leading-5 text-slate-500 dark:text-slate-400 italic">"{item.prompt_usuario}"</p>
+      <p className="line-clamp-2 text-xs leading-5 text-slate-500 italic">"{item.prompt_usuario}"</p>
     </div>
   </div>
 )
@@ -284,11 +284,11 @@ const CommunitySlideshow = ({ dark, lang }) => {
   }
 
   if (loading) return <div className="flex h-full items-center justify-center"><div className="h-7 w-7 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" /></div>
-  if (!slides.length) return <div className="flex h-full items-center justify-center text-sm text-slate-500 dark:text-slate-400">{c.noSlides}</div>
+  if (!slides.length) return <div className="flex h-full items-center justify-center text-sm text-slate-500">{c.noSlides}</div>
 
   return (
     <div className="flex h-full flex-col">
-      <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">{c.community}</p>
+      <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500">{c.community}</p>
       <div className="relative flex-1">{slides.map((item, i) => <Slide key={i} item={item} visible={i === current} />)}</div>
       {slides.length > 1 && <Dots total={slides.length} current={current} onSelect={goTo} dark={dark} />}
     </div>
@@ -569,7 +569,7 @@ const InteractiveDemo = ({ dark, lang }) => {
               {lang === 'en' ? 'Daily' : 'Diario'}
             </span>
           </div>
-          <div className="relative aspect-[4/3] rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-900">
+          <div className="relative aspect-[4/3] rounded-xl overflow-hidden border border-slate-200 bg-slate-900">
             <img 
               src={demoImage} 
               alt="Demo challenge" 
@@ -654,7 +654,7 @@ const InteractiveDemo = ({ dark, lang }) => {
                     {score}%
                   </span>
                 </div>
-                <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
                   <div 
                     className={`h-full transition-all duration-1000 ease-out ${
                       score >= 70
@@ -719,6 +719,16 @@ const InteractiveDemo = ({ dark, lang }) => {
 const LandingPage = ({ onOpenAuth, onTryApp }) => {
   const { theme } = useTheme()
   const dark = false // La landing siempre en modo claro
+
+  // Forzar modo claro en el html mientras la landing está montada
+  useEffect(() => {
+    const root = document.documentElement
+    const hadDark = root.classList.contains('dark')
+    root.classList.remove('dark')
+    return () => {
+      if (hadDark) root.classList.add('dark')
+    }
+  }, [])
   const [lang] = useState(detectLang)
   const [currentSection, setCurrentSection] = useState(0)
   const containerRef = useRef(null)
@@ -925,9 +935,9 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
             <div className="grid grid-cols-2 gap-4">
               {[['alex_p', '94%', 1420, 1], ['marta_r', '88%', 1380, 2], ['juandev', '83%', 1310, 3], ['sofia_m', '79%', 1270, 4]].map(([name, score, elo, rank]) => (
                 <div key={name} className={`rounded-xl border p-5 flex items-center gap-3 ${card}`}>
-                  <span className={`text-lg font-black tabular-nums ${rank === 1 ? 'text-amber-400' : rank === 2 ? 'text-slate-400' : rank === 3 ? 'text-amber-700 dark:text-amber-600' : 'text-slate-500 dark:text-slate-400'}`}>#{rank}</span>
+                  <span className={`text-lg font-black tabular-nums ${rank === 1 ? 'text-amber-400' : rank === 2 ? 'text-slate-400' : rank === 3 ? 'text-amber-700' : 'text-slate-500'}`}>#{rank}</span>
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold truncate dark:text-slate-200">{name}</p>
+                    <p className="text-sm font-semibold truncate">{name}</p>
                     <p className={`text-xs leading-relaxed ${subtle}`}>{score} · {elo} ELO</p>
                   </div>
                 </div>
@@ -1059,7 +1069,7 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
               <div className="flex items-center gap-4 mb-6">
                 <div className="h-12 w-12 rounded-full bg-cyan-500/20 flex items-center justify-center text-base font-bold text-cyan-500">AP</div>
                 <div>
-                  <p className="font-bold dark:text-slate-100">alex_prompter</p>
+                  <p className="font-bold">alex_prompter</p>
                   <p className={`text-xs ${subtle}`}>{c.profileMember}</p>
                   <div className="flex gap-2 mt-1.5">
                     {[{ label: '#1', color: 'text-amber-400 bg-amber-400/10' }, { label: '14d', color: 'text-orange-400 bg-orange-400/10' }, { label: 'ELO', color: 'text-cyan-400 bg-cyan-400/10' }].map(({ label, color }) => (

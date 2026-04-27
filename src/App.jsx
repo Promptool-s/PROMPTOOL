@@ -20,6 +20,13 @@ import { nowAR } from './utils/dateAR'
 const LandingPage = lazy(() => import('./components/LandingPage'))
 const AuthModal = lazy(() => import('./components/AuthModal'))
 const EnterprisePanel = lazy(() => import('./components/EnterprisePanel'))
+const ConfigModal = lazy(() => import('./components/ConfigModal'))
+
+// Initialize visual mode on app load — but NOT on landing page
+import('./components/ConfigModal').then(({ loadVisualMode, applyVisualMode }) => {
+  // Will be applied once user leaves landing (see useEffect in App)
+  // Store the mode but don't apply yet — landing is always clean
+})
 
 // Columnas reales: id_imagen, url_image, prompt_original, seed, fecha, image_diff, image_theme
 const normalizeImageData = (row) => {
@@ -144,6 +151,7 @@ function App() {
   const [submitted, setSubmitted] = useState(false)
   const [mode, setMode] = useState('random')
   const [difficulty, setDifficulty] = useState('Medium')
+  const [configOpen, setConfigOpen] = useState(false)
   const [imageData, setImageData] = useState(null)
   const [imageStatus, setImageStatus] = useState('loading')
   const [analyzing, setAnalyzing] = useState(false)
@@ -305,6 +313,19 @@ function App() {
   useEffect(() => {
     if (user) setShowLanding(false)
   }, [user])
+
+  // Apply visual mode only when NOT on landing page
+  useEffect(() => {
+    import('./components/ConfigModal').then(({ loadVisualMode, applyVisualMode }) => {
+      if (showLanding) {
+        // Landing always shows clean — remove any visual mode classes
+        applyVisualMode('default')
+      } else {
+        // Restore user's chosen visual mode
+        applyVisualMode(loadVisualMode())
+      }
+    })
+  }, [showLanding])
 
   // Cuando el usuario se loguea, asignar todos los intentos pendientes de guest
   useEffect(() => {
@@ -1217,6 +1238,7 @@ function App() {
                             handleReset()
                           } : null}
                           personalizedTime={personalizedTime}
+                          onOpenConfig={mode !== 'challenge' ? () => setConfigOpen(true) : null}
                         />
                         {progressChart}
                         {attemptsIndicator}
@@ -1244,7 +1266,7 @@ function App() {
                           timePenaltyMessage={timePenaltyMessage}
                           recommendedGuideIds={recommendedGuideIds}
                           eloDelta={eloDelta}
-                          onRetry={scorePercent !== null && scorePercent < 60 ? handleRetry : undefined}
+                          onRetry={scorePercent !== null && scorePercent < 60 && mode !== 'daily' ? handleRetry : undefined}
                           onReset={handleReset}
                           onNewRandom={mode !== 'challenge' ? handleNewRandom : undefined}
                           mode={mode}
@@ -1377,6 +1399,29 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Modal de configuración */}
+      <Suspense fallback={null}>
+        <ConfigModal
+          open={configOpen}
+          mode={mode}
+          difficulty={difficulty}
+          availableDiffs={availableDiffs}
+          imageId={imageData?.id_imagen || null}
+          onClose={() => setConfigOpen(false)}
+          onSave={() => setConfigOpen(false)}
+          onModeChange={(newMode) => {
+            if (mode !== newMode) {
+              setMode(newMode)
+              handleReset?.()
+            }
+          }}
+          onDifficultyChange={(newDiff) => {
+            setDifficulty(newDiff)
+            handleReset?.()
+          }}
+        />
+      </Suspense>
     </div>
   )
 }

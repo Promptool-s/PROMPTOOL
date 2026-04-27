@@ -354,3 +354,274 @@ html.dark .recharts-tooltip-wrapper .recharts-default-tooltip {
 .stat-card-animate {
   animation: stat-card-in 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
+
+/* ════════════════════════════════════════════
+   Visual Modes
+   ════════════════════════════════════════════ */
+
+/* ── Sakura mode ── */
+html.mode-sakura {
+  --color-accent:      236 72 153;   /* pink-500 */
+  --color-accent-2:    219 39 119;   /* pink-600 */
+  --color-accent-text: 255 255 255;
+}
+html.mode-sakura body {
+  background-color: #fff0f6;
+}
+html.mode-sakura header {
+  background-color: rgba(255, 240, 246, 0.97) !important;
+  border-color: #fbcfe8 !important;
+}
+/* Sakura: forzar texto del header a oscuro (fondo es siempre rosado claro) */
+html.mode-sakura header span,
+html.mode-sakura header a,
+html.mode-sakura header nav a,
+html.mode-sakura header .text-slate-900,
+html.mode-sakura header .text-slate-800,
+html.mode-sakura header .text-slate-700,
+html.mode-sakura header .text-slate-600,
+html.mode-sakura header .text-slate-500,
+html.mode-sakura header .text-slate-400 {
+  color: #831843 !important; /* pink-900 — legible sobre fondo rosado */
+}
+/* El acento "Tool" mantiene su color rosa vibrante */
+html.mode-sakura header a span[style] {
+  color: rgb(236, 72, 153) !important;
+}
+html.mode-sakura header nav a:hover {
+  background-color: rgba(236, 72, 153, 0.1) !important;
+  color: #9d174d !important;
+}
+html.mode-sakura .btn-primary {
+  background-color: #ec4899;
+}
+html.mode-sakura .btn-primary:hover:not(:disabled) {
+  background-color: #db2777;
+}
+/* Sakura overlay */
+html.mode-sakura #sakura-overlay {
+  display: block !important;
+}
+
+/* ── 8-bit / Retro mode ── */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+html.mode-retro {
+  --color-accent:      234 179 8;    /* yellow-500 */
+  --color-accent-2:    202 138 4;    /* yellow-600 */
+  --color-accent-text: 0 0 0;
+}
+html.mode-retro body {
+  font-family: 'Press Start 2P', monospace !important;
+  font-size: 11px !important;
+  background-color: #1a1a2e;
+  color: #eee;
+  image-rendering: pixelated;
+}
+html.mode-retro header {
+  background-color: #16213e !important;
+  border-color: #eab308 !important;
+  border-bottom-width: 3px !important;
+}
+/* Retro: nav links legibles */
+html.mode-retro header a,
+html.mode-retro header nav a,
+html.mode-retro header span {
+  color: #eab308 !important;
+}
+html.mode-retro header a:hover {
+  background-color: rgba(234,179,8,0.15) !important;
+  color: #fde047 !important;
+}
+html.mode-retro .btn-primary {
+  background-color: #eab308;
+  color: #000;
+  border-radius: 0 !important;
+  border: 3px solid #000 !important;
+  box-shadow: 4px 4px 0 #000 !important;
+  text-transform: uppercase;
+}
+html.mode-retro .btn-primary:hover:not(:disabled) {
+  background-color: #ca8a04;
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 #000 !important;
+}
+html.mode-retro button, html.mode-retro a {
+  border-radius: 0 !important;
+}
+html.mode-retro .rounded-xl,
+html.mode-retro .rounded-2xl,
+html.mode-retro .rounded-3xl,
+html.mode-retro .rounded-full {
+  border-radius: 0 !important;
+}
+/* Retro: search bar — pixel border, no inner input border */
+html.mode-retro header .relative.w-56 > div {
+  background-color: #0f0f1a !important;
+  border: 3px solid #eab308 !important;
+  border-radius: 0 !important;
+  box-shadow: 3px 3px 0 #000 !important;
+}
+html.mode-retro input, html.mode-retro textarea, html.mode-retro select {
+  border-radius: 0 !important;
+  border: 2px solid #eab308 !important;
+  background-color: #0f0f1a !important;
+  color: #eab308 !important;
+  font-family: 'Press Start 2P', monospace !important;
+  font-size: 10px !important;
+}
+html.mode-retro input::placeholder,
+html.mode-retro textarea::placeholder {
+  color: #7a6200 !important;
+  font-size: 9px !important;
+}
+/* Retro scanlines */
+html.mode-retro body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.08) 2px,
+    rgba(0,0,0,0.08) 4px
+  );
+}
+
+/* ── Hacker / Terminal mode ── */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+html.mode-hacker {
+  --color-accent:      34 197 94;    /* green-500 */
+  --color-accent-2:    22 163 74;    /* green-600 */
+  --color-accent-text: 0 0 0;
+}
+html.mode-hacker body {
+  font-family: 'JetBrains Mono', 'Courier New', monospace !important;
+  background-color: #000 !important;
+  color: #00ff41 !important;
+}
+html.mode-hacker header {
+  background-color: rgba(0, 0, 0, 0.98) !important;
+  border-color: #00ff41 !important;
+  border-bottom-width: 1px !important;
+}
+/* Hacker: nav links y texto del header legibles */
+html.mode-hacker header a,
+html.mode-hacker header nav a {
+  color: #00cc33 !important;
+}
+html.mode-hacker header a:hover {
+  background-color: rgba(0,255,65,0.08) !important;
+  color: #00ff41 !important;
+}
+html.mode-hacker header .text-slate-900,
+html.mode-hacker header .text-slate-800,
+html.mode-hacker header .text-slate-700,
+html.mode-hacker header .text-slate-600,
+html.mode-hacker header .text-slate-500 {
+  color: #00cc33 !important;
+}
+html.mode-hacker .bg-white,
+html.mode-hacker .bg-slate-50,
+html.mode-hacker .bg-slate-100 {
+  background-color: #0a0a0a !important;
+}
+html.mode-hacker .text-slate-900,
+html.mode-hacker .text-slate-800,
+html.mode-hacker .text-slate-700 {
+  color: #00ff41 !important;
+}
+html.mode-hacker .text-slate-600,
+html.mode-hacker .text-slate-500,
+html.mode-hacker .text-slate-400 {
+  color: #00cc33 !important;
+}
+html.mode-hacker .border-slate-200,
+html.mode-hacker .border-slate-100 {
+  border-color: #003300 !important;
+}
+html.mode-hacker .btn-primary {
+  background-color: #00ff41;
+  color: #000;
+  font-family: 'JetBrains Mono', monospace;
+}
+html.mode-hacker .btn-primary:hover:not(:disabled) {
+  background-color: #00cc33;
+}
+/* Hacker: search bar — terminal style, no double border */
+html.mode-hacker header .relative.w-56 > div {
+  background-color: #0a0a0a !important;
+  border: 1px solid #00ff41 !important;
+  border-radius: 4px !important;
+  box-shadow: 0 0 8px rgba(0,255,65,0.15) !important;
+}
+html.mode-hacker input,
+html.mode-hacker textarea,
+html.mode-hacker select {
+  background-color: #0a0a0a !important;
+  border-color: #00ff41 !important;
+  color: #00ff41 !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  caret-color: #00ff41 !important;
+}
+html.mode-hacker input::placeholder,
+html.mode-hacker textarea::placeholder {
+  color: #004d14 !important;
+  font-family: 'JetBrains Mono', monospace !important;
+}
+/* Hacker cursor blink */
+html.mode-hacker body::before {
+  content: '';
+  position: fixed;
+  bottom: 1rem;
+  right: 1.5rem;
+  width: 10px;
+  height: 18px;
+  background: #00ff41;
+  animation: hacker-cursor 1s step-end infinite;
+  z-index: 9999;
+  pointer-events: none;
+}
+@keyframes hacker-cursor {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+/* Hacker glitch on headings */
+html.mode-hacker h1,
+html.mode-hacker h2 {
+  animation: hacker-glitch 8s infinite;
+}
+@keyframes hacker-glitch {
+  0%, 95%, 100% { text-shadow: none; transform: none; }
+  96%  { text-shadow: -2px 0 #ff0040, 2px 0 #00ffff; transform: skewX(-1deg); }
+  97%  { text-shadow: 2px 0 #ff0040, -2px 0 #00ffff; transform: skewX(1deg); }
+  98%  { text-shadow: none; transform: none; }
+  99%  { text-shadow: -1px 0 #ff0040; transform: skewX(-0.5deg); }
+}
+/* Hacker scanline */
+html.mode-hacker body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0, 255, 65, 0.03) 3px,
+    rgba(0, 255, 65, 0.03) 4px
+  );
+}
+
+/* ── Dark mode: Settings modal toggle contrast fix ── */
+html.dark .settings-toggle-on {
+  background-color: #e2e8f0 !important; /* slate-200 — visible on dark bg */
+}
+html.dark .settings-toggle-off {
+  background-color: #334155 !important; /* slate-700 */
+}

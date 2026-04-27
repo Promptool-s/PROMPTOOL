@@ -445,7 +445,13 @@ const Header = ({ companyRefreshKey = 0 }) => {
                 value={searchQuery}
                 onChange={e => handleSearch(e.target.value)}
                 onFocus={() => searchQuery && setSearchOpen(true)}
-                placeholder={lang === 'en' ? 'Search users...' : 'Buscar usuarios...'}
+                placeholder={
+                  document.documentElement.classList.contains('mode-hacker')
+                    ? (lang === 'en' ? '> SEARCH_USER_' : '> BUSCAR_USUARIO_')
+                    : document.documentElement.classList.contains('mode-retro')
+                    ? (lang === 'en' ? 'FIND USER...' : 'BUSCAR...')
+                    : (lang === 'en' ? 'Search users...' : 'Buscar usuarios...')
+                }
                 className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
               />
               {searchLoading && (

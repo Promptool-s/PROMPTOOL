@@ -48,7 +48,11 @@ function downloadBuffer(url, serviceKey) {
 }
 
 async function prefetchImages() {
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
+  // NOTE: NODE_TLS_REJECT_UNAUTHORIZED = '0' was removed because it disables
+  // TLS certificate verification globally, making all HTTPS connections in the
+  // process vulnerable to MITM attacks. If you need to connect to a Supabase
+  // instance with a self-signed cert in local dev, configure a custom CA via
+  // NODE_EXTRA_CA_CERTS instead.
   const env = readEnv()
   const serviceKey = env.SUPABASE_SERVICE_KEY
   const supabaseUrl = (env.VITE_SUPABASE_URL || '').replace(/\/$/, '')

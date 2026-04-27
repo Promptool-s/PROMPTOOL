@@ -8,21 +8,33 @@ import { ErrorTypes } from '../utils/errorHandler'
  * Prevents spam, abuse, and brute force attacks
  */
 
-// Get client IP address (best effort)
-const getClientIP = async () => {
+// Generate a privacy-preserving client fingerprint without calling external APIs.
+// Avoids leaking the user's IP to third-party services (e.g. ipify.org) and
+// removes a slow, unreliable network dependency from the hot path.
+const getClientFingerprint = () => {
   try {
-    // Try to get IP from a public API
-    const response = await fetch('https://api.ipify.org?format=json', { timeout: 2000 })
-    const data = await response.json()
-    logger.debug('Client IP retrieved', { ip: data.ip })
-    return data.ip || 'unknown'
-  } catch (error) {
-    // Fallback to a hash of user agent + timestamp bucket (15min)
-    const ua = navigator.userAgent
+    const components = [
+      navigator.userAgent,
+      navigator.language,
+      screen.width + 'x' + screen.height,
+      screen.colorDepth,
+      new Date().getTimezoneOffset(),
+      navigator.hardwareConcurrency || 0,
+      navigator.platform || '',
+    ]
+    // Time bucket: 15-minute windows (aligns with the rate-limit window)
     const timeBucket = Math.floor(Date.now() / (15 * 60 * 1000))
-    const fallbackId = `fallback-${btoa(ua + timeBucket).slice(0, 32)}`
-    logger.debug('Using fallback IP', { fallbackId })
-    return fallbackId
+    const raw = components.join('|') + '|' + timeBucket
+    // Simple hash (not cryptographic — used only for bucketing)
+    let hash = 0
+    for (let i = 0; i < raw.length; i++) {
+      const char = raw.charCodeAt(i)
+      hash = ((hash << 5) - hash) + char
+      hash = hash & hash
+    }
+    return 'fp-' + Math.abs(hash).toString(36)
+  } catch {
+    return 'fp-unknown-' + Math.floor(Date.now() / (15 * 60 * 1000))
   }
 }
 
@@ -33,10 +45,10 @@ const getClientIP = async () => {
  */
 export const checkRateLimit = async (endpoint = 'login') => {
   try {
-    const ip = await getClientIP()
-    
+    const ip = getClientFingerprint()
+
     logger.debug('Checking rate limit', { endpoint, ip })
-    
+
     const { data, error } = await supabase.rpc('check_rate_limit', {
       p_ip_address: ip,
       p_endpoint: endpoint,
