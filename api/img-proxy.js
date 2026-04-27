@@ -9,6 +9,7 @@ const ALLOWED_DOMAINS = [
   'media.discordapp.net',
   'i.imgur.com',
   'image-generator.com',
+  'cdn.spaceprompts.com',
 ]
 
 // Block private/internal IP ranges (SSRF protection)

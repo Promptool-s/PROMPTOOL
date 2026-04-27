@@ -183,10 +183,17 @@ const isPromptOk = (p) => {
 }
 
 // ── Slideshow ──────────────────────────────────────────────────────────────
-const Slide = ({ item, visible }) => (
+const Slide = ({ item, visible, isFirst }) => (
   <div className={`absolute inset-0 flex flex-col transition-opacity duration-700 ${visible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
     <div className="relative flex-1 overflow-hidden rounded-2xl select-none" onContextMenu={e => e.preventDefault()} onDragStart={e => e.preventDefault()}>
-      <img src={proxyImg(item.url_image)} alt="" className="h-full w-full object-cover pointer-events-none" draggable={false} loading="lazy" />
+      <img 
+        src={proxyImg(item.url_image)} 
+        alt="" 
+        className="h-full w-full object-cover pointer-events-none" 
+        draggable={false} 
+        loading={isFirst ? "eager" : "lazy"}
+        fetchpriority={isFirst ? "high" : "auto"}
+      />
       <div className="absolute inset-0" onContextMenu={e => e.preventDefault()} />
       <div className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/80 to-transparent" />
     </div>
@@ -257,14 +264,22 @@ const CommunitySlideshow = ({ dark, lang }) => {
         }
 
         // Take random 10 from shuffled pool
-        setSlides(pool.slice(0, 10).map(row => ({
+        const selectedSlides = pool.slice(0, 10).map(row => ({
           url_image: row.imagenes_ia.url_image,
           prompt_usuario: row.prompt_usuario,
           score: row.puntaje_similitud,
           username: row.usuarios?.username || null,
           avatar_url: row.usuarios?.avatar_url || null,
           is_dev: row.usuarios?.devstate === true,
-        })))
+        }))
+        
+        setSlides(selectedSlides)
+        
+        // Preload first 3 images for faster display
+        selectedSlides.slice(0, 3).forEach(slide => {
+          const img = new Image()
+          img.src = proxyImg(slide.url_image)
+        })
       } catch (_) {}
       finally { setLoading(false) }
     }
@@ -289,7 +304,7 @@ const CommunitySlideshow = ({ dark, lang }) => {
   return (
     <div className="flex h-full flex-col">
       <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500">{c.community}</p>
-      <div className="relative flex-1">{slides.map((item, i) => <Slide key={i} item={item} visible={i === current} />)}</div>
+      <div className="relative flex-1">{slides.map((item, i) => <Slide key={i} item={item} visible={i === current} isFirst={i === 0} />)}</div>
       {slides.length > 1 && <Dots total={slides.length} current={current} onSelect={goTo} dark={dark} />}
     </div>
   )
