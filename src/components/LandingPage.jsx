@@ -884,9 +884,13 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
               </div>
             </div>
             {/* Flecha hacia abajo */}
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
-              <button onClick={() => scrollTo(1)} className={`${dark ? 'text-slate-600 hover:text-slate-400' : 'text-slate-300 hover:text-slate-500'} transition`}>
-                <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5">
+              <button
+                onClick={() => scrollTo(1)}
+                aria-label={lang === 'en' ? 'Scroll down' : 'Bajar'}
+                className="group flex h-10 w-10 items-center justify-center rounded-full border-2 border-cyan-400 bg-white/80 shadow-md shadow-cyan-100 backdrop-blur-sm transition hover:bg-cyan-500 hover:border-cyan-500 hover:shadow-cyan-200 animate-bounce"
+              >
+                <svg className="h-5 w-5 text-cyan-500 transition group-hover:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
