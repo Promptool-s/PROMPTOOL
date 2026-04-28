@@ -493,14 +493,18 @@ export const detectAIGenerated = async ({
   }
   
   // 6. Análisis de comportamiento histórico
-  const behaviorHistoryAnalysis = await analyzeBehaviorPattern(userId, prompt)
+  // 7. Análisis de consistencia temporal
+  // Ambos son queries independientes a Supabase — corren en paralelo
+  const [behaviorHistoryAnalysis, temporalAnalysis] = await Promise.all([
+    analyzeBehaviorPattern(userId, prompt),
+    analyzeTemporalConsistency(userId, elapsedSeconds),
+  ])
+
   if (behaviorHistoryAnalysis.suspicious) {
     detections.push(behaviorHistoryAnalysis.reason)
     totalConfidence += behaviorHistoryAnalysis.confidence
   }
   
-  // 7. Análisis de consistencia temporal
-  const temporalAnalysis = await analyzeTemporalConsistency(userId, elapsedSeconds)
   if (temporalAnalysis.suspicious) {
     detections.push(temporalAnalysis.reason)
     totalConfidence += temporalAnalysis.confidence

@@ -669,35 +669,31 @@ function App() {
     setAiCheatDetected(null)
 
     try {
-      const result = await comparePrompts(submittedPrompt, promptReferencia, imageData?.image_diff ?? difficulty, lang)
+      // ── Lanzar comparePrompts y clipCheck en paralelo ──────────────────
       const timePenalty = getTimePenalty(timingData, imageData?.image_diff ?? difficulty, mode)
 
-      // ── Detección de IA — bloqueante, antes de calcular score final ──────
-      let aiPenalty = 0
-      let aiDetectionResult = null
+      const [result, clipCheck] = await Promise.all([
+        comparePrompts(submittedPrompt, promptReferencia, imageData?.image_diff ?? difficulty, lang),
+        // Clipboard check corre en paralelo con el LLM — falla silencioso
+        (imageData?.url_image
+          ? checkClipboardForGameImage(imageData.url_image).catch(() => ({ hasImage: false, similarToGame: false, similarity: 0 }))
+          : Promise.resolve({ hasImage: false, similarToGame: false, similarity: 0 })
+        ),
+      ])
 
-      // Detección de imagen en clipboard — corre siempre, independiente del usuario
-      try {
-        if (imageData?.url_image) {
-          const clipCheck = await checkClipboardForGameImage(imageData.url_image)
-          console.debug('[AI Detection] clipCheck:', clipCheck)
-          if (clipCheck.hasImage && clipCheck.similarToGame) {
-            aiPenalty = 40
-            setAiCheatDetected({
-              penalty: 40,
-              severity: 'high',
-              confidence: clipCheck.similarity,
-            })
-          }
-        }
-      } catch (e) {
-        console.debug('[AI Detection] clipCheck error:', e)
+      // ── Detección de IA — usa resultados ya disponibles ──────────────
+      let aiPenalty = 0
+
+      // Resultado del clipboard check (ya resuelto arriba)
+      if (clipCheck.hasImage && clipCheck.similarToGame) {
+        aiPenalty = 40
+        setAiCheatDetected({ penalty: 40, severity: 'high', confidence: clipCheck.similarity })
       }
 
       // Detección por comportamiento — requiere usuario logueado
       if (user) {
         try {
-          aiDetectionResult = await detectAIGenerated({
+          const aiDetectionResult = await detectAIGenerated({
             userId: user.id,
             prompt: submittedPrompt,
             elapsedSeconds: timingData.elapsedSeconds,
@@ -807,61 +803,46 @@ function App() {
           }
         }
 
-        // Actualizar ELO del usuario logueado — no aplica en desafíos de empresa ni en modo no rankeado
+        // Actualizar ELO del usuario logueado — fire-and-forget, no bloquea la UI
         if (user && !challengeId && isRanked) {
-          try {
-            const { data: userData } = await supabase
-              .from('usuarios')
-              .select('elo_rating, total_intentos')
-              .eq('id_usuario', user.id)
-              .maybeSingle()
+          ;(async () => {
+            try {
+              // Las dos queries de ELO corren en paralelo
+              const [{ data: userData }, { count: rankedCount }] = await Promise.all([
+                supabase.from('usuarios').select('elo_rating').eq('id_usuario', user.id).maybeSingle(),
+                supabase.from('intentos').select('id_intento', { count: 'exact', head: true }).eq('id_usuario', user.id).eq('is_ranked', true),
+              ])
 
-            const currentElo = userData?.elo_rating ?? 1000
+              const currentElo = userData?.elo_rating ?? 1000
+              const totalAttempts = rankedCount ?? 0
 
-            // Contar solo intentos rankeados para el threshold de 5
-            const { count: rankedCount } = await supabase
-              .from('intentos')
-              .select('id_intento', { count: 'exact', head: true })
-              .eq('id_usuario', user.id)
-              .eq('is_ranked', true)
+              if (totalAttempts >= 5) {
+                const { newElo, delta } = calculateElo({
+                  userElo: currentElo,
+                  totalAttempts,
+                  score: finalScore,
+                  difficulty: imageData?.image_diff ?? difficulty,
+                  timing: {
+                    elapsedSeconds: timingData.elapsedSeconds,
+                    recommendedSeconds: timingData.recommendedSeconds,
+                    penaltyOvertimeSeconds: timingData.penaltyOvertimeSeconds ?? 0,
+                  },
+                })
 
-            const totalAttempts = rankedCount ?? 0
+                // Update ELO + delta del intento en paralelo
+                await Promise.all([
+                  supabase.from('usuarios').update({ elo_rating: newElo }).eq('id_usuario', user.id),
+                  supabase.from('intentos').update({ elo_delta: delta })
+                    .eq('id_usuario', user.id).eq('is_ranked', true)
+                    .order('fecha_hora', { ascending: false }).limit(1),
+                ])
 
-            // No calcular ELO hasta tener 5 intentos rankeados
-            if (totalAttempts < 5) {
-              // Awaiting placement — no ELO yet
-            } else {
-              const { newElo, delta } = calculateElo({
-                userElo: currentElo,
-                totalAttempts,
-                score: finalScore,
-                difficulty: imageData?.image_diff ?? difficulty,
-                timing: {
-                  elapsedSeconds: timingData.elapsedSeconds,
-                  recommendedSeconds: timingData.recommendedSeconds,
-                  penaltyOvertimeSeconds: timingData.penaltyOvertimeSeconds ?? 0,
-                },
-              })
-
-              await supabase
-                .from('usuarios')
-                .update({ elo_rating: newElo })
-                .eq('id_usuario', user.id)
-
-              // Guardar delta en el intento más reciente
-              await supabase
-                .from('intentos')
-                .update({ elo_delta: delta })
-                .eq('id_usuario', user.id)
-                .eq('is_ranked', true)
-                .order('fecha_hora', { ascending: false })
-                .limit(1)
-
-              setEloDelta(delta)
+                setEloDelta(delta)
+              }
+            } catch {
+              // ELO update failed silently — not critical
             }
-          } catch {
-            // ELO update failed silently — not critical
-          }
+          })()
         }
       }
 

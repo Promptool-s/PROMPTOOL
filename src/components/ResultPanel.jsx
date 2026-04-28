@@ -315,7 +315,7 @@ const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, stren
         {!user ? (
           /* Usuario no logueado - mostrar botones de sign in */
           <>
-            {!isPass && (
+            {safeScore < 93 && (
               <button type="button" onClick={onOpenAuth}
                 className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700">
                 {lang === 'en' ? 'Sign in to retry' : 'Inicia sesión para reintentar'}
@@ -335,7 +335,7 @@ const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, stren
         ) : (
           /* Usuario logueado - botones normales */
           <>
-            {onRetry && !isPass && (
+            {onRetry && safeScore < 93 && (
               <button type="button" onClick={onRetry}
                 className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700">
                 {lang === 'en' ? 'Retry' : 'Reintentar'}

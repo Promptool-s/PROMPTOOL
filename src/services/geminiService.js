@@ -283,7 +283,7 @@ Return ONLY a valid JSON like this:
           model: "llama-3.3-70b-versatile",
           messages: [{ role: "user", content: prompt }],
           temperature: 0.3,
-          max_tokens: 800,
+          max_tokens: 400,
           response_format: { type: "json_object" },
         })
       : JSON.stringify({ prompt, userPrompt, originalPrompt, difficulty });
