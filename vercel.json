@@ -2,6 +2,7 @@
   "trailingSlash": false,
   "routes": [
     { "src": "^/user/(.*)$", "dest": "/user.html" },
+    { "src": "^/perfil$", "dest": "/usuario.html" },
     { "src": "^/admin$", "dest": "/admin.html" },
     { "src": "^/leaderboard$", "dest": "/leaderboard.html" },
     { "src": "^/tournaments$", "dest": "/tournaments.html" },

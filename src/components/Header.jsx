@@ -63,7 +63,7 @@ const Header = ({ companyRefreshKey = 0 }) => {
       })
   }, [user?.id, companyRefreshKey])
 
-  const profileHref = profileUsername ? `/user/${profileUsername}` : '/perfil'
+  const profileHref = profileUsername ? `/user/${profileUsername}` : `/usuario.html?id=${user?.id || ''}`
 
   // Close search on outside click
   useEffect(() => {
