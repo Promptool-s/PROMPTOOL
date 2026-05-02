@@ -41,7 +41,7 @@ const GUIDE_LIBRARY = [
         },
         {
           heading: 'Ejemplo práctico',
-          body: '❌ Malo: "Dame una imagen"\n✅ Bueno: "Genera una imagen de un gato naranja durmiendo en un sofá gris, estilo fotografía realista, iluminación natural suave"',
+          body: '✗ Malo: "Dame una imagen"\n✓ Bueno: "Genera una imagen de un gato naranja durmiendo en un sofá gris, estilo fotografía realista, iluminación natural suave"',
         },
       ],
       takeaway: 'La especificidad es control. Cuanto más claro seas, mejor será el resultado.',

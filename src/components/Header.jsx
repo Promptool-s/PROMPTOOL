@@ -660,7 +660,7 @@ const Header = ({ companyRefreshKey = 0 }) => {
                                   }`}
                                 >
                                   {item.sourceType === 'challenge_notification'
-                                    ? (lang === 'en' ? '🎯 Play challenge' : '🎯 Jugar desafío')
+                                    ? (lang === 'en' ? 'Play challenge' : 'Jugar desafío')
                                     : (lang === 'en' ? 'Open guide' : 'Abrir guía')}
                                 </a>
                               )}

@@ -6,6 +6,7 @@ import { useLang } from './contexts/LangContext'
 import { useAuth } from './hooks/useAuth'
 import { getRank } from './services/eloService'
 import { proxyImg } from './utils/imgProxy'
+import { CloseIcon } from './components/Icons'
 
 const TOP_COLORS = ['#f59e0b', '#94a3b8', '#b45309']
 
@@ -158,7 +159,7 @@ function LeaderboardApp() {
             {lang === 'en' ? 'Comparison' : 'Comparación'}
           </p>
           <button onClick={() => { setCompareA(null); setCompareB(null); setCompareOpen(false) }}
-            className="text-xs text-slate-400 hover:text-slate-700">✕</button>
+            className="text-xs text-slate-400 hover:text-slate-700"><CloseIcon className="h-3.5 w-3.5" /></button>
         </div>
 
         <div className="grid grid-cols-[1fr_auto_1fr]">
@@ -253,7 +254,7 @@ function LeaderboardApp() {
               }
             </div>
             <span className="text-sm font-semibold text-slate-700 flex-1 truncate">{getDisplayName(value)}</span>
-            <button onClick={() => { onSelect(null); setSearch('') }} className="text-slate-400 hover:text-slate-700 text-xs">✕</button>
+            <button onClick={() => { onSelect(null); setSearch('') }} className="text-slate-400 hover:text-slate-700 text-xs"><CloseIcon className="h-3.5 w-3.5" /></button>
           </div>
         ) : (
           <div className="relative">

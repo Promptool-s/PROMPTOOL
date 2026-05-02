@@ -196,18 +196,34 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
                 className="w-full rounded-xl border-2 border-slate-300 bg-white p-4 text-left transition hover:border-slate-400 hover:bg-slate-50"
               >
                 <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <p className="font-bold text-slate-900 text-base">{lang === 'en' ? '🎮 Individual' : '🎮 Individual'}</p>
-                    <p className="text-xs text-slate-600 mt-1">{lang === 'en' ? 'Learn and practice' : 'Aprende y practica'}</p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100">
+                      <svg className="h-4 w-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-900 text-base">{lang === 'en' ? 'Individual' : 'Individual'}</p>
+                      <p className="text-xs text-slate-600 mt-0.5">{lang === 'en' ? 'Learn and practice' : 'Aprende y practica'}</p>
+                    </div>
                   </div>
                   <span className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
                     {lang === 'en' ? 'FREE' : 'GRATIS'}
                   </span>
                 </div>
                 <div className="mt-4 space-y-2 text-xs text-slate-700 font-medium">
-                  <p>✓ Desafíos diarios</p>
-                  <p>✓ Modo libre ilimitado</p>
-                  <p>✓ Estadísticas personales</p>
+                  <div className="flex items-center gap-2">
+                    <svg className="h-3.5 w-3.5 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    <span>{lang === 'en' ? 'Daily challenges' : 'Desafíos diarios'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <svg className="h-3.5 w-3.5 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    <span>{lang === 'en' ? 'Unlimited free mode' : 'Modo libre ilimitado'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <svg className="h-3.5 w-3.5 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    <span>{lang === 'en' ? 'Personal stats' : 'Estadísticas personales'}</span>
+                  </div>
                 </div>
               </button>
 
@@ -219,19 +235,38 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
                 <div className="absolute top-0 right-0 -mr-12 -mt-8 h-24 w-24 rounded-full bg-violet-300/20" />
                 <div className="relative">
                   <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <p className="font-bold text-slate-900 text-base">{lang === 'en' ? '⭐ Enterprise' : '⭐ Empresa'}</p>
-                      <p className="text-xs text-slate-600 mt-1">{lang === 'en' ? 'For teams and organizations' : 'Para equipos y organizaciones'}</p>
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100">
+                        <svg className="h-4 w-4 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-900 text-base">{lang === 'en' ? 'Enterprise' : 'Empresa'}</p>
+                        <p className="text-xs text-slate-600 mt-0.5">{lang === 'en' ? 'For teams and organizations' : 'Para equipos y organizaciones'}</p>
+                      </div>
                     </div>
                     <span className="inline-flex rounded-full bg-violet-500 px-3 py-1 text-xs font-bold text-white shadow-lg">
                       {lang === 'en' ? 'FREE TRIAL' : 'PRUEBA GRATIS'}
                     </span>
                   </div>
                   <div className="mt-4 space-y-2 text-xs text-slate-700 font-medium">
-                    <p>✓ Desafíos personalizados</p>
-                    <p>✓ Gestión de múltiples usuarios</p>
-                    <p>✓ Dashboard de análisis</p>
-                    <p>✓ Configuraciones avanzadas</p>
+                    <div className="flex items-center gap-2">
+                      <svg className="h-3.5 w-3.5 text-violet-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+                      <span>{lang === 'en' ? 'Custom challenges' : 'Desafíos personalizados'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <svg className="h-3.5 w-3.5 text-violet-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+                      <span>{lang === 'en' ? 'Multi-user management' : 'Gestión de múltiples usuarios'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <svg className="h-3.5 w-3.5 text-violet-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+                      <span>{lang === 'en' ? 'Analytics dashboard' : 'Dashboard de análisis'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <svg className="h-3.5 w-3.5 text-violet-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+                      <span>{lang === 'en' ? 'Advanced settings' : 'Configuraciones avanzadas'}</span>
+                    </div>
                   </div>
                 </div>
               </button>}

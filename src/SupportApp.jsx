@@ -5,6 +5,7 @@ import { useAuth } from './hooks/useAuth'
 import { useLang } from './contexts/LangContext'
 import { supabase } from './supabaseClient'
 import { nowAR } from './utils/dateAR'
+import { CloseIcon } from './components/Icons'
 
 function SupportApp() {
   const { user, loading: authLoading } = useAuth()
@@ -214,7 +215,7 @@ function SupportApp() {
                       {statusLabel(selectedTicket.estado)}
                     </span>
                   </div>
-                  <button onClick={() => setSelectedTicket(null)} className="text-slate-400 hover:text-slate-700 text-sm">✕</button>
+                  <button onClick={() => setSelectedTicket(null)} className="text-slate-400 hover:text-slate-700 text-sm"><CloseIcon className="h-4 w-4" /></button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-5 space-y-4" style={{ maxHeight: 360 }}>

@@ -18,6 +18,7 @@ import { getRank, getNextRank, ELO_RANKS } from './services/eloService'
 import { calculateElo } from './services/eloService'
 import ImageCropper from './components/ImageCropper'
 import { proxyImg } from './utils/imgProxy'
+import { BuildingIcon, UsersIcon, CalendarIcon, MapPinIcon, LinkIcon, CheckIcon, ClockIcon, CloseIcon, StarIcon } from './components/Icons'
 
 function getTargetUserId() {
   const params = new URLSearchParams(window.location.search)
@@ -1221,7 +1222,7 @@ function UsuarioApp() {
                 {medal.icono_url ? (
                   <img src={medal.icono_url} alt={medal.nombre} className="h-4 w-4 object-contain" />
                 ) : (
-                  <span>★</span>
+                  <span className="text-slate-400"><StarIcon className="h-4 w-4" /></span>
                 )}
                 {medal.nombre}
               </div>
@@ -1263,8 +1264,8 @@ function UsuarioApp() {
                       : `linear-gradient(135deg, ${accentHex}55 0%, ${accentHex}99 50%, ${accentHex}cc 100%)`,
                   }}
                 >
-                  {/* Overlay gradiente para legibilidad */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
+                  {/* Overlay gradiente para legibilidad — solo en modo oscuro */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-transparent dark:from-black/40 dark:via-transparent dark:to-transparent pointer-events-none" />
                   {canEdit && (
                     <button
                       type="button"
@@ -1624,29 +1625,29 @@ function UsuarioApp() {
                             {profile?.company_industry && (
                               <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium"
                                 style={{ borderColor: accentMid, backgroundColor: accentLight, color: accentHex }}>
-                                🏢 {profile.company_industry}
+                                <BuildingIcon className="h-3.5 w-3.5" /> {profile.company_industry}
                               </span>
                             )}
                             {profile?.company_size && (
                               <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-1 text-xs font-medium text-slate-600 dark:text-slate-300">
-                                👥 {profile.company_size} {lang === 'en' ? 'people' : 'personas'}
+                                <UsersIcon className="h-3.5 w-3.5" /> {profile.company_size} {lang === 'en' ? 'people' : 'personas'}
                               </span>
                             )}
                             {profile?.company_founded && (
                               <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-1 text-xs font-medium text-slate-600 dark:text-slate-300">
-                                📅 {lang === 'en' ? 'Est.' : 'Fundada'} {profile.company_founded}
+                                <CalendarIcon className="h-3.5 w-3.5" /> {lang === 'en' ? 'Est.' : 'Fundada'} {profile.company_founded}
                               </span>
                             )}
                             {profile?.pais && (
                               <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-1 text-xs font-medium text-slate-600 dark:text-slate-300">
-                                📍 {profile.pais}
+                                <MapPinIcon className="h-3.5 w-3.5" /> {profile.pais}
                               </span>
                             )}
                             {profile?.social_website && (
                               <a href={profile.social_website} target="_blank" rel="noreferrer"
                                 className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition hover:opacity-80"
                                 style={{ borderColor: accentMid, backgroundColor: accentLight, color: accentHex }}>
-                                🔗 {profile.social_website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                                <LinkIcon className="h-3.5 w-3.5" /> {profile.social_website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
                               </a>
                             )}
                           </div>
@@ -1749,11 +1750,11 @@ function UsuarioApp() {
                               {lang === 'en' ? 'Join this company' : 'Unirse a esta empresa'}
                             </h3>
                             {joinRequestStatus === 'member' ? (
-                              <p className="text-sm text-emerald-600 font-medium">✓ {lang === 'en' ? 'You are already a member.' : 'Ya eres miembro.'}</p>
+                              <p className="text-sm text-emerald-600 font-medium flex items-center gap-1.5"><CheckIcon className="h-4 w-4" /> {lang === 'en' ? 'You are already a member.' : 'Ya eres miembro.'}</p>
                             ) : joinRequestStatus === 'already' ? (
-                              <p className="text-sm text-amber-600 font-medium">⏳ {lang === 'en' ? 'Request pending review.' : 'Solicitud pendiente de revisión.'}</p>
+                              <p className="text-sm text-amber-600 font-medium flex items-center gap-1.5"><ClockIcon className="h-4 w-4" /> {lang === 'en' ? 'Request pending review.' : 'Solicitud pendiente de revisión.'}</p>
                             ) : joinRequestStatus === 'sent' ? (
-                              <p className="text-sm text-emerald-600 font-medium">✓ {lang === 'en' ? 'Request sent!' : 'Solicitud enviada.'}</p>
+                              <p className="text-sm text-emerald-600 font-medium flex items-center gap-1.5"><CheckIcon className="h-4 w-4" /> {lang === 'en' ? 'Request sent!' : 'Solicitud enviada.'}</p>
                             ) : (
                               <div className="space-y-3">
                                 <textarea
@@ -2738,7 +2739,7 @@ function UsuarioApp() {
                             }
                           </div>
                           <span className="text-sm font-medium text-slate-700 dark:text-slate-200 flex-1 truncate">{compareWith.name}</span>
-                          <button onClick={() => { setCompareWith(null); setCompareSearch('') }} className="text-slate-400 hover:text-slate-600 text-xs">✕</button>
+                          <button onClick={() => { setCompareWith(null); setCompareSearch('') }} className="text-slate-400 hover:text-slate-600 text-xs"><CloseIcon className="h-3.5 w-3.5" /></button>
                         </div>
                       ) : (
                         <div className="relative flex-1">
@@ -3179,7 +3180,7 @@ function UsuarioApp() {
                               )}
                               {companyName && (
                                 <p className="text-[10px] text-slate-400 flex items-center gap-1">
-                                  <span>🏢</span>{companyName}
+                                  <BuildingIcon className="h-3 w-3" />{companyName}
                                 </p>
                               )}
                             </div>

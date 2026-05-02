@@ -12,7 +12,7 @@ export const challengeTypes = {
       en: 'General training, onboarding, skill assessment',
       es: 'Entrenamiento general, incorporación, evaluación de habilidades'
     },
-    icon: '🎯'
+    icon: 'target'
   },
   
   multi_round: {
@@ -25,7 +25,7 @@ export const challengeTypes = {
       en: 'Skill development, learning from mistakes, continuous improvement',
       es: 'Desarrollo de habilidades, aprender de errores, mejora continua'
     },
-    icon: '🔄'
+    icon: 'refresh'
   },
   
   speed_challenge: {
@@ -38,7 +38,7 @@ export const challengeTypes = {
       en: 'Quick thinking, efficiency training, competitive events',
       es: 'Pensamiento rápido, entrenamiento de eficiencia, eventos competitivos'
     },
-    icon: '⚡'
+    icon: 'bolt'
   },
   
   creativity: {
@@ -51,7 +51,7 @@ export const challengeTypes = {
       en: 'Marketing teams, content creators, innovation workshops',
       es: 'Equipos de marketing, creadores de contenido, talleres de innovación'
     },
-    icon: '🎨'
+    icon: 'palette'
   },
   
   team_collaborative: {
@@ -64,7 +64,7 @@ export const challengeTypes = {
       en: 'Team building, cross-department collaboration, group training',
       es: 'Construcción de equipos, colaboración interdepartamental, entrenamiento grupal'
     },
-    icon: '👥'
+    icon: 'users'
   },
   
   tournament: {
@@ -77,7 +77,7 @@ export const challengeTypes = {
       en: 'Company competitions, engagement events, rewards programs',
       es: 'Competencias empresariales, eventos de engagement, programas de recompensas'
     },
-    icon: '🏆'
+    icon: 'trophy'
   },
   
   color_matching: {
@@ -90,7 +90,7 @@ export const challengeTypes = {
       en: 'Design teams, brand consistency, visual training, color theory',
       es: 'Equipos de diseño, consistencia de marca, entrenamiento visual, teoría del color'
     },
-    icon: '🎨',
+    icon: 'palette',
     special: true
   },
   
@@ -104,7 +104,7 @@ export const challengeTypes = {
       en: 'Education, training, explaining complex ideas, learning objectives',
       es: 'Educación, capacitación, explicar ideas complejas, objetivos de aprendizaje'
     },
-    icon: '💡'
+    icon: 'lightbulb'
   },
   
   step_by_step: {
@@ -117,7 +117,7 @@ export const challengeTypes = {
       en: 'Training materials, tutorials, process documentation, onboarding',
       es: 'Materiales de capacitación, tutoriales, documentación de procesos, incorporación'
     },
-    icon: '📋'
+    icon: 'clipboard'
   },
   
   technical_diagram: {
@@ -130,7 +130,7 @@ export const challengeTypes = {
       en: 'Tech teams, documentation, system design, technical communication',
       es: 'Equipos técnicos, documentación, diseño de sistemas, comunicación técnica'
     },
-    icon: '📐'
+    icon: 'ruler'
   }
 };
 
@@ -141,7 +141,7 @@ export const challengeModes = {
       en: 'Difficulty remains constant throughout all attempts. Best for standardized testing and fair comparison.',
       es: 'La dificultad permanece constante en todos los intentos. Mejor para pruebas estandarizadas y comparación justa.'
     },
-    icon: '📊',
+    icon: 'chart',
     recommended: ['standard', 'tournament', 'color_matching']
   },
   
@@ -151,7 +151,7 @@ export const challengeModes = {
       en: 'Difficulty adjusts based on user performance. Gets harder if you succeed, easier if you struggle. Personalized learning experience.',
       es: 'La dificultad se ajusta según el desempeño del usuario. Se vuelve más difícil si tienes éxito, más fácil si tienes dificultades. Experiencia de aprendizaje personalizada.'
     },
-    icon: '🎯',
+    icon: 'target',
     recommended: ['multi_round', 'concept_visualization', 'step_by_step']
   },
   
@@ -161,7 +161,7 @@ export const challengeModes = {
       en: 'Difficulty increases with each attempt or round. Encourages continuous improvement and skill development.',
       es: 'La dificultad aumenta con cada intento o ronda. Fomenta la mejora continua y el desarrollo de habilidades.'
     },
-    icon: '📈',
+    icon: 'trending-up',
     recommended: ['multi_round', 'team_collaborative', 'creativity']
   }
 };
@@ -174,7 +174,7 @@ export const scoringSystems = {
       es: 'Puntuación basada en qué tan cerca la imagen generada coincide con el objetivo. Método de puntuación estándar.'
     },
     formula: 'Base score × Accuracy %',
-    icon: '🎯'
+    icon: 'target'
   },
   
   speed_bonus: {
@@ -184,7 +184,7 @@ export const scoringSystems = {
       es: 'Puntos extra por completar rápidamente. Recompensa la eficiencia y el pensamiento rápido.'
     },
     formula: 'Base score + (Time remaining × Multiplier)',
-    icon: '⚡'
+    icon: 'bolt'
   },
   
   creativity_weighted: {
@@ -194,7 +194,7 @@ export const scoringSystems = {
       es: 'Mayor peso en originalidad e interpretación creativa. Perfecto para equipos de marketing y contenido.'
     },
     formula: 'Accuracy × 0.6 + Creativity × 0.4',
-    icon: '🎨'
+    icon: 'palette'
   },
   
   efficiency: {
@@ -204,7 +204,7 @@ export const scoringSystems = {
       es: 'Recompensa prompts concisos y efectivos. Menos palabras con alta precisión = mayor puntuación.'
     },
     formula: 'Base score × (1 + Brevity bonus)',
-    icon: '✂️'
+    icon: 'scissors'
   },
   
   custom_rubric: {
@@ -214,7 +214,7 @@ export const scoringSystems = {
       es: 'Define tus propios criterios de puntuación y pesos. Totalmente personalizable para necesidades específicas.'
     },
     formula: 'Custom weighted criteria',
-    icon: '⚙️'
+    icon: 'settings'
   },
   
   color_precision: {
@@ -224,7 +224,7 @@ export const scoringSystems = {
       es: 'Específico para desafíos de coincidencia de colores. Puntuación basada en precisión RGB de colores identificados.'
     },
     formula: 'Σ(255 - RGB difference) / 4 colors',
-    icon: '🎨',
+    icon: 'palette',
     exclusive: ['color_matching']
   }
 };
@@ -236,7 +236,7 @@ export const feedbackLevels = {
       en: 'Get instant feedback after each attempt. Best for learning and skill development.',
       es: 'Obtén feedback instantáneo después de cada intento. Mejor para aprendizaje y desarrollo de habilidades.'
     },
-    icon: '⚡'
+    icon: 'bolt'
   },
   
   delayed: {
@@ -245,7 +245,7 @@ export const feedbackLevels = {
       en: 'Feedback provided at the end of the challenge. Encourages independent problem-solving.',
       es: 'Feedback proporcionado al final del desafío. Fomenta la resolución independiente de problemas.'
     },
-    icon: '⏱️'
+    icon: 'clock'
   },
   
   minimal: {
@@ -254,7 +254,7 @@ export const feedbackLevels = {
       en: 'Only final score shown. Best for assessments and competitions.',
       es: 'Solo se muestra la puntuación final. Mejor para evaluaciones y competencias.'
     },
-    icon: '📊'
+    icon: 'chart'
   },
   
   detailed: {
@@ -263,7 +263,7 @@ export const feedbackLevels = {
       en: 'Comprehensive analysis with suggestions and improvement areas. Ideal for training.',
       es: 'Análisis completo con sugerencias y áreas de mejora. Ideal para capacitación.'
     },
-    icon: '📝'
+    icon: 'file-text'
   }
 };
 
@@ -274,7 +274,7 @@ export const collaborationModes = {
       en: 'Solo challenge. Each person works independently.',
       es: 'Desafío individual. Cada persona trabaja independientemente.'
     },
-    icon: '👤'
+    icon: 'user'
   },
   
   pairs: {
@@ -283,7 +283,7 @@ export const collaborationModes = {
       en: 'Two people collaborate on the challenge.',
       es: 'Dos personas colaboran en el desafío.'
     },
-    icon: '👥'
+    icon: 'users'
   },
   
   team: {
@@ -292,7 +292,7 @@ export const collaborationModes = {
       en: 'Small teams of 3-5 people work together.',
       es: 'Equipos pequeños de 3-5 personas trabajan juntos.'
     },
-    icon: '👨‍👩‍👧‍👦'
+    icon: 'users'
   },
   
   department: {
@@ -301,7 +301,7 @@ export const collaborationModes = {
       en: 'Entire department collaborates. Great for large-scale training.',
       es: 'Todo el departamento colabora. Excelente para capacitación a gran escala.'
     },
-    icon: '🏢'
+    icon: 'building'
   }
 };
 
@@ -309,49 +309,49 @@ export const industryFocus = {
   marketing: {
     name: { en: 'Marketing & Advertising', es: 'Marketing y Publicidad' },
     skills: ['Brand consistency', 'Campaign creation', 'Target audience', 'Visual storytelling'],
-    icon: '📢'
+    icon: 'megaphone'
   },
   
   ecommerce: {
     name: { en: 'E-commerce & Retail', es: 'E-commerce y Retail' },
     skills: ['Product showcase', 'Lifestyle integration', 'Conversion optimization', 'Brand palette'],
-    icon: '🛒'
+    icon: 'shopping-cart'
   },
   
   education: {
     name: { en: 'Education & Training', es: 'Educación y Capacitación' },
     skills: ['Concept visualization', 'Instructional design', 'Learning objectives', 'Age-appropriate content'],
-    icon: '📚'
+    icon: 'book'
   },
   
   tech: {
     name: { en: 'Technology & Software', es: 'Tecnología y Software' },
     skills: ['UI/UX design', 'Technical diagrams', 'Feature illustration', 'System architecture'],
-    icon: '💻'
+    icon: 'monitor'
   },
   
   healthcare: {
     name: { en: 'Healthcare & Wellness', es: 'Salud y Bienestar' },
     skills: ['Medical accuracy', 'Patient education', 'Empathy focus', 'Compliance'],
-    icon: '🏥'
+    icon: 'heart'
   },
   
   realestate: {
     name: { en: 'Real Estate & Architecture', es: 'Bienes Raíces y Arquitectura' },
     skills: ['Space visualization', 'Lighting scenarios', 'Staging', 'Multiple perspectives'],
-    icon: '🏠'
+    icon: 'home'
   },
   
   food: {
     name: { en: 'Food & Beverage', es: 'Alimentos y Bebidas' },
     skills: ['Food photography', 'Plating presentation', 'Ingredient focus', 'Ambiance'],
-    icon: '🍽️'
+    icon: 'utensils'
   },
   
   design: {
     name: { en: 'Design & Creative', es: 'Diseño y Creatividad' },
     skills: ['Color theory', 'Composition', 'Visual hierarchy', 'Brand identity'],
-    icon: '🎨'
+    icon: 'palette'
   }
 };
 
@@ -364,7 +364,7 @@ export const tournamentTypes = {
     },
     participants: 'Powers of 2 (4, 8, 16, 32...)',
     duration: 'Short',
-    icon: '🏆'
+    icon: 'trophy'
   },
   
   double_elimination: {
@@ -375,7 +375,7 @@ export const tournamentTypes = {
     },
     participants: 'Powers of 2 (4, 8, 16, 32...)',
     duration: 'Medium',
-    icon: '🎯'
+    icon: 'target'
   },
   
   round_robin: {
@@ -386,7 +386,7 @@ export const tournamentTypes = {
     },
     participants: 'Any number (best 4-12)',
     duration: 'Long',
-    icon: '🔄'
+    icon: 'refresh'
   },
   
   swiss: {
@@ -397,7 +397,7 @@ export const tournamentTypes = {
     },
     participants: 'Any number',
     duration: 'Medium',
-    icon: '♟️'
+    icon: 'chess'
   }
 };
 
