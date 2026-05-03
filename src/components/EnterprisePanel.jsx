@@ -16,6 +16,29 @@ import GUIDE_LIBRARY from '../data/guides'
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY
 const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions'
 
+const EMPTY_GUIDE_FORM = {
+  type: 'catalog',
+  guide_id: '',
+  custom_title: '',
+  custom_summary: '',
+  custom_accent: 'violet',
+  custom_url: '',
+  custom_lesson_title: '',
+  custom_lesson_blocks: [{ heading: '', body: '', bullets: [] }],
+  custom_lesson_takeaway: '',
+  custom_quiz_enabled: false,
+  custom_quiz_question: '',
+  custom_quiz_options: ['', '', '', ''],
+  custom_quiz_correct: 0,
+  custom_quiz_explanation: '',
+  custom_steps: [''],
+  custom_drills: [''],
+  custom_checkpoints: [''],
+  target: 'all',
+  note: '',
+  due_date: '',
+}
+
 const EnterprisePanel = ({ user }) => {
   const { lang } = useLang()
   const [activeTab, setActiveTab] = useState(() => {
@@ -107,16 +130,7 @@ const EnterprisePanel = ({ user }) => {
   // ── Guías asignadas ──────────────────────────────────────────────────────
   const [guideAssignments, setGuideAssignments] = useState([])
   const [loadingGuides, setLoadingGuides] = useState(false)
-  const [guideForm, setGuideForm] = useState({
-    type: 'catalog',        // 'catalog' | 'custom'
-    guide_id: '',
-    custom_title: '',
-    custom_body: '',
-    custom_url: '',
-    target: 'all',          // 'all' | user id
-    note: '',
-    due_date: '',
-  })
+  const [guideForm, setGuideForm] = useState(EMPTY_GUIDE_FORM)
   const [savingGuide, setSavingGuide] = useState(false)
   const [guideStatus, setGuideStatus] = useState(null) // null | 'ok' | 'error'
   const [guideModalOpen, setGuideModalOpen] = useState(false)
@@ -201,19 +215,59 @@ const EnterprisePanel = ({ user }) => {
     setSavingGuide(true)
     setGuideStatus(null)
     try {
+      // Construir objeto de guía personalizada con estructura completa
+      let customGuideData = null
+      if (guideForm.type === 'custom') {
+        const blocks = guideForm.custom_lesson_blocks
+          .filter(b => b.heading.trim() || b.body.trim() || b.bullets.some(x => x.trim()))
+          .map(b => ({
+            heading: b.heading.trim(),
+            ...(b.body.trim() ? { body: b.body.trim() } : {}),
+            ...(b.bullets.filter(x => x.trim()).length > 0 ? { bullets: b.bullets.filter(x => x.trim()) } : {}),
+          }))
+
+        const quizOptions = guideForm.custom_quiz_options.map(o => o.trim()).filter(Boolean)
+        const quiz = guideForm.custom_quiz_enabled && guideForm.custom_quiz_question.trim() && quizOptions.length >= 2
+          ? {
+              question: guideForm.custom_quiz_question.trim(),
+              options: quizOptions,
+              correctIndex: Math.min(guideForm.custom_quiz_correct, quizOptions.length - 1),
+              ...(guideForm.custom_quiz_explanation.trim() ? { explanation: guideForm.custom_quiz_explanation.trim() } : {}),
+            }
+          : undefined
+
+        customGuideData = {
+          title: guideForm.custom_title.trim(),
+          ...(guideForm.custom_summary.trim() ? { summary: guideForm.custom_summary.trim() } : {}),
+          accent: guideForm.custom_accent || 'violet',
+          ...(guideForm.custom_url.trim() ? { custom_url: guideForm.custom_url.trim() } : {}),
+          ...(blocks.length > 0 ? {
+            lesson: {
+              title: guideForm.custom_lesson_title.trim() || guideForm.custom_title.trim(),
+              blocks,
+              ...(guideForm.custom_lesson_takeaway.trim() ? { takeaway: guideForm.custom_lesson_takeaway.trim() } : {}),
+              ...(quiz ? { quiz } : {}),
+            }
+          } : {}),
+          steps: guideForm.custom_steps.filter(s => s.trim()),
+          drills: guideForm.custom_drills.filter(s => s.trim()),
+          checkpoints: guideForm.custom_checkpoints.filter(s => s.trim()),
+        }
+      }
+
       const newAssignment = {
         id: crypto.randomUUID(),
         guide_id: guideForm.type === 'catalog' ? guideForm.guide_id : 'custom',
         custom_title: guideForm.type === 'custom' ? guideForm.custom_title.trim() : null,
-        custom_body: guideForm.type === 'custom' ? guideForm.custom_body.trim() : null,
-        custom_url: guideForm.custom_url.trim() || null,
+        custom_guide_data: customGuideData,
+        custom_body: guideForm.type === 'custom' ? (guideForm.custom_summary.trim() || null) : null,
+        custom_url: guideForm.type === 'custom' ? (guideForm.custom_url.trim() || null) : null,
         target_user_id: guideForm.target === 'all' ? null : guideForm.target,
         note: guideForm.note.trim() || null,
         due_date: guideForm.due_date || null,
         created_at: new Date().toISOString(),
       }
 
-      // Leer el training_config actual y agregar la nueva asignación
       const { data: current } = await supabase
         .from('usuarios')
         .select('training_config')
@@ -232,53 +286,32 @@ const EnterprisePanel = ({ user }) => {
 
       if (error) throw error
 
-      // ── Enviar notificación a los destinatarios ──────────────────────────
+      // ── Notificaciones ───────────────────────────────────────────────────
       const guideTitle = guideForm.type === 'catalog'
         ? (GUIDE_LIBRARY.find(g => g.id === guideForm.guide_id)?.title || guideForm.guide_id)
         : guideForm.custom_title.trim()
-
       const companyName = companyData.company_name || (lang === 'en' ? 'Your company' : 'Tu empresa')
-
       const notifPayload = []
-
-      if (guideForm.target === 'all') {
-        // Notificar a todos los miembros del equipo
-        teamUsers.forEach(m => {
-          notifPayload.push({
-            target_user_id: m.id_usuario,
-            target_email: m.email || null,
-            title: lang === 'en' ? 'New guide assigned' : 'Nueva guía asignada',
-            message: lang === 'en'
-              ? `${companyName} assigned you the guide: "${guideTitle}"${guideForm.note ? ` — ${guideForm.note}` : ''}`
-              : `${companyName} te asignó la guía: "${guideTitle}"${guideForm.note ? ` — ${guideForm.note}` : ''}`,
-            guide_slug: guideForm.type === 'catalog' ? `guia-${guideForm.guide_id}` : null,
-            guide_url: guideForm.type === 'catalog' ? `/guides#guia-${guideForm.guide_id}` : '/guides',
-          })
+      const targets = guideForm.target === 'all' ? teamUsers : teamUsers.filter(m => m.id_usuario === guideForm.target)
+      targets.forEach(m => {
+        notifPayload.push({
+          target_user_id: m.id_usuario,
+          target_email: m.email || null,
+          title: lang === 'en' ? 'New guide assigned' : 'Nueva guía asignada',
+          message: lang === 'en'
+            ? `${companyName} assigned you: "${guideTitle}"${guideForm.note ? ` — ${guideForm.note}` : ''}`
+            : `${companyName} te asignó: "${guideTitle}"${guideForm.note ? ` — ${guideForm.note}` : ''}`,
+          guide_slug: guideForm.type === 'catalog' ? `guia-${guideForm.guide_id}` : null,
+          guide_url: guideForm.type === 'catalog' ? `/guides#guia-${guideForm.guide_id}` : '/guides',
         })
-      } else {
-        const member = teamUsers.find(m => m.id_usuario === guideForm.target)
-        if (member) {
-          notifPayload.push({
-            target_user_id: member.id_usuario,
-            target_email: member.email || null,
-            title: lang === 'en' ? 'New guide assigned' : 'Nueva guía asignada',
-            message: lang === 'en'
-              ? `${companyName} assigned you the guide: "${guideTitle}"${guideForm.note ? ` — ${guideForm.note}` : ''}`
-              : `${companyName} te asignó la guía: "${guideTitle}"${guideForm.note ? ` — ${guideForm.note}` : ''}`,
-            guide_slug: guideForm.type === 'catalog' ? `guia-${guideForm.guide_id}` : null,
-            guide_url: guideForm.type === 'catalog' ? `/guides#guia-${guideForm.guide_id}` : '/guides',
-          })
-        }
-      }
-
+      })
       if (notifPayload.length > 0) {
-        // Insertar en guide_suggestions (tabla existente usada por el sistema de notificaciones)
         await supabase.from('guide_suggestions').insert(notifPayload)
       }
 
       setGuideAssignments(updatedAssignments)
       setGuideStatus('ok')
-      setGuideForm({ type: 'catalog', guide_id: '', custom_title: '', custom_body: '', custom_url: '', target: 'all', note: '', due_date: '' })
+      setGuideForm(EMPTY_GUIDE_FORM)
       setGuideModalOpen(false)
     } catch (err) {
       setGuideStatus('db_error:' + (err?.message || 'unknown'))
@@ -2413,7 +2446,7 @@ PLATFORM: Users practice writing AI image generation prompts. Score = prompt mat
         {/* Modal asignar guía */}
         {guideModalOpen && (
           <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={() => setGuideModalOpen(false)}>
-            <div className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className={`w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl ${guideForm.type === 'custom' ? 'max-w-2xl' : 'max-w-lg'}`} onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-slate-800">
                 <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
                   {lang === 'en' ? 'Assign a guide' : 'Asignar una guía'}
@@ -2436,7 +2469,7 @@ PLATFORM: Users practice writing AI image generation prompts. Score = prompt mat
                     ].map(opt => (
                       <button
                         key={opt.value}
-                        onClick={() => setGuideForm(f => ({ ...f, type: opt.value, guide_id: '' }))}
+                        onClick={() => setGuideForm(f => ({ ...EMPTY_GUIDE_FORM, type: opt.value, target: f.target, note: f.note, due_date: f.due_date }))}
                         className={`rounded-xl border px-4 py-3 text-sm font-medium transition text-left ${
                           guideForm.type === opt.value
                             ? 'border-violet-400 bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-300'
@@ -2474,45 +2507,242 @@ PLATFORM: Users practice writing AI image generation prompts. Score = prompt mat
                   </div>
                 )}
 
-                {/* Personalizada */}
+                {/* Personalizada — editor completo */}
                 {guideForm.type === 'custom' && (
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 uppercase tracking-wide">
-                        {lang === 'en' ? 'Title *' : 'Título *'}
-                      </label>
-                      <input
-                        type="text"
-                        value={guideForm.custom_title}
-                        onChange={e => setGuideForm(f => ({ ...f, custom_title: e.target.value }))}
-                        placeholder={lang === 'en' ? 'e.g. Brand voice guidelines' : 'Ej: Guía de tono de marca'}
-                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 outline-none focus:border-violet-400"
-                      />
+                  <div className="space-y-5">
+
+                    {/* ── Identidad ── */}
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+                      <p className="text-xs font-bold uppercase tracking-widest text-slate-400">{lang === 'en' ? 'Identity' : 'Identidad'}</p>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">{lang === 'en' ? 'Title *' : 'Título *'}</label>
+                        <input type="text" value={guideForm.custom_title}
+                          onChange={e => setGuideForm(f => ({ ...f, custom_title: e.target.value }))}
+                          placeholder={lang === 'en' ? 'e.g. Brand voice guidelines' : 'Ej: Guía de tono de marca'}
+                          className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm outline-none focus:border-violet-400" />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">{lang === 'en' ? 'Summary (shown in sidebar)' : 'Resumen (visible en el sidebar)'}</label>
+                        <input type="text" value={guideForm.custom_summary}
+                          onChange={e => setGuideForm(f => ({ ...f, custom_summary: e.target.value }))}
+                          placeholder={lang === 'en' ? 'One-line description of this guide' : 'Descripción breve de la guía'}
+                          className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm outline-none focus:border-violet-400" />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">{lang === 'en' ? 'Color accent' : 'Color de acento'}</label>
+                        <div className="flex flex-wrap gap-2">
+                          {['violet','indigo','cyan','emerald','amber','rose','orange','fuchsia','blue','teal'].map(c => {
+                            const cls = { violet:'bg-violet-500', indigo:'bg-indigo-500', cyan:'bg-cyan-500', emerald:'bg-emerald-500', amber:'bg-amber-500', rose:'bg-rose-500', orange:'bg-orange-500', fuchsia:'bg-fuchsia-500', blue:'bg-blue-500', teal:'bg-teal-500' }
+                            return (
+                              <button key={c} type="button" onClick={() => setGuideForm(f => ({ ...f, custom_accent: c }))}
+                                className={`h-7 w-7 rounded-full ${cls[c]} transition ring-offset-2 ${guideForm.custom_accent === c ? 'ring-2 ring-slate-700 dark:ring-slate-200' : 'opacity-60 hover:opacity-100'}`}
+                                title={c} />
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">{lang === 'en' ? 'External link (optional)' : 'Enlace externo (opcional)'}</label>
+                        <input type="url" value={guideForm.custom_url}
+                          onChange={e => setGuideForm(f => ({ ...f, custom_url: e.target.value }))}
+                          placeholder="https://..."
+                          className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm outline-none focus:border-violet-400" />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 uppercase tracking-wide">
-                        {lang === 'en' ? 'Content (Markdown)' : 'Contenido (Markdown)'}
-                      </label>
-                      <textarea
-                        rows={5}
-                        value={guideForm.custom_body}
-                        onChange={e => setGuideForm(f => ({ ...f, custom_body: e.target.value }))}
-                        placeholder={lang === 'en' ? 'Write the guide content here...' : 'Escribí el contenido de la guía acá...'}
-                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 outline-none focus:border-violet-400 resize-none font-mono"
-                      />
+
+                    {/* ── Lección ── */}
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+                      <p className="text-xs font-bold uppercase tracking-widest text-slate-400">{lang === 'en' ? 'Lesson' : 'Lección'}</p>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">{lang === 'en' ? 'Lesson title' : 'Título de la lección'}</label>
+                        <input type="text" value={guideForm.custom_lesson_title}
+                          onChange={e => setGuideForm(f => ({ ...f, custom_lesson_title: e.target.value }))}
+                          placeholder={lang === 'en' ? 'e.g. Lesson: How to write for our brand' : 'Ej: Lección: Cómo escribir para nuestra marca'}
+                          className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm outline-none focus:border-violet-400" />
+                      </div>
+
+                      {/* Bloques de lección */}
+                      <div className="space-y-3">
+                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">{lang === 'en' ? 'Content blocks (collapsible cards)' : 'Bloques de contenido (tarjetas colapsables)'}</p>
+                        {guideForm.custom_lesson_blocks.map((block, bi) => (
+                          <div key={bi} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-3 space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">{lang === 'en' ? `Block ${bi + 1}` : `Bloque ${bi + 1}`}</span>
+                              {guideForm.custom_lesson_blocks.length > 1 && (
+                                <button type="button" onClick={() => setGuideForm(f => ({ ...f, custom_lesson_blocks: f.custom_lesson_blocks.filter((_, i) => i !== bi) }))}
+                                  className="text-slate-300 hover:text-rose-500 transition">
+                                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
+                              )}
+                            </div>
+                            <input type="text" value={block.heading}
+                              onChange={e => setGuideForm(f => { const b = [...f.custom_lesson_blocks]; b[bi] = { ...b[bi], heading: e.target.value }; return { ...f, custom_lesson_blocks: b } })}
+                              placeholder={lang === 'en' ? 'Block heading' : 'Título del bloque'}
+                              className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-sm outline-none focus:border-violet-400" />
+                            <textarea rows={3} value={block.body}
+                              onChange={e => setGuideForm(f => { const b = [...f.custom_lesson_blocks]; b[bi] = { ...b[bi], body: e.target.value }; return { ...f, custom_lesson_blocks: b } })}
+                              placeholder={lang === 'en' ? 'Block content (paragraph)' : 'Contenido del bloque (párrafo)'}
+                              className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-sm outline-none focus:border-violet-400 resize-none" />
+                            {/* Bullets */}
+                            <div className="space-y-1.5">
+                              <p className="text-[11px] text-slate-400">{lang === 'en' ? 'Bullet points (optional)' : 'Puntos de lista (opcional)'}</p>
+                              {(block.bullets || []).map((bullet, bui) => (
+                                <div key={bui} className="flex gap-1.5">
+                                  <input type="text" value={bullet}
+                                    onChange={e => setGuideForm(f => { const b = [...f.custom_lesson_blocks]; const buls = [...(b[bi].bullets || [])]; buls[bui] = e.target.value; b[bi] = { ...b[bi], bullets: buls }; return { ...f, custom_lesson_blocks: b } })}
+                                    placeholder={`• ${lang === 'en' ? 'Bullet point' : 'Punto'} ${bui + 1}`}
+                                    className="flex-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-sm outline-none focus:border-violet-400" />
+                                  <button type="button" onClick={() => setGuideForm(f => { const b = [...f.custom_lesson_blocks]; b[bi] = { ...b[bi], bullets: (b[bi].bullets || []).filter((_, i) => i !== bui) }; return { ...f, custom_lesson_blocks: b } })}
+                                    className="text-slate-300 hover:text-rose-500 transition px-1">
+                                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                  </button>
+                                </div>
+                              ))}
+                              <button type="button" onClick={() => setGuideForm(f => { const b = [...f.custom_lesson_blocks]; b[bi] = { ...b[bi], bullets: [...(b[bi].bullets || []), ''] }; return { ...f, custom_lesson_blocks: b } })}
+                                className="text-xs text-violet-600 hover:text-violet-800 font-medium">
+                                + {lang === 'en' ? 'Add bullet' : 'Agregar punto'}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                        <button type="button"
+                          onClick={() => setGuideForm(f => ({ ...f, custom_lesson_blocks: [...f.custom_lesson_blocks, { heading: '', body: '', bullets: [] }] }))}
+                          className="w-full rounded-xl border border-dashed border-slate-300 dark:border-slate-600 py-2 text-xs font-semibold text-slate-500 hover:border-violet-400 hover:text-violet-600 transition">
+                          + {lang === 'en' ? 'Add block' : 'Agregar bloque'}
+                        </button>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">{lang === 'en' ? 'Key idea (takeaway)' : 'Idea clave (takeaway)'}</label>
+                        <input type="text" value={guideForm.custom_lesson_takeaway}
+                          onChange={e => setGuideForm(f => ({ ...f, custom_lesson_takeaway: e.target.value }))}
+                          placeholder={lang === 'en' ? 'The one thing to remember from this lesson' : 'Lo más importante de esta lección'}
+                          className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm outline-none focus:border-violet-400" />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 uppercase tracking-wide">
-                        {lang === 'en' ? 'External link (optional)' : 'Enlace externo (opcional)'}
-                      </label>
-                      <input
-                        type="url"
-                        value={guideForm.custom_url}
-                        onChange={e => setGuideForm(f => ({ ...f, custom_url: e.target.value }))}
-                        placeholder="https://..."
-                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 outline-none focus:border-violet-400"
-                      />
+
+                    {/* ── Quiz ── */}
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-bold uppercase tracking-widest text-slate-400">{lang === 'en' ? 'Quiz (optional)' : 'Quiz (opcional)'}</p>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" checked={guideForm.custom_quiz_enabled}
+                            onChange={e => setGuideForm(f => ({ ...f, custom_quiz_enabled: e.target.checked }))}
+                            className="h-4 w-4 accent-violet-600" />
+                          <span className="text-xs font-medium text-slate-600 dark:text-slate-400">{lang === 'en' ? 'Enable' : 'Activar'}</span>
+                        </label>
+                      </div>
+
+                      {guideForm.custom_quiz_enabled && (
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">{lang === 'en' ? 'Question' : 'Pregunta'}</label>
+                            <input type="text" value={guideForm.custom_quiz_question}
+                              onChange={e => setGuideForm(f => ({ ...f, custom_quiz_question: e.target.value }))}
+                              placeholder={lang === 'en' ? 'What is the main goal of...?' : '¿Cuál es el objetivo principal de...?'}
+                              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm outline-none focus:border-violet-400" />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400">{lang === 'en' ? 'Options (mark the correct one)' : 'Opciones (marcá la correcta)'}</label>
+                            {guideForm.custom_quiz_options.map((opt, oi) => (
+                              <div key={oi} className="flex items-center gap-2">
+                                <input type="radio" name="quiz_correct" checked={guideForm.custom_quiz_correct === oi}
+                                  onChange={() => setGuideForm(f => ({ ...f, custom_quiz_correct: oi }))}
+                                  className="h-4 w-4 accent-violet-600 shrink-0" />
+                                <input type="text" value={opt}
+                                  onChange={e => setGuideForm(f => { const o = [...f.custom_quiz_options]; o[oi] = e.target.value; return { ...f, custom_quiz_options: o } })}
+                                  placeholder={`${lang === 'en' ? 'Option' : 'Opción'} ${oi + 1}${guideForm.custom_quiz_correct === oi ? ' ✓' : ''}`}
+                                  className={`flex-1 rounded-xl border px-3 py-1.5 text-sm outline-none focus:border-violet-400 bg-slate-50 dark:bg-slate-800 ${guideForm.custom_quiz_correct === oi ? 'border-emerald-300 dark:border-emerald-700' : 'border-slate-200 dark:border-slate-700'}`} />
+                              </div>
+                            ))}
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">{lang === 'en' ? 'Explanation (shown after answering)' : 'Explicación (se muestra al responder)'}</label>
+                            <input type="text" value={guideForm.custom_quiz_explanation}
+                              onChange={e => setGuideForm(f => ({ ...f, custom_quiz_explanation: e.target.value }))}
+                              placeholder={lang === 'en' ? 'Why is that the correct answer?' : '¿Por qué esa es la respuesta correcta?'}
+                              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm outline-none focus:border-violet-400" />
+                          </div>
+                        </div>
+                      )}
                     </div>
+
+                    {/* ── Pasos ── */}
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-2">
+                      <p className="text-xs font-bold uppercase tracking-widest text-slate-400">{lang === 'en' ? 'Steps' : 'Pasos'}</p>
+                      {guideForm.custom_steps.map((step, si) => (
+                        <div key={si} className="flex gap-1.5 items-center">
+                          <span className="text-xs font-bold text-slate-300 w-5 text-right shrink-0">{si + 1}</span>
+                          <input type="text" value={step}
+                            onChange={e => setGuideForm(f => { const s = [...f.custom_steps]; s[si] = e.target.value; return { ...f, custom_steps: s } })}
+                            placeholder={lang === 'en' ? `Step ${si + 1}` : `Paso ${si + 1}`}
+                            className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 text-sm outline-none focus:border-violet-400" />
+                          {guideForm.custom_steps.length > 1 && (
+                            <button type="button" onClick={() => setGuideForm(f => ({ ...f, custom_steps: f.custom_steps.filter((_, i) => i !== si) }))}
+                              className="text-slate-300 hover:text-rose-500 transition">
+                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button type="button" onClick={() => setGuideForm(f => ({ ...f, custom_steps: [...f.custom_steps, ''] }))}
+                        className="text-xs text-violet-600 hover:text-violet-800 font-medium">
+                        + {lang === 'en' ? 'Add step' : 'Agregar paso'}
+                      </button>
+                    </div>
+
+                    {/* ── Ejercicios ── */}
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-2">
+                      <p className="text-xs font-bold uppercase tracking-widest text-slate-400">{lang === 'en' ? 'Drills / Exercises' : 'Ejercicios'}</p>
+                      {guideForm.custom_drills.map((drill, di) => (
+                        <div key={di} className="flex gap-1.5 items-center">
+                          <input type="text" value={drill}
+                            onChange={e => setGuideForm(f => { const d = [...f.custom_drills]; d[di] = e.target.value; return { ...f, custom_drills: d } })}
+                            placeholder={lang === 'en' ? `Exercise ${di + 1}` : `Ejercicio ${di + 1}`}
+                            className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 text-sm outline-none focus:border-violet-400" />
+                          {guideForm.custom_drills.length > 1 && (
+                            <button type="button" onClick={() => setGuideForm(f => ({ ...f, custom_drills: f.custom_drills.filter((_, i) => i !== di) }))}
+                              className="text-slate-300 hover:text-rose-500 transition">
+                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button type="button" onClick={() => setGuideForm(f => ({ ...f, custom_drills: [...f.custom_drills, ''] }))}
+                        className="text-xs text-violet-600 hover:text-violet-800 font-medium">
+                        + {lang === 'en' ? 'Add exercise' : 'Agregar ejercicio'}
+                      </button>
+                    </div>
+
+                    {/* ── Checkpoints ── */}
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-2">
+                      <p className="text-xs font-bold uppercase tracking-widest text-slate-400">{lang === 'en' ? 'Checklist' : 'Checklist'}</p>
+                      <p className="text-[11px] text-slate-400">{lang === 'en' ? 'Items the employee marks as done' : 'Ítems que el empleado marca como completados'}</p>
+                      {guideForm.custom_checkpoints.map((cp, ci) => (
+                        <div key={ci} className="flex gap-1.5 items-center">
+                          <input type="text" value={cp}
+                            onChange={e => setGuideForm(f => { const c = [...f.custom_checkpoints]; c[ci] = e.target.value; return { ...f, custom_checkpoints: c } })}
+                            placeholder={lang === 'en' ? `Checkpoint ${ci + 1}` : `Checkpoint ${ci + 1}`}
+                            className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 text-sm outline-none focus:border-violet-400" />
+                          {guideForm.custom_checkpoints.length > 1 && (
+                            <button type="button" onClick={() => setGuideForm(f => ({ ...f, custom_checkpoints: f.custom_checkpoints.filter((_, i) => i !== ci) }))}
+                              className="text-slate-300 hover:text-rose-500 transition">
+                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button type="button" onClick={() => setGuideForm(f => ({ ...f, custom_checkpoints: [...f.custom_checkpoints, ''] }))}
+                        className="text-xs text-violet-600 hover:text-violet-800 font-medium">
+                        + {lang === 'en' ? 'Add checkpoint' : 'Agregar checkpoint'}
+                      </button>
+                    </div>
+
                   </div>
                 )}
 
