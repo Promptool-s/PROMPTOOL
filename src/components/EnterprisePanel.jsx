@@ -1161,6 +1161,8 @@ AVAILABLE ACTIONS:
 - Rename: <action>{"action":"rename","userId":"<exact id>","newName":"<new name>"}</action>
 - Assign role: <action>{"action":"assign_role","userId":"<exact id>","role":"<role name>"}</action>
 - Remove: <action>{"action":"remove_member","userId":"<exact id>"}</action>
+- Filter by challenge: <action>{"action":"filter_challenge","challengeId":"<challenge id>"}</action>
+- Show challenge stats: <action>{"action":"show_challenge_stats","challengeId":"<challenge id>"}</action>
 
 AVAILABLE ROLES:
 ${customRoles.map(r => `- ${r.role_name}: ${r.role_description || 'Custom role'}`).join('\n')}
@@ -1185,8 +1187,18 @@ ${challenges.slice(0, 5).map(ch => {
   const attempts = (challengeAttempts[ch.id_imagen] || []).filter(a => teamUsers.some(u => u.id_usuario === a.id_usuario))
   const uniqueUsers = new Set(attempts.map(a => a.id_usuario)).size
   const avgScore = attempts.length > 0 ? Math.round(attempts.reduce((s, a) => s + (a.puntaje_similitud || 0), 0) / attempts.length) : 0
-  return `- "${ch.image_theme || 'Challenge'}" (${ch.image_diff}): ${uniqueUsers}/${memberCount} participated, ${avgScore}% avg`
+  return `- "${ch.image_theme || 'Challenge'}" (${ch.image_diff}) [ID: ${ch.id_imagen}]: ${uniqueUsers}/${memberCount} participated, ${avgScore}% avg, ${attempts.length} total attempts`
 }).join('\n')}
+
+CURRENT FILTERS:
+- Time Range: ${dashboardFilters.timeRange} days
+- Selected Member: ${dashboardFilters.selectedMember === 'all' ? 'All members' : teamUsers.find(u => u.id_usuario === dashboardFilters.selectedMember)?.company_display_name || dashboardFilters.selectedMember}
+- Selected Challenge: ${dashboardFilters.selectedChallenge === 'all' ? 'All challenges' : challenges.find(ch => ch.id_imagen === dashboardFilters.selectedChallenge)?.image_theme || dashboardFilters.selectedChallenge}
+
+FILTERED DATA SUMMARY:
+- Filtered Users: ${filteredUsers.length}
+- Filtered Attempts: ${memberFilteredAttempts.length}
+- Challenge-specific attempts: ${dashboardFilters.selectedChallenge !== 'all' ? (challengeAttempts[dashboardFilters.selectedChallenge] || []).length : 'N/A'}
 
 RESPONSE RULES:
 - Be direct and factual
@@ -1340,6 +1352,19 @@ RESPONSE RULES:
             if (isMember) {
               await supabase.rpc('remove_team_member', { target_user_id: actionData.userId })
               setTeamUsers(prev => prev.filter(u => u.id_usuario !== actionData.userId))
+            }
+          } else if (actionData.action === 'filter_challenge' && actionData.challengeId) {
+            // Filter dashboard by specific challenge
+            const challengeExists = challenges.some(ch => ch.id_imagen === actionData.challengeId)
+            if (challengeExists) {
+              updateDashboardFilters({ selectedChallenge: actionData.challengeId })
+              setActiveTab('dashboard')
+            }
+          } else if (actionData.action === 'show_challenge_stats' && actionData.challengeId) {
+            // Show detailed challenge statistics
+            const challenge = challenges.find(ch => ch.id_imagen === actionData.challengeId)
+            if (challenge) {
+              fetchChallengeStats(actionData.challengeId, challenge.image_theme || 'Challenge')
             }
           }
         } catch {
@@ -2093,6 +2118,8 @@ RESPONSE RULES:
                   lang === 'en' ? 'Who is my top performer?' : '¿Quién es mi mejor miembro?',
                   lang === 'en' ? 'Who needs coaching?' : '¿Quién necesita apoyo?',
                   lang === 'en' ? 'Show team performance summary' : 'Mostrar resumen del equipo',
+                  lang === 'en' ? 'Filter by challenge "Salamanca 32"' : 'Filtrar por desafío "Salamanca 32"',
+                  lang === 'en' ? 'Show stats for challenge ID' : 'Mostrar estadísticas del desafío',
                   lang === 'en' ? 'Assign role "Team Lead" to @' : 'Asignar rol "Team Lead" a @',
                 ].map(suggestion => (
                   <button
@@ -2176,10 +2203,14 @@ RESPONSE RULES:
                     if (mode && (partial.length >= 0 || mode === 'mention')) {
                       setChatSuggestionMode(mode)
                       const filtered = teamUsers.filter(u => {
-                        const name = (u.company_display_name || u.nombre_display || u.nombre || u.email || '').toLowerCase()
+                        const displayName = (u.company_display_name || u.nombre_display || u.nombre || '').toLowerCase()
+                        const username = (u.username || '').toLowerCase()
+                        const email = (u.email || '').toLowerCase()
+                        const searchTerm = partial.toLowerCase()
+                        
                         return mode === 'mention' ? 
-                          (partial === '' || name.includes(partial.toLowerCase())) :
-                          name.includes(partial.toLowerCase())
+                          (partial === '' || displayName.includes(searchTerm) || username.includes(searchTerm) || email.includes(searchTerm)) :
+                          (displayName.includes(searchTerm) || username.includes(searchTerm) || email.includes(searchTerm))
                       }).slice(0, 5)
                       setChatSuggestions(filtered)
                     } else {
@@ -2209,7 +2240,11 @@ RESPONSE RULES:
                                                          (lang === 'en' ? 'Select member to remove' : 'Seleccioná miembro a eliminar')}
                     </p>
                     {chatSuggestions.map(u => {
-                      const name = u.company_display_name || u.nombre_display || u.nombre || u.email
+                      const displayName = u.company_display_name || u.nombre_display || u.nombre || u.email
+                      const username = u.username ? `@${u.username}` : null
+                      const role = u.company_role
+                      const stats = `ELO: ${u.elo_rating || 1000} | Score: ${u.promedio_score ?? 0}%`
+                      
                       return (
                         <button
                           key={u.id_usuario}
@@ -2224,9 +2259,9 @@ RESPONSE RULES:
                               const atIndex = chatInput.lastIndexOf('@')
                               if (atIndex >= 0) {
                                 const beforeAt = chatInput.slice(0, atIndex)
-                                setChatInput(beforeAt + '@' + name + ' ')
+                                setChatInput(beforeAt + '@' + displayName + ' ')
                               } else {
-                                setChatInput(chatInput + '@' + name + ' ')
+                                setChatInput(chatInput + '@' + displayName + ' ')
                               }
                             } else {
                               // Lógica existente para comandos
@@ -2237,39 +2272,59 @@ RESPONSE RULES:
                               if (renameIdx >= 0) {
                                 const beforeName = chatInput.slice(0, renameIdx)
                                 const renameCmd = chatInput.slice(renameIdx).match(/(?:renombrar?|rename)\s+/i)?.[0] || ''
-                                setChatInput(beforeName + renameCmd + name + ' ')
+                                setChatInput(beforeName + renameCmd + displayName + ' ')
                               } else if (roleIdx >= 0) {
                                 // Para roles, insertar después de "a" o "to"
                                 const beforeRole = chatInput.slice(0, roleIdx)
                                 const roleMatch = chatInput.slice(roleIdx).match(/(?:asignar?\s+rol|assign\s+role)\s+(?:"([^"]+)"|(\w+))\s+(?:a\s+)?/i)
                                 if (roleMatch) {
                                   const roleCmd = roleMatch[0]
-                                  setChatInput(beforeRole + roleCmd + name)
+                                  setChatInput(beforeRole + roleCmd + displayName)
                                 } else {
-                                  setChatInput(chatInput + name + ' ')
+                                  setChatInput(chatInput + displayName + ' ')
                                 }
                               } else if (removeIdx >= 0) {
                                 const beforeName = chatInput.slice(0, removeIdx)
                                 const removeCmd = chatInput.slice(removeIdx).match(/(?:eliminar?|remove|quitar)\s+/i)?.[0] || ''
-                                setChatInput(beforeName + removeCmd + name)
+                                setChatInput(beforeName + removeCmd + displayName)
                               } else {
-                                setChatInput(chatInput + name + ' ')
+                                setChatInput(chatInput + displayName + ' ')
                               }
                             }
                             
                             setChatSuggestions([])
                             setChatSuggestionMode(null)
                           }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 dark:text-slate-300 hover:bg-violet-50 dark:hover:bg-violet-950/40 transition text-left"
+                          className="w-full flex items-start gap-2.5 px-3 py-2.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-violet-50 dark:hover:bg-violet-950/40 transition text-left"
                         >
-                          <div className="h-6 w-6 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 shrink-0 flex items-center justify-center">
+                          <div className="h-8 w-8 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 shrink-0 flex items-center justify-center">
                             {u.avatar_url
-                              ? <img src={proxyImg(u.avatar_url)} alt={name} className="h-full w-full object-cover" />
-                              : <span className="text-[9px] font-bold text-slate-500">{name.substring(0,2).toUpperCase()}</span>
+                              ? <img src={proxyImg(u.avatar_url)} alt={displayName} className="h-full w-full object-cover" />
+                              : <span className="text-[10px] font-bold text-slate-500">{displayName.substring(0,2).toUpperCase()}</span>
                             }
                           </div>
-                          <span className="font-medium truncate">{name}</span>
-                          {u.company_role && <span className="ml-auto text-[10px] text-slate-400 shrink-0">{u.company_role}</span>}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold truncate">{displayName}</span>
+                              {role && (
+                                <span 
+                                  className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md shrink-0"
+                                  style={{
+                                    backgroundColor: customRoles.find(r => r.role_name === role)?.role_color + '20' || '#6b728020',
+                                    borderColor: customRoles.find(r => r.role_name === role)?.role_color + '40' || '#6b728040',
+                                    color: customRoles.find(r => r.role_name === role)?.role_color || '#6b7280',
+                                    border: '1px solid'
+                                  }}
+                                >
+                                  {role}
+                                </span>
+                              )}
+                            </div>
+                            {username && (
+                              <div className="text-[10px] text-slate-500 mt-0.5">{username}</div>
+                            )}
+                            <div className="text-[10px] text-slate-400 mt-0.5">{stats}</div>
+                          </div>
                         </button>
                       )
                     })}

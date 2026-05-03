@@ -215,7 +215,7 @@ BEGIN
 
   RETURN new_guide_id;
 END;
-$;
+$$;
 
 -- Assign guide to team members
 CREATE OR REPLACE FUNCTION assign_guide_to_members(
@@ -228,7 +228,7 @@ RETURNS INTEGER
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $
+AS $$
 DECLARE
   assigned_count INTEGER := 0;
   member_id UUID;
@@ -290,7 +290,7 @@ BEGIN
 
   RETURN assigned_count;
 END;
-$;
+$$;
 
 -- Update guide progress
 CREATE OR REPLACE FUNCTION update_guide_progress(
@@ -303,7 +303,7 @@ RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $
+AS $$
 BEGIN
   -- Verify user has access to this guide
   IF NOT EXISTS (
@@ -342,7 +342,7 @@ BEGIN
     completed_at = CASE WHEN EXCLUDED.completed THEN now() ELSE NULL END,
     updated_at = now();
 END;
-$;
+$$;
 
 -- Get guide progress summary
 CREATE OR REPLACE FUNCTION get_guide_progress_summary(guide_id UUID)
@@ -361,7 +361,7 @@ RETURNS TABLE (
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $
+AS $$
 BEGIN
   -- Verify user has access to this guide
   IF NOT EXISTS (
@@ -421,16 +421,16 @@ BEGIN
   )
   ORDER BY progress_percentage DESC, user_name;
 END;
-$;
+$$;
 
 -- ── 7. Update triggers ─────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $
+RETURNS TRIGGER AS $$
 BEGIN
   NEW.updated_at = now();
   RETURN NEW;
 END;
-$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
 CREATE TRIGGER update_enterprise_guides_updated_at
   BEFORE UPDATE ON enterprise_guides
