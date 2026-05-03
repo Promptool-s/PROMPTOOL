@@ -1146,7 +1146,7 @@ PLATFORM: Users practice writing AI image generation prompts. Score = prompt mat
     {
       id: 'requests',
       label: lang === 'en' ? 'Requests' : 'Solicitudes',
-      icon: '📥',
+      icon: 'requests',
       badge: enterpriseRequests.filter(r => r.status === 'requested').length || null,
     },
     { id: 'challenges', label: lang === 'en' ? 'Challenges' : 'Desafíos', icon: 'challenges' },
@@ -1519,7 +1519,10 @@ PLATFORM: Users practice writing AI image generation prompts. Score = prompt mat
         {insights.length > 0 && (
           <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-              <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">{lang === 'en' ? '⚡ Insights & Actions' : '⚡ Insights y Acciones'}</p>
+              <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                <svg className="h-3.5 w-3.5 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                {lang === 'en' ? 'Insights & Actions' : 'Insights y Acciones'}
+              </p>
               <span className="text-[10px] text-slate-400">{insights.length} {lang === 'en' ? 'signals' : 'señales'}</span>
             </div>
             <div className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -1588,7 +1591,11 @@ PLATFORM: Users practice writing AI image generation prompts. Score = prompt mat
                           <p className="text-slate-400 mb-0.5">{d.date}</p>
                           <p className="font-bold text-violet-600">{d.avg}% <span className="font-normal text-slate-400">avg</span></p>
                           <p className="text-slate-400">{d.count} {lang === 'en' ? 'attempts' : 'intentos'}</p>
-                          <p className={`font-medium mt-0.5 ${d.avg >= 70 ? 'text-emerald-600' : 'text-rose-500'}`}>{d.avg >= 70 ? (lang === 'en' ? '✓ On target' : '✓ En objetivo') : `${70 - d.avg}pts ${lang === 'en' ? 'below target' : 'bajo objetivo'}`}</p>
+                          <p className={`font-medium mt-0.5 ${d.avg >= 70 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                            {d.avg >= 70
+                              ? <span className="inline-flex items-center gap-1"><svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12"/></svg>{lang === 'en' ? 'On target' : 'En objetivo'}</span>
+                              : `${70 - d.avg}pts ${lang === 'en' ? 'below target' : 'bajo objetivo'}`}
+                          </p>
                         </div>
                       )
                     }} />
@@ -1637,7 +1644,10 @@ PLATFORM: Users practice writing AI image generation prompts. Score = prompt mat
             {visibleCharts.topPerformers && (
               <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
                 <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                  <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">🏆 {lang === 'en' ? 'Top Performers' : 'Mejores'}</p>
+                  <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                    <svg className="h-3.5 w-3.5 text-amber-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    {lang === 'en' ? 'Top Performers' : 'Mejores'}
+                  </p>
                   <button onClick={() => setActiveTab('leaderboard')} className="text-[10px] text-violet-500 hover:text-violet-700 font-medium">{lang === 'en' ? 'Full ranking →' : 'Ranking completo →'}</button>
                 </div>
                 {top5.length === 0
@@ -1679,7 +1689,10 @@ PLATFORM: Users practice writing AI image generation prompts. Score = prompt mat
                   {belowTarget>0&&<span className="text-[10px] font-semibold text-rose-600 bg-rose-100 dark:bg-rose-950/60 px-2 py-0.5 rounded-full">{belowTargetPct}% {lang==='en'?'below target':'bajo objetivo'}</span>}
                 </div>
                 {needsAttention.length===0&&inactiveMembers===0
-                  ? <p className="text-xs text-emerald-600 font-medium px-4 py-6 text-center">✓ {lang==='en'?'All active members above 55%':'Todos los activos sobre 55%'}</p>
+                  ? <p className="text-xs text-emerald-600 font-medium px-4 py-6 text-center flex items-center justify-center gap-1.5">
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12"/></svg>
+                      {lang==='en'?'All active members above 55%':'Todos los activos sobre 55%'}
+                    </p>
                   : <div className="divide-y divide-slate-50 dark:divide-slate-800">
                       {needsAttention.map(u => {
                         const name = u.company_display_name||u.nombre_display||u.nombre||u.email
@@ -1704,7 +1717,7 @@ PLATFORM: Users practice writing AI image generation prompts. Score = prompt mat
                       })}
                       {inactiveMembers>0&&(
                         <div className="px-4 py-2.5 flex items-center gap-2">
-                          <span className="text-sm">😴</span>
+                          <svg className="h-4 w-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
                           <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">{inactiveMembers} {lang==='en'?`member${inactiveMembers>1?'s':''} never attempted`:`miembro${inactiveMembers>1?'s':''} sin intentos`}</p>
                           <button onClick={()=>setActiveTab('requests')} className="ml-auto text-[10px] text-amber-600 font-semibold hover:underline">{lang==='en'?'Invite →':'Invitar →'}</button>
                         </div>
@@ -2144,9 +2157,11 @@ PLATFORM: Users practice writing AI image generation prompts. Score = prompt mat
                                 className="w-28 rounded-lg border border-violet-400 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-violet-400 dark:bg-slate-800 dark:text-slate-100"
                               />
                               <button onClick={saveMemberName} disabled={savingName} className="rounded-md bg-violet-600 px-2 py-1 text-[10px] font-semibold text-white disabled:opacity-60">
-                                {savingName ? '…' : '✓'}
+                              {savingName ? '…' : <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12"/></svg>}
                               </button>
-                              <button onClick={() => setEditingName(null)} className="rounded-md border border-slate-200 dark:border-slate-700 px-2 py-1 text-[10px] text-slate-500">✕</button>
+                              <button onClick={() => setEditingName(null)} className="rounded-md border border-slate-200 dark:border-slate-700 px-2 py-1 text-[10px] text-slate-500">
+                                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                              </button>
                             </div>
                           ) : (
                             <div className="flex items-center gap-1 group/name">
@@ -2464,8 +2479,8 @@ PLATFORM: Users practice writing AI image generation prompts. Score = prompt mat
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     {[
-                      { value: 'catalog', label: lang === 'en' ? 'From catalog' : 'Del catálogo', icon: '📚' },
-                      { value: 'custom', label: lang === 'en' ? 'Custom' : 'Personalizada', icon: '✏️' },
+                      { value: 'catalog', label: lang === 'en' ? 'From catalog' : 'Del catálogo', svg: <svg className="inline h-4 w-4 mr-1.5 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/></svg> },
+                      { value: 'custom', label: lang === 'en' ? 'Custom' : 'Personalizada', svg: <svg className="inline h-4 w-4 mr-1.5 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg> },
                     ].map(opt => (
                       <button
                         key={opt.value}
@@ -2476,7 +2491,7 @@ PLATFORM: Users practice writing AI image generation prompts. Score = prompt mat
                             : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
                         }`}
                       >
-                        <span className="mr-2">{opt.icon}</span>{opt.label}
+                        {opt.svg}{opt.label}
                       </button>
                     ))}
                   </div>
@@ -2656,7 +2671,7 @@ PLATFORM: Users practice writing AI image generation prompts. Score = prompt mat
                                   className="h-4 w-4 accent-violet-600 shrink-0" />
                                 <input type="text" value={opt}
                                   onChange={e => setGuideForm(f => { const o = [...f.custom_quiz_options]; o[oi] = e.target.value; return { ...f, custom_quiz_options: o } })}
-                                  placeholder={`${lang === 'en' ? 'Option' : 'Opción'} ${oi + 1}${guideForm.custom_quiz_correct === oi ? ' ✓' : ''}`}
+                                  placeholder={`${lang === 'en' ? 'Option' : 'Opción'} ${oi + 1}${guideForm.custom_quiz_correct === oi ? ' (correct)' : ''}`}
                                   className={`flex-1 rounded-xl border px-3 py-1.5 text-sm outline-none focus:border-violet-400 bg-slate-50 dark:bg-slate-800 ${guideForm.custom_quiz_correct === oi ? 'border-emerald-300 dark:border-emerald-700' : 'border-slate-200 dark:border-slate-700'}`} />
                               </div>
                             ))}
@@ -3122,7 +3137,7 @@ PLATFORM: Users practice writing AI image generation prompts. Score = prompt mat
           {savingSettings && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
           {savingSettings ? (lang === 'en' ? 'Saving...' : 'Guardando...') : (lang === 'en' ? 'Save' : 'Guardar')}
         </button>
-        {settingsStatus === 'ok' && <span className="text-sm text-emerald-600">✓ {lang === 'en' ? 'Saved' : 'Guardado'}</span>}
+        {settingsStatus === 'ok' && <span className="text-sm text-emerald-600 flex items-center gap-1"><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12"/></svg>{lang === 'en' ? 'Saved' : 'Guardado'}</span>}
         {settingsStatus === 'error' && <span className="text-sm text-rose-600">{lang === 'en' ? 'Could not save' : 'No se pudo guardar'}</span>}
       </div>
     </div>
@@ -3280,8 +3295,9 @@ PLATFORM: Users practice writing AI image generation prompts. Score = prompt mat
                   <p className="text-xs text-slate-500 mt-1 italic">"{request.message}"</p>
                 )}
                 <div className="mt-2 flex items-center justify-between">
-                  <p className="text-[11px] uppercase tracking-wide text-amber-600 font-semibold">
-                    ⏳ {lang === 'en' ? 'Awaiting response' : 'Esperando respuesta'}
+                  <p className="text-[11px] uppercase tracking-wide text-amber-600 font-semibold flex items-center gap-1.5">
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    {lang === 'en' ? 'Awaiting response' : 'Esperando respuesta'}
                   </p>
                   <button
                     onClick={() => cancelEnterpriseInvite(request.id)}
@@ -3377,6 +3393,7 @@ PLATFORM: Users practice writing AI image generation prompts. Score = prompt mat
               {tab.icon === 'users' && <svg className="inline h-4 w-4 mr-1.5 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
               {tab.icon === 'settings' && <svg className="inline h-4 w-4 mr-1.5 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
               {tab.icon === 'challenges' && <svg className="inline h-4 w-4 mr-1.5 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
+              {tab.icon === 'requests' && <svg className="inline h-4 w-4 mr-1.5 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>}
               {tab.icon === 'guides' && <svg className="inline h-4 w-4 mr-1.5 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>}
               {tab.label}
               {tab.badge ? (
@@ -3421,7 +3438,7 @@ PLATFORM: Users practice writing AI image generation prompts. Score = prompt mat
                 onClick={closeChallengeModal}
                 className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 transition"
               >
-                ✕
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
 
