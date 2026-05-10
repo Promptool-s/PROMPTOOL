@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import GUIDE_LIBRARY from '../data/guides'
 import { useLang } from '../contexts/LangContext'
+import { useAuth } from '../hooks/useAuth'
+import { supabase } from '../supabaseClient'
+import EnterpriseGuideContent from './EnterpriseGuideContent'
 
 const ACCENTS = {
   indigo: { soft: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-700', pill: 'bg-indigo-100 text-indigo-800' },
@@ -323,6 +326,7 @@ const ParteBuilder = ({ accent = 'slate', lang = 'es' }) => {
 
 const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) => {
   const { lang } = useLang()
+  const { user } = useAuth()
   const recommendedSet = new Set(recommendedGuideIds)
   // IDs de guías del catálogo asignadas por la empresa
   const companyAssignedIds = new Set(
@@ -393,19 +397,146 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
   const [openLessonBlock, setOpenLessonBlock] = useState(null)
   const contentRef = useRef(null)
   const internalHashUpdateRef = useRef(false)
+  
+  // Enterprise guides state
+  const [enterpriseGuides, setEnterpriseGuides] = useState([])
+  const [loadingEnterpriseGuides, setLoadingEnterpriseGuides] = useState(false)
+  const [activeSection, setActiveSection] = useState('library') // 'library' | 'enterprise'
   const sidebarRef = useRef(null)
   const rightHeaderRef = useRef(null)
   const [panelMaxHeight, setPanelMaxHeight] = useState(null)
+
+  // Fetch assigned enterprise guides
+  const fetchAssignedEnterpriseGuides = async (userId) => {
+    if (!userId) return
+    setLoadingEnterpriseGuides(true)
+    try {
+      const { data, error } = await supabase
+        .from('guide_assignments')
+        .select(`
+          *,
+          enterprise_guides (
+            id,
+            title,
+            summary,
+            content,
+            accent,
+            keywords,
+            status,
+            created_at
+          )
+        `)
+        .eq('assigned_to', userId)
+        .eq('status', 'assigned')
+      
+      if (error) throw error
+      
+      // Transform the data to match the expected format
+      const guides = (data || []).map(assignment => ({
+        ...assignment.enterprise_guides,
+        assignment_id: assignment.id,
+        assigned_by: assignment.assigned_by,
+        due_date: assignment.due_date,
+        notes: assignment.notes,
+        assignment_status: assignment.status
+      }))
+      
+      setEnterpriseGuides(guides)
+    } catch (error) {
+      console.error('Error fetching enterprise guides:', error)
+      setEnterpriseGuides([])
+    } finally {
+      setLoadingEnterpriseGuides(false)
+    }
+  }
+
+  // Handle enterprise guide URL parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const enterpriseGuideId = urlParams.get('enterprise_guide')
+    
+    if (enterpriseGuideId && enterpriseGuides.length > 0) {
+      const guide = enterpriseGuides.find(g => g.id === enterpriseGuideId)
+      if (guide) {
+        setSelectedId(guide.id)
+        setActiveSection('enterprise')
+        // Mark notification as read if it exists
+        markNotificationAsRead(enterpriseGuideId)
+      }
+    }
+  }, [enterpriseGuides])
+
+  // Fetch assigned guides when user logs in
+  useEffect(() => {
+    if (user?.id) {
+      fetchAssignedEnterpriseGuides(user.id)
+      // Also check for new notifications
+      checkForNewGuideNotifications(user.id)
+    }
+  }, [user?.id])
+
+  // Mark notification as read
+  const markNotificationAsRead = async (guideId) => {
+    if (!user?.id) return
+    
+    try {
+      await supabase
+        .from('guide_suggestions')
+        .update({ read_at: new Date().toISOString() })
+        .eq('target_user_id', user.id)
+        .like('guide_url', `%${guideId}%`)
+        .is('read_at', null)
+    } catch (error) {
+      console.error('Error marking notification as read:', error)
+    }
+  }
+
+  // Check for new guide notifications
+  const checkForNewGuideNotifications = async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('guide_suggestions')
+        .select('*')
+        .eq('target_user_id', userId)
+        .is('read_at', null)
+        .order('created_at', { ascending: false })
+      
+      if (error) throw error
+      
+      // If there are unread notifications, you could show a toast or update UI
+      if (data && data.length > 0) {
+        console.log(`${data.length} new guide notifications`)
+        // You could add a toast notification here
+      }
+    } catch (error) {
+      console.error('Error checking notifications:', error)
+    }
+  }
 
   const selectFromHash = () => {
     const raw = window.location.hash || ''
     const match = raw.match(/^#guia-(.+)$/)
     const id = match?.[1]
     if (!id) return false
+<<<<<<< HEAD
     if (allGuides.some((g) => g.id === id)) {
+=======
+    
+    // Check if it's a library guide
+    if (GUIDE_LIBRARY.some((g) => g.id === id)) {
+>>>>>>> 2b585a4e729c46ae4f2170cf7183b7afc89ee076
       setSelectedId(id)
+      setActiveSection('library')
       return true
     }
+    
+    // Check if it's an enterprise guide
+    if (enterpriseGuides.some((g) => g.id === id)) {
+      setSelectedId(id)
+      setActiveSection('enterprise')
+      return true
+    }
+    
     return false
   }
 
@@ -413,6 +544,7 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
   const allGuides = [...GUIDE_LIBRARY, ...customCompanyGuides]
 
   const selectGuide = (id) => {
+<<<<<<< HEAD
     if (!id || !allGuides.some((g) => g.id === id)) return
     setSelectedId((prev) => {
       if (prev === id) return prev
@@ -422,14 +554,57 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
     if (window.location.hash !== desired) {
       internalHashUpdateRef.current = true
       window.history.replaceState(null, '', desired)
+=======
+    // Check if it's a library guide
+    if (GUIDE_LIBRARY.some((g) => g.id === id)) {
+      setSelectedId((prev) => {
+        if (prev === id) return prev
+        return id
+      })
+      setActiveSection('library')
+      const desired = `#guia-${id}`
+      if (window.location.hash !== desired) {
+        internalHashUpdateRef.current = true
+        window.history.replaceState(null, '', desired)
+      }
+      return
+    }
+    
+    // Check if it's an enterprise guide
+    if (enterpriseGuides.some((g) => g.id === id)) {
+      setSelectedId((prev) => {
+        if (prev === id) return prev
+        return id
+      })
+      setActiveSection('enterprise')
+      const desired = `#guia-${id}`
+      if (window.location.hash !== desired) {
+        internalHashUpdateRef.current = true
+        window.history.replaceState(null, '', desired)
+      }
+      return
+>>>>>>> 2b585a4e729c46ae4f2170cf7183b7afc89ee076
     }
   }
 
   useEffect(() => {
     const preferred = recommendedGuideIds?.[0]
     if (selectFromHash()) return
+    
+    // If there are enterprise guides and no hash, show the first enterprise guide
+    if (enterpriseGuides.length > 0 && !preferred) {
+      setSelectedId(enterpriseGuides[0].id)
+      setActiveSection('enterprise')
+      return
+    }
+    
+    // Otherwise, show preferred library guide or first library guide
     if (preferred) selectGuide(preferred)
-  }, [recommendedGuideIds])
+    else if (GUIDE_LIBRARY.length > 0) {
+      setSelectedId(GUIDE_LIBRARY[0].id)
+      setActiveSection('library')
+    }
+  }, [recommendedGuideIds, enterpriseGuides])
 
   useEffect(() => {
     const onHashChange = () => {
@@ -487,8 +662,11 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
   }
 
   const guideProgress = useMemo(
-    () =>
-      GUIDE_LIBRARY.reduce((acc, guide) => {
+    () => {
+      const progress = {}
+      
+      // Calculate progress for library guides
+      GUIDE_LIBRARY.forEach(guide => {
         const checkpointTotal = guide.checkpoints?.length || 0
         const checkpointDone = (guide.checkpoints || []).filter((item) => doneMap[`${guide.id}::${item}`]).length
 
@@ -504,18 +682,32 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
         const total = checkpointTotal + lessonTotal + activityTotal + quizTotal
         const done = checkpointDone + lessonDone + activityDone + quizDone
 
-        acc[guide.id] = total ? Math.round((done / total) * 100) : 0
-        return acc
-      }, {}),
-    [doneMap, lessonAckMap],
+        progress[guide.id] = total ? Math.round((done / total) * 100) : 0
+      })
+      
+      // For enterprise guides, we'll calculate progress differently
+      // This is a placeholder - in a real implementation, you'd fetch progress from the database
+      enterpriseGuides.forEach(guide => {
+        progress[guide.id] = 0 // Placeholder - would be calculated from guide_progress table
+      })
+      
+      return progress
+    },
+    [doneMap, lessonAckMap, enterpriseGuides],
   )
 
+<<<<<<< HEAD
   const selectedGuide = allGuides.find((g) => g.id === selectedId) || GUIDE_LIBRARY[0]
+=======
+  const selectedGuide = activeSection === 'library' 
+    ? (GUIDE_LIBRARY.find((g) => g.id === selectedId) || GUIDE_LIBRARY[0])
+    : enterpriseGuides.find((g) => g.id === selectedId) || (enterpriseGuides.length > 0 ? enterpriseGuides[0] : GUIDE_LIBRARY[0])
+>>>>>>> 2b585a4e729c46ae4f2170cf7183b7afc89ee076
   const accent = ACCENTS[selectedGuide?.accent] || ACCENTS.slate
   const selectedProgress = guideProgress[selectedGuide?.id] ?? 0
-  const hasLesson = Boolean(selectedGuide?.lesson?.blocks?.length)
+  const hasLesson = Boolean(selectedGuide?.lesson?.blocks?.length || selectedGuide?.content?.lesson?.blocks?.length)
   const lessonAcknowledged = Boolean(lessonAckMap[selectedGuide?.id])
-  const activityLocked = hasLesson && !lessonAcknowledged
+  const activityLocked = hasLesson && !lessonAcknowledged && activeSection === 'library'
 
   return (
     <section id="guias" className="mx-auto mt-2 w-full max-w-none px-6 pb-8">
@@ -526,7 +718,38 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{ui.library}</p>
               <h2 className="mt-1 text-2xl font-semibold text-slate-900">{ui.guides}</h2>
             </div>
-            <div className="hidden sm:block text-xs font-semibold text-slate-500">{GUIDE_LIBRARY.length}</div>
+            <div className="hidden sm:block text-xs font-semibold text-slate-500">
+              {activeSection === 'library' ? GUIDE_LIBRARY.length : enterpriseGuides.length}
+            </div>
+          </div>
+
+          {/* Tab switcher */}
+          <div className="mt-4 flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+            <button
+              onClick={() => setActiveSection('library')}
+              className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
+                activeSection === 'library'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {lang === 'en' ? 'Library' : 'Biblioteca'}
+            </button>
+            <button
+              onClick={() => setActiveSection('enterprise')}
+              className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
+                activeSection === 'enterprise'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {lang === 'en' ? 'Assigned' : 'Asignadas'}
+              {enterpriseGuides.length > 0 && (
+                <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-violet-100 text-xs font-semibold text-violet-800">
+                  {enterpriseGuides.length}
+                </span>
+              )}
+            </button>
           </div>
 
           {/* Guías asignadas por la empresa */}
@@ -610,6 +833,7 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
           )}
 
           <div className="mt-4 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-2">
+<<<<<<< HEAD
             <nav className="space-y-1">
               {GUIDE_LIBRARY.map((guide) => {
                 const isActive = guide.id === selectedGuide?.id
@@ -645,19 +869,128 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
                         )}
                         <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
                           {guideProgress[guide.id] ?? 0}%
+=======
+            {activeSection === 'library' ? (
+              <nav className="space-y-1">
+                {GUIDE_LIBRARY.map((guide) => {
+                  const isActive = guide.id === selectedGuide?.id
+                  const isRecommended = recommendedSet.has(guide.id)
+                  const a = ACCENTS[guide.accent] || ACCENTS.slate
+                  return (
+                    <button
+                      key={guide.id}
+                      type="button"
+                      onClick={() => selectGuide(guide.id)}
+                      className={`guide-nav group relative flex w-full items-start gap-3 rounded-[1.25rem] border px-3 py-3 text-left transition-all duration-300 ${
+                        isActive ? `bg-white ${a.border} shadow-sm` : 'border-transparent hover:bg-white/70'
+                      }`}
+                    >
+                      <span
+                        className={`mt-0.5 h-3 w-3 flex-shrink-0 rounded-full ring-1 ring-slate-200 ${a.pill}`}
+                        aria-hidden="true"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-slate-900">{guide.title}</span>
+                        <span className="mt-0.5 block truncate text-xs text-slate-500">{guide.summary}</span>
+                        <span className="mt-2 flex items-center gap-2">
+                          {isRecommended && (
+                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${a.pill}`}>
+                              {ui.recommended}
+                            </span>
+                          )}
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                            {guideProgress[guide.id] ?? 0}%
+                          </span>
+>>>>>>> 2b585a4e729c46ae4f2170cf7183b7afc89ee076
                         </span>
                       </span>
-                    </span>
-                    <span
-                      className={`absolute inset-y-3 right-3 w-1 rounded-full transition-all duration-300 ${
-                        isActive ? `${a.pill}` : 'bg-transparent'
-                      }`}
-                      aria-hidden="true"
-                    />
-                  </button>
-                )
-              })}
-            </nav>
+                      <span
+                        className={`absolute inset-y-3 right-3 w-1 rounded-full transition-all duration-300 ${
+                          isActive ? `${a.pill}` : 'bg-transparent'
+                        }`}
+                        aria-hidden="true"
+                      />
+                    </button>
+                  )
+                })}
+              </nav>
+            ) : (
+              <div className="space-y-1">
+                {loadingEnterpriseGuides ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="text-sm text-slate-500">
+                      {lang === 'en' ? 'Loading assigned guides...' : 'Cargando guías asignadas...'}
+                    </div>
+                  </div>
+                ) : enterpriseGuides.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <div className="rounded-full bg-slate-100 p-3 mb-3">
+                      <svg className="h-6 w-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                      </svg>
+                    </div>
+                    <p className="text-sm font-medium text-slate-900 mb-1">
+                      {lang === 'en' ? 'No assigned guides' : 'Sin guías asignadas'}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {lang === 'en' ? 'Your team leader will assign guides for you to complete.' : 'Tu líder de equipo te asignará guías para completar.'}
+                    </p>
+                  </div>
+                ) : (
+                  enterpriseGuides.map((guide) => {
+                    const isActive = guide.id === selectedGuide?.id
+                    const a = ACCENTS[guide.accent] || ACCENTS.slate
+                    const dueDate = guide.due_date ? new Date(guide.due_date) : null
+                    const isOverdue = dueDate && dueDate < new Date()
+                    
+                    return (
+                      <button
+                        key={guide.id}
+                        type="button"
+                        onClick={() => setSelectedId(guide.id)}
+                        className={`guide-nav group relative flex w-full items-start gap-3 rounded-[1.25rem] border px-3 py-3 text-left transition-all duration-300 ${
+                          isActive ? `bg-white ${a.border} shadow-sm` : 'border-transparent hover:bg-white/70'
+                        }`}
+                      >
+                        <span
+                          className={`mt-0.5 h-3 w-3 flex-shrink-0 rounded-full ring-1 ring-slate-200 ${a.pill}`}
+                          aria-hidden="true"
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold text-slate-900">{guide.title}</span>
+                          <span className="mt-0.5 block truncate text-xs text-slate-500">{guide.summary}</span>
+                          <span className="mt-2 flex items-center gap-2">
+                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${a.pill}`}>
+                              {lang === 'en' ? 'Enterprise' : 'Empresa'}
+                            </span>
+                            {dueDate && (
+                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                isOverdue 
+                                  ? 'bg-red-100 text-red-800' 
+                                  : 'bg-amber-100 text-amber-800'
+                              }`}>
+                                {lang === 'en' ? 'Due' : 'Vence'} {dueDate.toLocaleDateString()}
+                              </span>
+                            )}
+                            {guide.notes && (
+                              <span className="text-[10px] text-slate-400" title={guide.notes}>
+                                📝
+                              </span>
+                            )}
+                          </span>
+                        </span>
+                        <span
+                          className={`absolute inset-y-3 right-3 w-1 rounded-full transition-all duration-300 ${
+                            isActive ? `${a.pill}` : 'bg-transparent'
+                          }`}
+                          aria-hidden="true"
+                        />
+                      </button>
+                    )
+                  })
+                )}
+              </div>
+            )}
           </div>
         </aside>
 
@@ -667,6 +1000,14 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
               <p className={`text-xs font-semibold uppercase tracking-[0.2em] ${accent.text}`}>{ui.selected}</p>
               <h3 className="mt-1 text-2xl font-semibold text-slate-900">{selectedGuide.title}</h3>
               <p className="mt-1 text-sm text-slate-600">{selectedGuide.summary}</p>
+              {activeSection === 'enterprise' && selectedGuide.notes && (
+                <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                  <p className="text-xs font-semibold text-amber-800 mb-1">
+                    {lang === 'en' ? 'Assignment Notes:' : 'Notas de Asignación:'}
+                  </p>
+                  <p className="text-xs text-amber-700">{selectedGuide.notes}</p>
+                </div>
+              )}
             </div>
             <div className="min-w-[220px] rounded-[1.25rem] border border-slate-200 bg-slate-50 p-3">
               <div className="flex items-center justify-between gap-2">
@@ -679,6 +1020,16 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
                   style={{ width: `${selectedProgress}%` }}
                 />
               </div>
+              {activeSection === 'enterprise' && selectedGuide.due_date && (
+                <div className="mt-2 pt-2 border-t border-slate-200">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 mb-1">
+                    {lang === 'en' ? 'Due Date' : 'Fecha Límite'}
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    {new Date(selectedGuide.due_date).toLocaleDateString()}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -687,6 +1038,7 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
             style={panelMaxHeight ? { maxHeight: panelMaxHeight } : undefined}
             className="mt-4 flex-1 overflow-auto rounded-[1.5rem] bg-slate-50 p-3"
           >
+<<<<<<< HEAD
             {/* ── Guía personalizada de empresa ── */}
             {selectedGuide._isCustom && (
               <div className="space-y-3">
@@ -728,6 +1080,20 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
             )}
 
             {hasLesson && (
+=======
+            {/* Render enterprise guide content or library guide content */}
+            {activeSection === 'enterprise' ? (
+              <EnterpriseGuideContent 
+                guide={selectedGuide} 
+                accent={accent} 
+                ui={ui} 
+                lang={lang}
+                user={user}
+              />
+            ) : (
+              <>
+                {hasLesson && (
+>>>>>>> 2b585a4e729c46ae4f2170cf7183b7afc89ee076
               <div className={`rounded-[1.25rem] border bg-white p-4 ${accent.border}`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -889,6 +1255,8 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
                 })}
               </div>
             </div>
+              </>
+            )}
           </div>
         </section>
       </div>
