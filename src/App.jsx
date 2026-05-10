@@ -21,6 +21,7 @@ import { nowAR } from './utils/dateAR'
 
 // Lazy load de componentes pesados que no se usan inmediatamente
 const LandingPage = lazy(() => import('./components/LandingPage'))
+const EnterpriseLanding = lazy(() => import('./components/EnterpriseLanding'))
 const AuthModal = lazy(() => import('./components/AuthModal'))
 const EnterprisePanel = lazy(() => import('./components/EnterprisePanel'))
 const ConfigModal = lazy(() => import('./components/ConfigModal'))
@@ -149,6 +150,7 @@ function App() {
   const { t, lang } = useLang()
   const { start: startFocusTracking, reset: resetFocusTracking, getReport: getFocusReport } = useWindowFocus({ enabled: true })
   const [showLanding, setShowLanding] = useState(true)
+  const [showEnterpriseLanding, setShowEnterpriseLanding] = useState(false)
   const [showSplash, setShowSplash] = useState(true)
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const [userType, setUserType] = useState(null)
@@ -1402,7 +1404,15 @@ function App() {
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-cyan-200 border-t-cyan-600" />
           </div>
         }>
-          <LandingPage onOpenAuth={handleOpenAuth} onTryApp={handleTryApp} />
+          {showEnterpriseLanding ? (
+            <EnterpriseLanding onBack={() => setShowEnterpriseLanding(false)} />
+          ) : (
+            <LandingPage
+              onOpenAuth={handleOpenAuth}
+              onTryApp={handleTryApp}
+              onEnterprise={() => setShowEnterpriseLanding(true)}
+            />
+          )}
           <AuthModal
             open={authModalOpen}
             onClose={handleCloseAuth}
@@ -1516,7 +1526,9 @@ function App() {
                 )}
                 {mode === 'challenge' && !challengeCompany && (
                   <div className="flex items-center gap-2 rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3">
-                    <span className="text-cyan-600 text-sm">🎯</span>
+                    <svg className="h-4 w-4 text-cyan-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
                     <p className="text-sm font-semibold text-cyan-800">
                       {t('companyChallenge') || 'Desafío personalizado de tu empresa'}
                     </p>

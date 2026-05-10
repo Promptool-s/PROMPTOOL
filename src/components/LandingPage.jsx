@@ -731,7 +731,7 @@ const InteractiveDemo = ({ dark, lang }) => {
 }
 
 // ── Main ───────────────────────────────────────────────────────────────────
-const LandingPage = ({ onOpenAuth, onTryApp }) => {
+const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
   const { theme } = useTheme()
   const dark = false // La landing siempre en modo claro
 
@@ -863,6 +863,20 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
             <div className="grid items-center gap-16 lg:grid-cols-2">
               <div className="space-y-8">
                 <div className="space-y-6">
+                  <div className="flex flex-wrap gap-2">
+                    <span className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold ${dark ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-400' : 'border-cyan-200 bg-cyan-50 text-cyan-600'}`}>
+                      {c.badge}
+                    </span>
+                    <a
+                      onClick={onEnterprise}
+                      className={`cursor-pointer inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold transition ${dark ? 'border-violet-500/40 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20' : 'border-violet-200 bg-violet-50 text-violet-600 hover:bg-violet-100'}`}
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                      {lang === 'en' ? 'Enterprise mode available →' : 'Modo empresa disponible →'}
+                    </a>
+                  </div>
                   <h1 className="text-5xl font-black leading-tight tracking-tight sm:text-6xl lg:text-7xl">
                     {c.h1a}{' '}<span className="text-cyan-500">{c.h1b}</span>
                   </h1>
@@ -1124,6 +1138,13 @@ const LandingPage = ({ onOpenAuth, onTryApp }) => {
               <button type="button" onClick={onOpenAuth}
                 className={`inline-flex items-center justify-center rounded-lg border-2 px-8 py-3.5 text-base font-semibold transition ${dark ? 'border-slate-700 text-white hover:bg-slate-800' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`}>
                 {c.ctaSignup}
+              </button>
+              <button type="button" onClick={onEnterprise}
+                className={`inline-flex items-center justify-center gap-2 rounded-lg border-2 px-8 py-3.5 text-base font-semibold transition ${dark ? 'border-violet-500 text-violet-400 hover:bg-violet-500/10' : 'border-violet-600 text-violet-600 hover:bg-violet-50'}`}>
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                {lang === 'en' ? 'For teams & companies' : 'Para equipos y empresas'}
               </button>
             </div>
           </div>

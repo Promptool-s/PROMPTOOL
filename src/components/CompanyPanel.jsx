@@ -167,7 +167,11 @@ const CompanyPanel = ({ user, companyData, onClose, onLeft }) => {
         {confirmLeave && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/95 backdrop-blur-sm rounded-3xl">
             <div className="text-center px-8 py-6 max-w-xs">
-              <div className="text-4xl mb-3">🚪</div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-100 mx-auto mb-3">
+                <svg className="h-6 w-6 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </div>
               <h3 className="text-base font-bold text-slate-900 mb-1">
                 {lang === 'en' ? 'Leave company?' : '¿Salir de la empresa?'}
               </h3>
@@ -312,7 +316,9 @@ const CompanyPanel = ({ user, companyData, onClose, onLeft }) => {
                 </div>
               ) : challenges.length === 0 ? (
                 <div className="text-center py-12">
-                  <p className="text-2xl mb-2">🎯</p>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 mx-auto mb-3">
+                    <svg className="h-6 w-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                  </div>
                   <p className="text-sm font-medium text-slate-600">
                     {lang === 'en' ? 'No challenges yet' : 'Aún no hay desafíos'}
                   </p>
@@ -333,7 +339,7 @@ const CompanyPanel = ({ user, companyData, onClose, onLeft }) => {
                       <div className="h-16 w-16 rounded-xl overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
                         {ch.url_image
                           ? <img src={ch.url_image} alt="challenge" className="h-full w-full object-cover" />
-                          : <div className="h-full w-full flex items-center justify-center text-2xl">🖼️</div>
+                          : <div className="h-full w-full flex items-center justify-center bg-slate-100"><svg className="h-6 w-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>
                         }
                       </div>
 
@@ -478,10 +484,10 @@ const CompanyPanel = ({ user, companyData, onClose, onLeft }) => {
                       <div className="space-y-2">
                         {members.slice(0, 3).map((m, i) => {
                           const name = m.nombre_display || m.nombre || m.username || 'Usuario'
-                          const medals = ['🥇', '🥈', '🥉']
+                          const medalColors = ['text-amber-400', 'text-slate-400', 'text-amber-700']
                           return (
                             <div key={m.id_usuario} className="flex items-center gap-3 rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5">
-                              <span className="text-lg shrink-0">{medals[i]}</span>
+                              <svg className={`h-4 w-4 shrink-0 ${medalColors[i]}`} fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
                               <div className="h-7 w-7 rounded-full overflow-hidden bg-slate-200 shrink-0 flex items-center justify-center">
                                 {m.avatar_url
                                   ? <img src={proxyImg(m.avatar_url)} alt={name} className="h-full w-full object-cover" />
