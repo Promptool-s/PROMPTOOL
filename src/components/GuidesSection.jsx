@@ -518,13 +518,9 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
     const match = raw.match(/^#guia-(.+)$/)
     const id = match?.[1]
     if (!id) return false
-<<<<<<< HEAD
-    if (allGuides.some((g) => g.id === id)) {
-=======
-    
+
     // Check if it's a library guide
     if (GUIDE_LIBRARY.some((g) => g.id === id)) {
->>>>>>> 2b585a4e729c46ae4f2170cf7183b7afc89ee076
       setSelectedId(id)
       setActiveSection('library')
       return true
@@ -544,17 +540,6 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
   const allGuides = [...GUIDE_LIBRARY, ...customCompanyGuides]
 
   const selectGuide = (id) => {
-<<<<<<< HEAD
-    if (!id || !allGuides.some((g) => g.id === id)) return
-    setSelectedId((prev) => {
-      if (prev === id) return prev
-      return id
-    })
-    const desired = `#guia-${id}`
-    if (window.location.hash !== desired) {
-      internalHashUpdateRef.current = true
-      window.history.replaceState(null, '', desired)
-=======
     // Check if it's a library guide
     if (GUIDE_LIBRARY.some((g) => g.id === id)) {
       setSelectedId((prev) => {
@@ -569,7 +554,7 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
       }
       return
     }
-    
+
     // Check if it's an enterprise guide
     if (enterpriseGuides.some((g) => g.id === id)) {
       setSelectedId((prev) => {
@@ -583,7 +568,6 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
         window.history.replaceState(null, '', desired)
       }
       return
->>>>>>> 2b585a4e729c46ae4f2170cf7183b7afc89ee076
     }
   }
 
@@ -696,13 +680,9 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
     [doneMap, lessonAckMap, enterpriseGuides],
   )
 
-<<<<<<< HEAD
-  const selectedGuide = allGuides.find((g) => g.id === selectedId) || GUIDE_LIBRARY[0]
-=======
-  const selectedGuide = activeSection === 'library' 
+  const selectedGuide = activeSection === 'library'
     ? (GUIDE_LIBRARY.find((g) => g.id === selectedId) || GUIDE_LIBRARY[0])
     : enterpriseGuides.find((g) => g.id === selectedId) || (enterpriseGuides.length > 0 ? enterpriseGuides[0] : GUIDE_LIBRARY[0])
->>>>>>> 2b585a4e729c46ae4f2170cf7183b7afc89ee076
   const accent = ACCENTS[selectedGuide?.accent] || ACCENTS.slate
   const selectedProgress = guideProgress[selectedGuide?.id] ?? 0
   const hasLesson = Boolean(selectedGuide?.lesson?.blocks?.length || selectedGuide?.content?.lesson?.blocks?.length)
@@ -833,48 +813,12 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
           )}
 
           <div className="mt-4 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-2">
-<<<<<<< HEAD
-            <nav className="space-y-1">
-              {GUIDE_LIBRARY.map((guide) => {
-                const isActive = guide.id === selectedGuide?.id
-                const isRecommended = recommendedSet.has(guide.id)
-                const isCompanyAssigned = companyAssignedIds.has(guide.id)
-                const a = ACCENTS[guide.accent] || ACCENTS.slate
-                return (
-                  <button
-                    key={guide.id}
-                    type="button"
-                    onClick={() => selectGuide(guide.id)}
-                    className={`guide-nav group relative flex w-full items-start gap-3 rounded-[1.25rem] border px-3 py-3 text-left transition-all duration-300 ${
-                      isActive ? `bg-white ${a.border} shadow-sm` : 'border-transparent hover:bg-white/70'
-                    }`}
-                  >
-                    <span
-                      className={`mt-0.5 h-3 w-3 flex-shrink-0 rounded-full ring-1 ring-slate-200 ${a.pill}`}
-                      aria-hidden="true"
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-slate-900">{guide.title}</span>
-                      <span className="mt-0.5 block truncate text-xs text-slate-500">{guide.summary}</span>
-                      <span className="mt-2 flex items-center gap-2">
-                        {isRecommended && !isCompanyAssigned && (
-                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${a.pill}`}>
-                            {ui.recommended}
-                          </span>
-                        )}
-                        {isCompanyAssigned && (
-                          <span className="rounded-full bg-violet-100 text-violet-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]">
-                            {lang === 'en' ? 'Company' : 'Empresa'}
-                          </span>
-                        )}
-                        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-                          {guideProgress[guide.id] ?? 0}%
-=======
             {activeSection === 'library' ? (
               <nav className="space-y-1">
                 {GUIDE_LIBRARY.map((guide) => {
                   const isActive = guide.id === selectedGuide?.id
                   const isRecommended = recommendedSet.has(guide.id)
+                  const isCompanyAssigned = companyAssignedIds.has(guide.id)
                   const a = ACCENTS[guide.accent] || ACCENTS.slate
                   return (
                     <button
@@ -893,15 +837,19 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
                         <span className="block truncate text-sm font-semibold text-slate-900">{guide.title}</span>
                         <span className="mt-0.5 block truncate text-xs text-slate-500">{guide.summary}</span>
                         <span className="mt-2 flex items-center gap-2">
-                          {isRecommended && (
+                          {isRecommended && !isCompanyAssigned && (
                             <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${a.pill}`}>
                               {ui.recommended}
+                            </span>
+                          )}
+                          {isCompanyAssigned && (
+                            <span className="rounded-full bg-violet-100 text-violet-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]">
+                              {lang === 'en' ? 'Company' : 'Empresa'}
                             </span>
                           )}
                           <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
                             {guideProgress[guide.id] ?? 0}%
                           </span>
->>>>>>> 2b585a4e729c46ae4f2170cf7183b7afc89ee076
                         </span>
                       </span>
                       <span
@@ -1038,7 +986,6 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
             style={panelMaxHeight ? { maxHeight: panelMaxHeight } : undefined}
             className="mt-4 flex-1 overflow-auto rounded-[1.5rem] bg-slate-50 p-3"
           >
-<<<<<<< HEAD
             {/* ── Guía personalizada de empresa ── */}
             {selectedGuide._isCustom && (
               <div className="space-y-3">
@@ -1080,20 +1027,6 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
             )}
 
             {hasLesson && (
-=======
-            {/* Render enterprise guide content or library guide content */}
-            {activeSection === 'enterprise' ? (
-              <EnterpriseGuideContent 
-                guide={selectedGuide} 
-                accent={accent} 
-                ui={ui} 
-                lang={lang}
-                user={user}
-              />
-            ) : (
-              <>
-                {hasLesson && (
->>>>>>> 2b585a4e729c46ae4f2170cf7183b7afc89ee076
               <div className={`rounded-[1.25rem] border bg-white p-4 ${accent.border}`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -1255,8 +1188,6 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
                 })}
               </div>
             </div>
-              </>
-            )}
           </div>
         </section>
       </div>
