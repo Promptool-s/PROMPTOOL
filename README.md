@@ -1,6 +1,6 @@
 # 🧠 PROMPTOOL
 
-> Adiviná el prompt. Dominá la IA.
+> Adiviná el prompt. Dominá la IA
 
 PROMPTOOL es un juego diario inspirado en Wordle donde el objetivo es recrear el prompt original de una imagen generada por IA.
 
