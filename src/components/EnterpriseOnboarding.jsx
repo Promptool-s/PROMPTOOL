@@ -86,7 +86,7 @@ const EnterpriseOnboarding = ({ user, onDone }) => {
           {step === 0 && (
             <div className="space-y-6">
               <div className="space-y-2">
-                <h2 className="text-2xl font-bold text-slate-900">Bienvenido a PrompTool Empresa</h2>
+                <h2 className="text-2xl font-bold text-slate-900">Bienvenido a PrompTool Enterprise</h2>
                 <p className="text-slate-500 text-sm leading-relaxed">
                   En 3 pasos configuramos tu espacio para que tu equipo empiece a entrenar con IA desde hoy.
                 </p>
