@@ -2,19 +2,22 @@ import { useEffect, useRef } from 'react'
 
 const PUBLISHER_ID = import.meta.env.VITE_ADSENSE_PUBLISHER_ID
 
+const REAL_SLOT = /^\d{9,10}$/
+
 const AdSenseUnit = ({ slot, format = 'auto', style = {} }) => {
   const ref = useRef(null)
   const pushed = useRef(false)
+  const isReady = PUBLISHER_ID && REAL_SLOT.test(slot)
 
   useEffect(() => {
-    if (!PUBLISHER_ID || pushed.current) return
+    if (!isReady || pushed.current) return
     pushed.current = true
     try {
       ;(window.adsbygoogle = window.adsbygoogle || []).push({})
     } catch (_) {}
-  }, [])
+  }, [isReady])
 
-  if (!PUBLISHER_ID) {
+  if (!isReady) {
     return (
       <div
         className="flex items-center justify-center rounded border border-dashed border-slate-200 text-slate-400 text-[10px] text-center leading-tight p-2"

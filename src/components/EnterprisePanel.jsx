@@ -422,8 +422,20 @@ const EnterprisePanel = ({ user }) => {
           .maybeSingle()
 
         if (error) throw error
+
+        // Auto-heal: enterprise users created before company_name was required
+        if (company && company.user_type === 'enterprise' && !company.company_name) {
+          const fallbackName = user.user_metadata?.nombre || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Mi Empresa'
+          await supabase
+            .from('usuarios')
+            .update({ company_name: fallbackName, nombre_display: fallbackName })
+            .eq('id_usuario', user.id)
+          company.company_name = fallbackName
+          company.nombre_display = fallbackName
+        }
+
         setCompanyData(company)
-        
+
         // Cargar filtros guardados del dashboard
         if (company?.dashboard_filters) {
           setDashboardFilters(prev => ({ ...prev, ...company.dashboard_filters }))

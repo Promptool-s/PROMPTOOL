@@ -9,6 +9,22 @@ import AuthModal from './AuthModal'
 import CompanyPanel from './CompanyPanel'
 import { proxyImg } from '../utils/imgProxy'
 
+const BrandedAvatar = ({ className = 'h-full w-full' }) => (
+  <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <rect width="40" height="40" fill="#e2e8f0" />
+    <circle cx="20" cy="15" r="8" fill="#94a3b8" />
+    <path d="M4 40 Q4 28 20 28 Q36 28 36 40Z" fill="#94a3b8" />
+  </svg>
+)
+
+const UserAvatar = ({ avatarUrl, className = 'h-full w-full object-cover' }) => {
+  const [imgError, setImgError] = useState(false)
+  if (avatarUrl && !imgError) {
+    return <img src={avatarUrl} alt="Avatar" className={className} onError={() => setImgError(true)} />
+  }
+  return <BrandedAvatar />
+}
+
 const Header = ({ companyRefreshKey = 0 }) => {
   const { user, loading, signInWithGoogle, signInWithEmail, signUpWithEmail, signOut } = useAuth()
   const { isAdmin } = useAdmin(user?.id)
@@ -400,13 +416,9 @@ const Header = ({ companyRefreshKey = 0 }) => {
     }, 200)
   }
 
-  const getUserAvatar = () => {
-    if (user?.user_metadata?.avatar_url) {
-      return <img src={proxyImg(user.user_metadata.avatar_url)} alt="Avatar" className="h-full w-full object-cover" />
-    }
-    const name = user?.user_metadata?.nombre || user?.email || 'U'
-    return <span className="text-sm font-semibold text-slate-700">{name.substring(0, 2).toUpperCase()}</span>
-  }
+  const getUserAvatar = () => (
+    <UserAvatar avatarUrl={user?.user_metadata?.avatar_url || user?.user_metadata?.picture} />
+  )
 
   const getUserName = () => {
     if (!user) return ''

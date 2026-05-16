@@ -11,14 +11,5 @@ export function proxyImg(url) {
   if (!url) return url
   const raw = String(url).trim()
   if (!raw.startsWith('http://') && !raw.startsWith('https://')) return raw
-
-  // En desarrollo: usar URLs directas de Supabase (sin caché)
-  // El caché solo funciona en producción con Vercel
-  if (IS_DEV) {
-    return raw
-  }
-
-  // Producción: Supabase Storage va directo, externas por proxy
-  if (SUPABASE_URL && raw.startsWith(SUPABASE_URL)) return raw
-  return `/api/img-proxy?url=${encodeURIComponent(raw)}`
+  return raw
 }
