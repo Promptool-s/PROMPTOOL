@@ -3,6 +3,7 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import Header from './components/Header'
 import Footer from './components/Footer'
 import ImageCard from './components/ImageCard'
+import AdSenseUnit from './components/AdSenseUnit'
 import PromptInput from './components/PromptInput'
 import ResultPanel from './components/ResultPanel'
 import SplashScreen from './components/SplashScreen'
@@ -1459,10 +1460,17 @@ function App() {
         </div>
       )}
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-2">
-        <div className="overflow-hidden rounded-2xl bg-slate-50">
+      <main className="flex-1 py-2 px-2 sm:px-4">
+        <div className="mx-auto flex max-w-screen-2xl gap-3 items-start">
+          {/* Left ad — solo en pantallas muy anchas */}
+          <aside className="hidden 2xl:flex shrink-0 flex-col items-center pt-4">
+            <AdSenseUnit slot={import.meta.env.VITE_ADSENSE_SLOT_LEFT || 'LEFT'} />
+          </aside>
+
+          {/* Game area */}
+          <div className="flex-1 min-w-0 overflow-hidden rounded-2xl bg-slate-50 dark:bg-slate-900">
           <div className="grid lg:items-stretch lg:grid-cols-[1.2fr_1fr]">
-            <section className="flex flex-col justify-center space-y-4 p-6 lg:p-8">
+            <section className="order-2 lg:order-1 flex flex-col justify-center space-y-4 p-4 sm:p-6 lg:p-8">
               <div className="space-y-4">
                 {/* Banner de invitación a empresa */}
                 {inviteCompanyId && inviteState && inviteState !== 'prompt_login' && (
@@ -1740,8 +1748,8 @@ function App() {
               </div>
             </section>
 
-            <aside className="flex flex-col items-stretch justify-start gap-4 p-4 transition-all duration-500">
-              <div className="w-full relative" style={{ height: 'calc(100vh - 120px)', minHeight: '500px' }}>
+            <aside className="order-1 lg:order-2 flex flex-col items-stretch justify-start gap-4 p-4 transition-all duration-500">
+              <div className="w-full relative" style={{ height: 'clamp(280px, 55vw, calc(100vh - 120px))' }}>
                 <ImageCard
                   mode={mode}
                   data={imageData ?? {}}
@@ -1782,7 +1790,13 @@ function App() {
             </aside>
 
           </div>
-        </div>
+          </div>{/* /game area */}
+
+          {/* Right ad — solo en pantallas muy anchas */}
+          <aside className="hidden 2xl:flex shrink-0 flex-col items-center pt-4">
+            <AdSenseUnit slot={import.meta.env.VITE_ADSENSE_SLOT_RIGHT || 'RIGHT'} />
+          </aside>
+        </div>{/* /flex wrapper */}
       </main>
 
       <Footer />

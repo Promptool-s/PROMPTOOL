@@ -474,24 +474,23 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
           className="w-full min-h-[100px] resize-none rounded-t-xl bg-transparent px-4 py-3 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:ring-0 disabled:cursor-not-allowed disabled:text-slate-400"
         />
         {/* Footer de stats — separado por borde superior, mismo ancho que el textarea */}
-        <div className="flex items-center gap-4 border-t border-slate-100 dark:border-slate-700/60 px-4 py-2">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-slate-100 dark:border-slate-700/60 px-3 py-2">
           <span className="text-[11px] tabular-nums text-slate-400 dark:text-slate-500">
-            {lang === 'en' ? 'Words' : 'Palabras'}{' '}
+            {lang === 'en' ? 'Words' : 'Pal.'}{' '}
             <span className="font-semibold text-slate-600 dark:text-slate-300">{wordsCount}</span>
-            <span className="text-slate-300 dark:text-slate-600 select-none"> / {targetWords}</span>
+            <span className="text-slate-300 dark:text-slate-600 select-none">/{targetWords}</span>
           </span>
-          <span className="text-[11px] tabular-nums text-slate-400 dark:text-slate-500">
-            {lang === 'en' ? 'Chars' : 'Caracteres'}{' '}
+          <span className="hidden sm:inline text-[11px] tabular-nums text-slate-400 dark:text-slate-500">
+            {lang === 'en' ? 'Chars' : 'Car.'}{' '}
             <span className="font-semibold text-slate-600 dark:text-slate-300">{promptUsuario.length}</span>
-            <span className="text-slate-300 dark:text-slate-600 select-none"> / {targetChars}</span>
+            <span className="text-slate-300 dark:text-slate-600 select-none">/{targetChars}</span>
           </span>
           <span className="text-[11px] tabular-nums text-slate-400 dark:text-slate-500">
-            {lang === 'en' ? 'Tech terms' : 'Términos técnicos'}{' '}
+            {lang === 'en' ? 'Tech' : 'Téc.'}{' '}
             <span className="font-semibold text-slate-600 dark:text-slate-300">{techCount}</span>
-            <span className="text-slate-300 dark:text-slate-600 select-none"> / {targetTech}</span>
+            <span className="text-slate-300 dark:text-slate-600 select-none">/{targetTech}</span>
           </span>
           <span className="text-[11px] text-slate-400 dark:text-slate-500 ml-auto">
-            {lang === 'en' ? 'Focus' : 'Foco'}{' '}
             <span className="font-semibold text-slate-600 dark:text-slate-300">{getFocusLabel()}</span>
           </span>
         </div>
