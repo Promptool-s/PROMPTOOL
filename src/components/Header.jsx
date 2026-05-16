@@ -440,8 +440,8 @@ const Header = ({ companyRefreshKey = 0 }) => {
           {/* Spacer */}
           <div className="flex-1" />
 
-          {/* Search */}
-          <div ref={searchRef} className="relative w-56">
+          {/* Search — oculto en móvil */}
+          <div ref={searchRef} className="relative hidden sm:block w-44 md:w-56">
             <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 transition focus-within:border-slate-400 focus-within:bg-white">              <svg className="h-3.5 w-3.5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
@@ -576,7 +576,7 @@ const Header = ({ companyRefreshKey = 0 }) => {
                   </button>
 
                   {notificationOpen && (
-                    <div className="absolute right-0 top-11 z-[206] w-[24rem] overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl">
+                    <div className="absolute right-0 top-11 z-[206] w-[calc(100vw-1rem)] max-w-[24rem] overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl">
                       <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-4 py-3">
                         <div>
                           <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{lang === 'en' ? 'Inbox' : 'Bandeja'}</p>
