@@ -301,14 +301,16 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
   const visualScore = words.filter(w => VISUAL_WORDS.some(s => w.includes(s))).length + techCount * 0.5
 
   const getFocusLabel = () => {
+    if (wordsCount === 0) return lang === 'en' ? 'No focus yet' : 'Sin foco aún'
+    if (wordsCount < 4) return lang === 'en' ? 'Too short' : 'Muy corto'
     const total = subjectScore + envScore + visualScore
-    if (total === 0) return lang === 'en' ? 'No focus yet' : 'Sin foco aún'
+    const categories = [subjectScore > 0, envScore > 0, visualScore > 0].filter(Boolean).length
+    if (total === 0) return lang === 'en' ? 'Add visual details' : 'Faltan detalles'
+    if (categories >= 2) return lang === 'en' ? 'Balanced' : 'Balanceado'
     const max = Math.max(subjectScore, envScore, visualScore)
-    const isBalanced = max <= total * 0.45
-    if (isBalanced) return lang === 'en' ? 'Balanced' : 'Balanceado'
-    if (max === subjectScore) return lang === 'en' ? 'Very focused on subject' : 'Muy centrado en sujeto'
-    if (max === envScore) return lang === 'en' ? 'Very focused on environment' : 'Muy centrado en entorno'
-    return lang === 'en' ? 'Very visual' : 'Muy visual'
+    if (max === subjectScore) return lang === 'en' ? 'Subject-focused' : 'Sujeto'
+    if (max === envScore) return lang === 'en' ? 'Environment-focused' : 'Entorno'
+    return lang === 'en' ? 'Visual style' : 'Visual'
   }
 
   // Target values from timerConfig
@@ -475,20 +477,20 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
         />
         {/* Footer de stats — separado por borde superior, mismo ancho que el textarea */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-slate-100 dark:border-slate-700/60 px-3 py-2">
-          <span className="text-[11px] tabular-nums text-slate-400 dark:text-slate-500">
+          <span className="text-[11px] tabular-nums text-slate-400 dark:text-slate-500" title={lang === 'en' ? `Target from original: ~${targetWords} words` : `Referencia del original: ~${targetWords} palabras`}>
             {lang === 'en' ? 'Words' : 'Pal.'}{' '}
-            <span className="font-semibold text-slate-600 dark:text-slate-300">{wordsCount}</span>
-            <span className="text-slate-300 dark:text-slate-600 select-none">/{targetWords}</span>
+            <span className={`font-semibold tabular-nums ${wordsCount >= targetWords * 0.8 ? 'text-emerald-500' : 'text-slate-600 dark:text-slate-300'}`}>{wordsCount}</span>
+            <span className="text-slate-300 dark:text-slate-600 select-none"> / ~{targetWords}</span>
           </span>
-          <span className="hidden sm:inline text-[11px] tabular-nums text-slate-400 dark:text-slate-500">
+          <span className="hidden sm:inline text-[11px] tabular-nums text-slate-400 dark:text-slate-500" title={lang === 'en' ? `Target from original: ~${targetChars} chars` : `Referencia del original: ~${targetChars} caracteres`}>
             {lang === 'en' ? 'Chars' : 'Car.'}{' '}
-            <span className="font-semibold text-slate-600 dark:text-slate-300">{promptUsuario.length}</span>
-            <span className="text-slate-300 dark:text-slate-600 select-none">/{targetChars}</span>
+            <span className={`font-semibold tabular-nums ${promptUsuario.length >= targetChars * 0.8 ? 'text-emerald-500' : 'text-slate-600 dark:text-slate-300'}`}>{promptUsuario.length}</span>
+            <span className="text-slate-300 dark:text-slate-600 select-none"> / ~{targetChars}</span>
           </span>
-          <span className="text-[11px] tabular-nums text-slate-400 dark:text-slate-500">
+          <span className="text-[11px] tabular-nums text-slate-400 dark:text-slate-500" title={lang === 'en' ? 'Technical prompt terms detected' : 'Términos técnicos detectados'}>
             {lang === 'en' ? 'Tech' : 'Téc.'}{' '}
-            <span className="font-semibold text-slate-600 dark:text-slate-300">{techCount}</span>
-            <span className="text-slate-300 dark:text-slate-600 select-none">/{targetTech}</span>
+            <span className={`font-semibold tabular-nums ${techCount >= targetTech ? 'text-emerald-500' : 'text-slate-600 dark:text-slate-300'}`}>{techCount}</span>
+            <span className="text-slate-300 dark:text-slate-600 select-none"> / ~{targetTech}</span>
           </span>
           <span className="text-[11px] text-slate-400 dark:text-slate-500 ml-auto">
             <span className="font-semibold text-slate-600 dark:text-slate-300">{getFocusLabel()}</span>

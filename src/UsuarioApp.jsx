@@ -1190,18 +1190,8 @@ function UsuarioApp() {
 
     useEffect(() => {
       if (!userId) return
-      const fetchMedals = async () => {
-        try {
-          const { data, error } = await supabase
-            .from('usuario_medallas')
-            .select('fecha_obtenida, medallas(nombre, descripcion, icono_url, color)')
-            .eq('id_usuario', userId)
-            .order('fecha_obtenida', { ascending: false })
-          if (!error) setMedals(data || [])
-          // Si la tabla no existe (404) simplemente no mostramos nada
-        } catch { /* tabla no existe aún */ }
-      }
-      fetchMedals()
+      // tabla usuario_medallas no existe aún — evitar 404 en la red
+      void userId
     }, [userId])
 
     if (medals.length === 0) return null
@@ -1586,7 +1576,7 @@ function UsuarioApp() {
                             />
                             <div>
                               <span className="text-sm font-medium text-slate-700">{lang === 'en' ? 'Show team statistics publicly' : 'Mostrar estadísticas del equipo públicamente'}</span>
-                              <p className="text-xs text-slate-400">{lang === 'en' ? 'Members count, avg ELO and scores.' : 'Cantidad de miembros, ELO promedio y scores.'}</p>
+                              <p className="text-xs text-slate-400">{lang === 'en' ? 'Members count, avg ELO and scores.' : 'Cantidad de miembros, puntuación promedio y scores.'}</p>
                             </div>
                           </label>
                         </div>
@@ -1711,7 +1701,7 @@ function UsuarioApp() {
                                         <p className="truncate text-sm font-medium">{memberName}</p>
                                         <p className="truncate text-[11px] text-slate-400">
                                           {member.company_role && <span className="font-medium mr-1" style={{ color: accentHex }}>{member.company_role}</span>}
-                                          ELO {member.elo_rating ?? 1000} · {member.total_intentos ?? 0} {lang === 'en' ? 'attempts' : 'intentos'}
+                                          {lang === 'en' ? 'ELO' : 'Pts'} {member.elo_rating ?? 1000} · {member.total_intentos ?? 0} {lang === 'en' ? 'attempts' : 'intentos'}
                                         </p>
                                       </div>
                                     </a>
@@ -1733,7 +1723,7 @@ function UsuarioApp() {
                             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                               {[
                                 { label: lang === 'en' ? 'Members' : 'Miembros', value: enterpriseMembers.length },
-                                { label: lang === 'en' ? 'Avg ELO' : 'ELO Prom.', value: Math.round(enterpriseMembers.reduce((s, m) => s + (m.elo_rating || 1000), 0) / enterpriseMembers.length) },
+                                { label: lang === 'en' ? 'Avg ELO' : 'Pts Prom.', value: Math.round(enterpriseMembers.reduce((s, m) => s + (m.elo_rating || 1000), 0) / enterpriseMembers.length) },
                                 { label: lang === 'en' ? 'Avg Score' : 'Score Prom.', value: (() => { const w = enterpriseMembers.filter(m => m.promedio_score); return w.length ? Math.round(w.reduce((s, m) => s + m.promedio_score, 0) / w.length) : '—' })() },
                                 { label: lang === 'en' ? 'Attempts' : 'Intentos', value: enterpriseMembers.reduce((s, m) => s + (m.total_intentos || 0), 0) },
                               ].map(({ label, value }) => (
@@ -2872,7 +2862,7 @@ function UsuarioApp() {
                       <p className="text-3xl font-bold tabular-nums" style={{ color: chartColor + '60' }}>
                         {totalIntentos}<span className="text-slate-300">/5</span>
                       </p>
-                      <p className="text-xs text-slate-400 mt-0.5">ELO</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{lang === 'en' ? 'ELO' : 'Puntuación'}</p>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-slate-500">
@@ -2881,7 +2871,7 @@ function UsuarioApp() {
                       <p className="text-xs text-slate-400 mt-0.5">
                         {lang === 'en'
                           ? `${5 - totalIntentos} more attempt${5 - totalIntentos !== 1 ? 's' : ''} to unlock your ELO`
-                          : `${5 - totalIntentos} intento${5 - totalIntentos !== 1 ? 's' : ''} más para desbloquear tu ELO`}
+                          : `${5 - totalIntentos} intento${5 - totalIntentos !== 1 ? 's' : ''} más para desbloquear tu puntuación`}
                       </p>
                       <div className="mt-2 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
                         <div className="h-full rounded-full transition-all duration-700"
@@ -2901,7 +2891,7 @@ function UsuarioApp() {
                 <div className="rounded-xl border p-4 flex items-center gap-4" style={{ borderColor: chartColor + '40', backgroundColor: chartColor + '08' }}>
                   <div className="shrink-0 text-center">
                     <p className="text-3xl font-bold tabular-nums" style={{ color: chartColor }}>{elo}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">ELO</p>
+                    <p className="text-xs text-slate-400 mt-0.5">{lang === 'en' ? 'ELO' : 'Puntuación'}</p>
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1.5">
@@ -3154,7 +3144,11 @@ function UsuarioApp() {
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                      <XAxis dataKey="n" tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} tickFormatter={(v, i) => chartData[i]?.fecha ?? ''} />
+                      <XAxis dataKey="n" tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} tickFormatter={(v, i) => {
+                        const fecha = chartData[i]?.fecha ?? ''
+                        if (i > 0 && chartData[i - 1]?.fecha === fecha) return ''
+                        return fecha
+                      }} />
                       <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
                       <Tooltip
                         content={({ active, payload }) => {
@@ -3178,7 +3172,7 @@ function UsuarioApp() {
                               )}
                               {d.elo_delta != null && (
                                 <p className={`text-[11px] font-bold tabular-nums ${d.elo_delta >= 0 ? 'text-emerald-500' : 'text-rose-400'}`}>
-                                  {d.elo_delta >= 0 ? '+' : ''}{d.elo_delta} ELO
+                                  {d.elo_delta >= 0 ? '+' : ''}{d.elo_delta} {lang === 'en' ? 'ELO' : 'pts'}
                                 </p>
                               )}
                               {companyName && (
@@ -3281,7 +3275,7 @@ function UsuarioApp() {
                             </div>
                             {attempt.elo_delta != null && (
                               <span className={`text-[10px] font-semibold tabular-nums ${attempt.elo_delta >= 0 ? 'text-emerald-500' : 'text-rose-400'}`}>
-                                {attempt.elo_delta >= 0 ? '+' : ''}{attempt.elo_delta} ELO
+                                {attempt.elo_delta >= 0 ? '+' : ''}{attempt.elo_delta} {lang === 'en' ? 'ELO' : 'pts'}
                               </span>
                             )}
                             {attempt.is_ranked === false && (

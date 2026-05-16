@@ -308,7 +308,7 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
             {(mode === 'signin' || (mode === 'signup' && signupStep === 'info')) && (
               <>
                 <input type="text" value={email} onChange={e => setEmail(e.target.value)}
-                  placeholder={mode === 'signin' ? (lang === 'en' ? 'Email or @username' : 'Email o @usuario') : 'Email'}
+                  placeholder={mode === 'signin' ? (lang === 'en' ? 'Email or username' : 'Email o usuario') : 'Email'}
                   className={inputClass} required />
 
                 <input type="password" value={password} onChange={e => setPassword(e.target.value)}

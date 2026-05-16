@@ -53,7 +53,7 @@ function LeaderboardApp() {
   const myRowRef = useRef(null)
 
   const cols = [
-    { key: 'elo_rating',           label: 'ELO',                                    suffix: '',  tableOnly: false },
+    { key: 'elo_rating',           label: lang === 'en' ? 'ELO' : 'Puntuación',    suffix: '',  tableOnly: false },
     { key: 'promedio_score',       label: lang === 'en' ? 'Avg'      : 'Promedio',  suffix: '%', tableOnly: false },
     { key: 'mejor_score',          label: lang === 'en' ? 'Best'     : 'Mejor',     suffix: '%', tableOnly: false },
     { key: 'total_intentos',       label: lang === 'en' ? 'Attempts' : 'Intentos',  suffix: '',  tableOnly: false },

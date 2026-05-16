@@ -1377,9 +1377,14 @@ const EnterprisePanel = ({ user }) => {
       `- "${u.company_display_name || u.nombre_display || u.nombre || u.email}" → id:${u.id_usuario} | ELO:${u.elo_rating || 1000} | score:${u.promedio_score ?? 'N/A'}% | attempts:${u.total_intentos || 0} | streak:${u.racha_actual || 0}d | role:${u.company_role || 'none'}`
     ).join('\n')
 
+    const uiLang = lang === 'en' ? 'English' : 'Spanish (español rioplatense)'
+    const offTopicMsg = lang === 'en'
+      ? 'I focus on team analytics only. Ask me about member performance, scores, or management actions.'
+      : 'Me enfoco solo en el análisis del equipo. Preguntame sobre rendimiento, scores o acciones de gestión.'
+
     return `You are a focused team analytics assistant for ${companyName} on a prompt engineering training platform. You provide data-driven insights and execute management actions ONLY.
 
-LANGUAGE RULE: Always respond in the exact same language the user writes in. No exceptions.
+LANGUAGE: Always respond in ${uiLang}. Never switch languages regardless of what the user writes.
 
 STRICT SCOPE: You ONLY handle:
 1. Team performance questions (scores, ELO, attempts, streaks)
@@ -1454,7 +1459,7 @@ RESPONSE RULES:
 - Be direct and factual
 - No emojis or decorative symbols
 - Focus on actionable insights
-- If asked about forbidden topics, say: "I focus on team analytics only. Ask me about member performance, scores, or management actions."
+- If asked about forbidden topics, say: "${offTopicMsg}"
 - Keep responses concise and data-focused`
   }
 
