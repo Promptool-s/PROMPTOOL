@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 import { useLang } from '../contexts/LangContext'
 import { proxyImg } from '../utils/imgProxy'
 import { checkRateLimit, formatTimeRemaining } from '../services/rateLimitService'
 import { sanitizeUsername } from '../utils/inputSanitizer'
 
-const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSignUpWithEmail, inviteCompany = null }) => {
+const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSignUpWithEmail, inviteCompany = null, initialPlan = null }) => {
   const { t, lang } = useLang()
   const [mode, setMode] = useState('signin')
   const [signupStep, setSignupStep] = useState('type') // 'type' | 'info'
@@ -21,6 +21,14 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
   const [acceptTerms, setAcceptTerms] = useState(false)
   const [acceptEmails, setAcceptEmails] = useState(false)
   const [rateLimitWarning, setRateLimitWarning] = useState(null)
+
+  useEffect(() => {
+    if (open && initialPlan) {
+      setMode('signup')
+      setUserType(initialPlan)
+      setSignupStep('info')
+    }
+  }, [open, initialPlan])
 
   if (!open) return null
 

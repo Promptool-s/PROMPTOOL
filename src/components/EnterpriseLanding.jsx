@@ -112,7 +112,7 @@ const CUSTOM_FEATURES = [
 ]
 
 // ── Main ───────────────────────────────────────────────────────────────────
-const EnterpriseLanding = ({ onBack }) => {
+const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
   const { theme } = useTheme()
   const dark = theme === 'dark'
 
@@ -314,14 +314,14 @@ const EnterpriseLanding = ({ onBack }) => {
 
             <Reveal delay={160}>
               <h1 className="text-4xl font-black leading-tight tracking-tight sm:text-5xl lg:text-7xl">
-                Entrena a tu equipo en{' '}
-                <span className="text-violet-500">IA generativa</span>
+                Tu equipo necesita hablar{' '}
+                <span className="text-violet-500">el nuevo idioma del mundo tech</span>
               </h1>
             </Reveal>
 
             <Reveal delay={240}>
               <p className={`max-w-2xl mx-auto text-base sm:text-lg leading-relaxed ${muted}`}>
-                PrompTool Enterprise es la plataforma de entrenamiento en prompt engineering para equipos. Mide el progreso, crea desafíos propios y forma a tu equipo con herramientas reales.
+                Las empresas que lideran hoy son las que ya saben comunicarse con la IA. PrompTool entrena a tu equipo en prompting — y te muestra en tiempo real quién avanza, quién se queda atrás y qué tan cerca están de los objetivos que vos definís.
               </p>
             </Reveal>
 
@@ -329,10 +329,10 @@ const EnterpriseLanding = ({ onBack }) => {
               <div className="flex flex-wrap gap-3 justify-center">
                 <button
                   type="button"
-                  onClick={() => scrollTo(5)}
+                  onClick={onOpenAuth}
                   className="inline-flex items-center justify-center rounded-lg bg-violet-600 px-6 py-3 sm:px-8 sm:py-3.5 text-sm font-semibold text-white hover:bg-violet-700 transition"
                 >
-                  Ver planes
+                  Empezar gratis
                 </button>
                 <button
                   type="button"
@@ -348,7 +348,7 @@ const EnterpriseLanding = ({ onBack }) => {
 
             <Reveal delay={400}>
               <div className="flex flex-wrap justify-center gap-3">
-                {['Dashboard en tiempo real', 'Desafíos personalizados', 'Guías asignables'].map(stat => (
+                {['Ves quién mejora y quién no', 'Definís los objetivos vos', 'El equipo práctica en el día a día'].map(stat => (
                   <div
                     key={stat}
                     className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs sm:text-sm font-medium ${
@@ -380,18 +380,18 @@ const EnterpriseLanding = ({ onBack }) => {
           <div className="mx-auto w-full max-w-6xl">
             <Reveal>
               <div className="mb-10 sm:mb-14">
-                <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${accentText}`}>Funcionalidades</p>
-                <h2 className="text-3xl sm:text-4xl font-bold">Todo lo que necesita tu equipo</h2>
+                <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${accentText}`}>Lo que obtenés</p>
+                <h2 className="text-3xl sm:text-4xl font-bold">De "no sé cómo va el equipo" a datos reales</h2>
               </div>
             </Reveal>
             <div className="grid gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {[
-                { icon: 'chart', title: 'Dashboard de analytics', desc: 'Seguimiento en tiempo real del progreso de cada miembro. Score promedio, ELO, participación, tendencias y alertas automáticas.' },
-                { icon: 'bolt', title: 'Desafíos personalizados', desc: 'Crea desafíos con tus propias imágenes. Configura dificultad, tiempo límite, intentos máximos y visibilidad.' },
-                { icon: 'book', title: 'Guías asignables', desc: 'Asigna guías del catálogo o crea las tuyas propias con lecciones, quiz y checkpoints. Con fecha límite y notificaciones.' },
-                { icon: 'users', title: 'Gestión de equipo', desc: 'Invita miembros por email o link. Asigna roles (manager, analyst, trainee), renombra en contexto de empresa y gestiona el acceso.' },
-                { icon: 'badge', title: 'Ranking interno', desc: 'Cada empresa tiene su propio leaderboard. Competencia sana dentro del equipo con ELO y métricas comparativas.' },
-                { icon: 'chat', title: 'Chatbot IA', desc: 'Asistente de IA integrado para analizar el rendimiento del equipo, sugerir acciones y gestionar miembros por lenguaje natural.' },
+                { icon: 'chart', title: 'Ves quién avanza y quién no', desc: 'Score promedio, ELO, participación activa y tendencias de cada miembro — en tiempo real. Sabés exactamente quién cumple los objetivos y quién necesita atención.' },
+                { icon: 'bolt', title: 'Desafíos con tu contenido', desc: 'Cargá tus propias imágenes y creá desafíos que reflejen el trabajo real de tu empresa. Dificultad, tiempo y intentos configurables.' },
+                { icon: 'book', title: 'Guías asignables con seguimiento', desc: 'Asigná guías con fecha límite a todo el equipo o a roles específicos. Ves quién las completó, quién no empezó y qué tanto aprendieron.' },
+                { icon: 'users', title: 'Roles y accesos claros', desc: 'Invitá por email o link. Asigná roles (manager, analista, trainee) y controlá qué puede ver cada uno dentro del panel.' },
+                { icon: 'badge', title: 'Ranking interno que motiva', desc: 'Tu equipo compite entre sí con un leaderboard propio. Métricas comparativas que generan competencia sana y compromiso real.' },
+                { icon: 'chat', title: 'Chatbot IA para el manager', desc: 'Preguntale en lenguaje natural cómo va el equipo, quién necesita refuerzo o qué desafíos generar. La IA actúa sobre el panel.' },
               ].map(({ icon, title, desc }, i) => (
                 <Reveal key={title} delay={i * 60}>
                   <div className={`rounded-2xl border p-5 sm:p-6 h-full ${card}`}>
@@ -413,17 +413,17 @@ const EnterpriseLanding = ({ onBack }) => {
             <Reveal>
               <div>
                 <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${accentText}`}>Panel de control</p>
-                <h2 className="text-3xl sm:text-4xl font-bold mb-6">Visibilidad total del equipo</h2>
+                <h2 className="text-3xl sm:text-4xl font-bold mb-6">Sabés exactamente cómo está tu equipo — sin tener que preguntar</h2>
                 <p className={`text-base sm:text-lg leading-relaxed mb-8 ${muted}`}>
-                  Un dashboard centralizado con todas las métricas que necesitás para tomar decisiones sobre el entrenamiento de tu equipo.
+                  Un dashboard centralizado donde ves en segundos si tu equipo está alcanzando el nivel que necesitás. Sin reportes manuales, sin suposiciones.
                 </p>
                 <ul className="space-y-3 sm:space-y-4">
                   {[
-                    'Score promedio del equipo con objetivo configurable (70%)',
-                    'Tasa de participación y miembros activos',
-                    'Detección automática de miembros en riesgo',
-                    'Tendencias de mejora por miembro',
-                    'Insights y recomendaciones automáticas con IA',
+                    'Score promedio con objetivo configurable — sabés si están donde tienen que estar',
+                    'Tasa de participación activa y alertas de miembros inactivos',
+                    'Detección automática de quién está por debajo del target',
+                    'Evolución individual para ver quién mejora semana a semana',
+                    'Insights generados con IA para tomar decisiones rápido',
                   ].map(item => (
                     <li key={item} className="flex items-start gap-3 text-sm sm:text-base leading-relaxed">
                       <span className={`mt-2 h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0`} />
@@ -482,10 +482,10 @@ const EnterpriseLanding = ({ onBack }) => {
           <div className="mx-auto w-full max-w-6xl grid gap-12 lg:gap-20 lg:grid-cols-2 items-center">
             <Reveal>
               <div>
-                <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${accentText}`}>Desafíos</p>
-                <h2 className="text-3xl sm:text-4xl font-bold mb-6">Crea desafíos a medida</h2>
+                <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${accentText}`}>Práctica real</p>
+                <h2 className="text-3xl sm:text-4xl font-bold mb-6">Que practiquen con los casos que vos elegís</h2>
                 <p className={`text-base sm:text-lg leading-relaxed mb-8 ${muted}`}>
-                  Diseñá desafíos con tus propias imágenes o generá nuevas con IA. Configurá cada parámetro para adaptarlo al nivel y objetivos de tu equipo.
+                  Creá desafíos con imágenes de tu industria o generá nuevas con IA. El equipo practica prompting en contextos reales — no ejercicios genéricos — y vos ves quién lo domina.
                 </p>
                 <div className="grid grid-cols-2 gap-2 sm:gap-3">
                   {[
@@ -539,10 +539,10 @@ const EnterpriseLanding = ({ onBack }) => {
           <div className="mx-auto w-full max-w-6xl grid gap-12 lg:gap-20 lg:grid-cols-2 items-center">
             <Reveal>
               <div>
-                <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${accentText}`}>Guías</p>
-                <h2 className="text-3xl sm:text-4xl font-bold mb-6">Formá a tu equipo con guías propias</h2>
+                <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${accentText}`}>Formación estructurada</p>
+                <h2 className="text-3xl sm:text-4xl font-bold mb-6">Que aprendan siguiendo el camino que vos trazaste</h2>
                 <p className={`text-base sm:text-lg leading-relaxed mb-8 ${muted}`}>
-                  Creá guías de aprendizaje estructuradas con lecciones, quizzes y checkpoints. Asignalas a tu equipo con fecha límite y seguí el progreso desde el dashboard.
+                  Asigná guías del catálogo o creá las tuyas con lecciones, quizzes y checkpoints. Definís una fecha límite, y el dashboard te muestra quién terminó, quién no empezó y qué tanto entendieron.
                 </p>
                 <ul className="space-y-3 sm:space-y-4">
                   {[
@@ -676,6 +676,7 @@ const EnterpriseLanding = ({ onBack }) => {
 
                     <button
                       type="button"
+                      onClick={plan.name === 'Enterprise' ? () => window.location.href = 'mailto:hola@promptool.ai' : onOpenAuth}
                       className={`w-full rounded-lg py-2.5 text-sm font-semibold transition ${
                         plan.popular
                           ? 'bg-violet-600 text-white hover:bg-violet-700'
@@ -776,6 +777,7 @@ const EnterpriseLanding = ({ onBack }) => {
 
                   <button
                     type="button"
+                    onClick={onOpenAuth}
                     className="w-full inline-flex items-center justify-center rounded-lg bg-violet-600 px-8 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 transition"
                   >
                     Crear cuenta enterprise
@@ -791,10 +793,10 @@ const EnterpriseLanding = ({ onBack }) => {
           <Reveal>
             <div className="mx-auto max-w-3xl text-center space-y-6">
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight">
-                ¿Listo para entrenar a tu equipo?
+                Tu equipo puede hablar el idioma de la IA.<br className="hidden sm:block" /> ¿Cuándo empezamos?
               </h2>
               <p className={`text-base sm:text-lg max-w-md mx-auto ${muted}`}>
-                Creá tu cuenta enterprise, invitá a tu equipo y empezá a medir el progreso desde el primer día.
+                Creá tu cuenta enterprise hoy, invitá a tu equipo y en minutos empezás a ver quién avanza y quién necesita refuerzo.
               </p>
               <div className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold ${
                 dark ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400' : 'border-emerald-200 bg-emerald-50 text-emerald-700'
@@ -805,6 +807,7 @@ const EnterpriseLanding = ({ onBack }) => {
               <div className="flex flex-wrap gap-3 sm:gap-4 justify-center pt-2">
                 <button
                   type="button"
+                  onClick={onOpenAuth}
                   className="inline-flex items-center justify-center rounded-lg bg-violet-600 px-8 py-3.5 text-sm sm:text-base font-semibold text-white hover:bg-violet-700 transition"
                 >
                   Crear cuenta enterprise

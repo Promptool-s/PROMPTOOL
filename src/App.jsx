@@ -154,6 +154,7 @@ function App() {
   const [showEnterpriseLanding, setShowEnterpriseLanding] = useState(false)
   const [showSplash, setShowSplash] = useState(true)
   const [authModalOpen, setAuthModalOpen] = useState(false)
+  const [authPreselect, setAuthPreselect] = useState(null)
   const [userType, setUserType] = useState(null)
   const [userTypeLoading, setUserTypeLoading] = useState(false)
   const [userStreak, setUserStreak] = useState(0)
@@ -1012,6 +1013,7 @@ function App() {
 
   const handleCloseAuth = () => {
     setAuthModalOpen(false)
+    setAuthPreselect(null)
   }
 
   const handleReset = () => {
@@ -1406,7 +1408,10 @@ function App() {
           </div>
         }>
           {showEnterpriseLanding ? (
-            <EnterpriseLanding onBack={() => setShowEnterpriseLanding(false)} />
+            <EnterpriseLanding
+              onBack={() => setShowEnterpriseLanding(false)}
+              onOpenAuth={() => { setAuthPreselect('enterprise'); setAuthModalOpen(true) }}
+            />
           ) : (
             <LandingPage
               onOpenAuth={handleOpenAuth}
@@ -1421,6 +1426,7 @@ function App() {
             onSignInWithEmail={signInWithEmail}
             onSignUpWithEmail={signUpWithEmail}
             inviteCompany={inviteState === 'prompt_login' ? inviteCompany : null}
+            initialPlan={authPreselect}
           />
         </Suspense>
       </div>
@@ -1906,6 +1912,7 @@ function App() {
           onSignInWithEmail={signInWithEmail}
           onSignUpWithEmail={signUpWithEmail}
           inviteCompany={inviteState === 'prompt_login' ? inviteCompany : null}
+          initialPlan={authPreselect}
         />
       </Suspense>
     </div>

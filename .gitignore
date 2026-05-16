@@ -7,3 +7,5 @@ npm-debug.log
 !.env.example
 .DS_Store
 .img-cache/
+supabase/migrations/
+.claude/

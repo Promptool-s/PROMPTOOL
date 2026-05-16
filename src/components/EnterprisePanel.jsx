@@ -11,11 +11,8 @@ import {
 import { proxyImg } from '../utils/imgProxy'
 import { nowAR } from '../utils/dateAR'
 import { sanitizeText } from '../utils/inputSanitizer'
-<<<<<<< HEAD
 import GUIDE_LIBRARY from '../data/guides'
-=======
 import { chatRateLimiter } from '../utils/rateLimiter'
->>>>>>> 2b585a4e729c46ae4f2170cf7183b7afc89ee076
 
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY
 const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions'
@@ -131,7 +128,6 @@ const EnterprisePanel = ({ user }) => {
   // Role assignment feedback
   const [roleError, setRoleError] = useState(null) // { userId, msg }
 
-<<<<<<< HEAD
   // ── Guías asignadas ──────────────────────────────────────────────────────
   const [guideAssignments, setGuideAssignments] = useState([])
   const [loadingGuides, setLoadingGuides] = useState(false)
@@ -142,9 +138,6 @@ const EnterprisePanel = ({ user }) => {
   const [memberProgress, setMemberProgress] = useState({}) // { user_id: { guide_id: { lesson_ack, quiz_passed, checkpoints } } }
 
   // Filtros del dashboard
-=======
-  // Filtros del dashboard - se cargan desde la BD
->>>>>>> 2b585a4e729c46ae4f2170cf7183b7afc89ee076
   const [dashboardFilters, setDashboardFilters] = useState({
     timeRange: '30', // 7, 30, 90, 'all'
     selectedMember: 'all', // 'all' o id_usuario
@@ -190,7 +183,6 @@ const EnterprisePanel = ({ user }) => {
   const [chatSuggestions, setChatSuggestions] = useState([])
   const [chatSuggestionMode, setChatSuggestionMode] = useState(null) // 'rename' | 'role' | 'remove'
 
-<<<<<<< HEAD
   // ── Guías: fetch, crear, eliminar ────────────────────────────────────────
   // Las asignaciones se guardan en usuarios.training_config->guide_assignments (JSONB)
   // para no requerir una tabla nueva.
@@ -361,34 +353,14 @@ const EnterprisePanel = ({ user }) => {
       setGuideAssignments(updated)
     } catch { /* silent */ }
   }
-=======
-  // Enterprise Guides state
-  const [enterpriseGuides, setEnterpriseGuides] = useState([])
-  const [loadingGuides, setLoadingGuides] = useState(false)
-  const [guideModalOpen, setGuideModalOpen] = useState(false)
+
+  // Additional guide state for assignment modal
   const [editingGuide, setEditingGuide] = useState(null)
-  const [guideForm, setGuideForm] = useState({
-    title: '',
-    summary: '',
-    content: {
-      lesson: {
-        title: '',
-        blocks: []
-      },
-      steps: [],
-      checkpoints: [],
-      quiz: null
-    },
-    accent: 'indigo',
-    keywords: []
-  })
-  const [guideStatus, setGuideStatus] = useState(null)
   const [assignmentModalOpen, setAssignmentModalOpen] = useState(false)
   const [selectedGuideForAssignment, setSelectedGuideForAssignment] = useState(null)
   const [selectedMembersForAssignment, setSelectedMembersForAssignment] = useState([])
   const [assignmentDueDate, setAssignmentDueDate] = useState('')
   const [assignmentNotes, setAssignmentNotes] = useState('')
->>>>>>> 2b585a4e729c46ae4f2170cf7183b7afc89ee076
 
   const fetchChallenges = async () => {
     if (!companyData?.id_usuario) return
@@ -803,8 +775,26 @@ const EnterprisePanel = ({ user }) => {
     }
   }
 
+  const PLAN_LIMITS = { starter: 15, team: 50 }
+  const getCurrentPlanLimit = () => {
+    const count = teamUsers.length
+    if (count <= 15) return PLAN_LIMITS.starter
+    if (count <= 50) return PLAN_LIMITS.team
+    return Infinity
+  }
+
   const updateEnterpriseRequestStatus = async (request, status) => {
     if (!request?.id) return
+    if (status === 'accepted') {
+      const limit = getCurrentPlanLimit()
+      if (limit !== Infinity && teamUsers.length >= limit) {
+        const msg = lang === 'en'
+          ? `Your current plan supports up to ${limit} members. Upgrade to accept more.`
+          : `Tu plan actual soporta hasta ${limit} miembros. Actualizá el plan para aceptar más.`
+        setEnterpriseActionStatus(msg)
+        return
+      }
+    }
     try {
       if (status === 'accepted') {
         // Usar RPC con SECURITY DEFINER para poder escribir company_id en el usuario
@@ -1710,6 +1700,7 @@ RESPONSE RULES:
       badge: enterpriseRequests.filter(r => r.status === 'requested').length || null,
     },
     { id: 'challenges', label: lang === 'en' ? 'Challenges' : 'Desafíos', icon: 'challenges' },
+    { id: 'subscription', label: lang === 'en' ? 'Plan' : 'Plan', icon: 'subscription' },
   ]
 
   const renderDashboard = () => {
@@ -2949,7 +2940,6 @@ RESPONSE RULES:
     </div>
   )
 
-<<<<<<< HEAD
   const renderGuides = () => {
     const ACCENT_COLORS = {
       indigo: 'bg-indigo-50 border-indigo-200 text-indigo-700',
@@ -3543,258 +3533,32 @@ RESPONSE RULES:
                 <button
                   onClick={() => setGuideModalOpen(false)}
                   className="rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
-=======
-  const renderGuides = () => (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-            {lang === 'en' ? 'Enterprise Guides' : 'Guías Empresariales'}
-            <span className="ml-2 text-sm font-normal text-slate-400">({enterpriseGuides.length})</span>
-          </h3>
-          <p className="text-xs text-slate-400 mt-0.5">
-            {lang === 'en' ? 'Create and assign custom training guides to your team' : 'Crea y asigna guías de entrenamiento personalizadas a tu equipo'}
-          </p>
-        </div>
-        <button
-          onClick={openGuideModal}
-          className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 transition"
-        >
-          + {lang === 'en' ? 'Create Guide' : 'Crear Guía'}
-        </button>
-      </div>
 
-      {loadingGuides ? (
-        <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600"></div>
-          <p className="text-slate-400 text-sm mt-2">{lang === 'en' ? 'Loading guides...' : 'Cargando guías...'}</p>
-        </div>
-      ) : enterpriseGuides.length === 0 ? (
-        <div className="text-center py-12 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
-          <div className="mx-auto h-12 w-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
-            <svg className="h-6 w-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-            </svg>
-          </div>
-          <p className="text-slate-400 text-sm">{lang === 'en' ? 'No guides created yet' : 'No hay guías creadas aún'}</p>
-          <p className="text-slate-400 text-xs mt-1">{lang === 'en' ? 'Create your first guide to start training your team' : 'Crea tu primera guía para comenzar a entrenar a tu equipo'}</p>
-        </div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {enterpriseGuides.map((guide) => {
-            const accentColors = {
-              indigo: 'border-indigo-200 bg-indigo-50 text-indigo-700',
-              cyan: 'border-cyan-200 bg-cyan-50 text-cyan-700',
-              violet: 'border-violet-200 bg-violet-50 text-violet-700',
-              amber: 'border-amber-200 bg-amber-50 text-amber-700',
-              rose: 'border-rose-200 bg-rose-50 text-rose-700',
-              emerald: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-              slate: 'border-slate-200 bg-slate-50 text-slate-700',
-              fuchsia: 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700',
-              orange: 'border-orange-200 bg-orange-50 text-orange-700',
-              red: 'border-red-200 bg-red-50 text-red-700',
-              teal: 'border-teal-200 bg-teal-50 text-teal-700',
-              blue: 'border-blue-200 bg-blue-50 text-blue-700',
-              lime: 'border-lime-200 bg-lime-50 text-lime-700'
-            }
-            const accentClass = accentColors[guide.accent] || accentColors.indigo
-
-            return (
-              <div key={guide.id} className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
-                <div className={`px-4 py-3 border-b ${accentClass}`}>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-semibold truncate">{guide.title}</h4>
-                      {guide.summary && (
-                        <p className="text-xs mt-1 opacity-80 line-clamp-2">{guide.summary}</p>
-                      )}
-                    </div>
-                    <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${guide.status === 'published' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                      {guide.status === 'published' ? (lang === 'en' ? 'Published' : 'Publicada') : (lang === 'en' ? 'Draft' : 'Borrador')}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="p-4">
-                  <div className="flex items-center justify-between text-xs text-slate-500 mb-3">
-                    <span>{lang === 'en' ? 'Created' : 'Creada'} {new Date(guide.created_at).toLocaleDateString()}</span>
-                    {guide.keywords && guide.keywords.length > 0 && (
-                      <span>{guide.keywords.length} {lang === 'en' ? 'keywords' : 'palabras clave'}</span>
-                    )}
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => openAssignmentModal(guide)}
-                      className="flex-1 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-medium text-violet-700 hover:bg-violet-100 transition"
-                    >
-                      {lang === 'en' ? 'Assign' : 'Asignar'}
-                    </button>
-                    <button
-                      onClick={() => openEditGuideModal(guide)}
-                      className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 transition"
-                    >
-                      {lang === 'en' ? 'Edit' : 'Editar'}
-                    </button>
-                    <button
-                      onClick={() => deleteGuide(guide.id)}
-                      className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-100 transition"
-                    >
-                      {lang === 'en' ? 'Delete' : 'Eliminar'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Guide Creation/Edit Modal */}
-      {guideModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-slate-900 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                {editingGuide ? (lang === 'en' ? 'Edit Guide' : 'Editar Guía') : (lang === 'en' ? 'Create Guide' : 'Crear Guía')}
-              </h3>
-            </div>
-            
-            <form onSubmit={editingGuide ? updateGuide : createGuide} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  {lang === 'en' ? 'Title' : 'Título'} *
-                </label>
-                <input
-                  type="text"
-                  value={guideForm.title}
-                  onChange={(e) => setGuideForm(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                  placeholder={lang === 'en' ? 'Enter guide title...' : 'Ingresa el título de la guía...'}
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  {lang === 'en' ? 'Summary' : 'Resumen'}
-                </label>
-                <textarea
-                  value={guideForm.summary}
-                  onChange={(e) => setGuideForm(prev => ({ ...prev, summary: e.target.value }))}
-                  rows={3}
-                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                  placeholder={lang === 'en' ? 'Brief description of what this guide covers...' : 'Breve descripción de lo que cubre esta guía...'}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  {lang === 'en' ? 'Lesson Title' : 'Título de la Lección'}
-                </label>
-                <input
-                  type="text"
-                  value={guideForm.content.lesson.title}
-                  onChange={(e) => setGuideForm(prev => ({
-                    ...prev,
-                    content: {
-                      ...prev.content,
-                      lesson: { ...prev.content.lesson, title: e.target.value }
-                    }
-                  }))}
-                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                  placeholder={lang === 'en' ? 'Main lesson title...' : 'Título principal de la lección...'}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  {lang === 'en' ? 'Keywords' : 'Palabras Clave'}
-                </label>
-                <input
-                  type="text"
-                  value={guideForm.keywords.join(', ')}
-                  onChange={(e) => setGuideForm(prev => ({
-                    ...prev,
-                    keywords: e.target.value.split(',').map(k => k.trim()).filter(k => k)
-                  }))}
-                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                  placeholder={lang === 'en' ? 'keyword1, keyword2, keyword3...' : 'palabra1, palabra2, palabra3...'}
-                />
-                <p className="text-xs text-slate-500 mt-1">
-                  {lang === 'en' ? 'Separate keywords with commas' : 'Separa las palabras clave con comas'}
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  {lang === 'en' ? 'Color Theme' : 'Tema de Color'}
-                </label>
-                <select
-                  value={guideForm.accent}
-                  onChange={(e) => setGuideForm(prev => ({ ...prev, accent: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                >
-                  <option value="indigo">Indigo</option>
-                  <option value="violet">Violet</option>
-                  <option value="blue">Blue</option>
-                  <option value="cyan">Cyan</option>
-                  <option value="teal">Teal</option>
-                  <option value="emerald">Emerald</option>
-                  <option value="lime">Lime</option>
-                  <option value="amber">Amber</option>
-                  <option value="orange">Orange</option>
-                  <option value="red">Red</option>
-                  <option value="rose">Rose</option>
-                  <option value="fuchsia">Fuchsia</option>
-                  <option value="slate">Slate</option>
-                </select>
-              </div>
-
-              {guideStatus && (
-                <div className={`p-3 rounded-lg text-sm ${guideStatus.includes('successfully') || guideStatus.includes('correctamente') ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
-                  {guideStatus}
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={closeGuideModal}
-                  className="flex-1 rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
->>>>>>> 2b585a4e729c46ae4f2170cf7183b7afc89ee076
                 >
                   {lang === 'en' ? 'Cancel' : 'Cancelar'}
                 </button>
                 <button
-<<<<<<< HEAD
                   onClick={saveGuideAssignment}
                   disabled={savingGuide}
                   className="rounded-xl bg-violet-600 px-5 py-2 text-sm font-semibold text-white hover:bg-violet-700 transition disabled:opacity-50"
                 >
                   {savingGuide ? '...' : (lang === 'en' ? 'Assign' : 'Asignar')}
-=======
-                  type="submit"
-                  className="flex-1 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 transition"
-                >
-                  {editingGuide ? (lang === 'en' ? 'Update Guide' : 'Actualizar Guía') : (lang === 'en' ? 'Create Guide' : 'Crear Guía')}
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Assignment Modal */}
-      {assignmentModalOpen && selectedGuideForAssignment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-slate-900 rounded-xl max-w-lg w-full">
-            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                {lang === 'en' ? 'Assign Guide' : 'Asignar Guía'}
-              </h3>
-              <p className="text-sm text-slate-500 mt-1">{selectedGuideForAssignment.title}</p>
             </div>
+          </div>
+        )}
+
+        {/* Assignment Modal */}
+        {assignmentModalOpen && selectedGuideForAssignment && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-slate-900 rounded-xl max-w-lg w-full">
+              <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                  {lang === 'en' ? 'Assign Guide' : 'Asignar Guía'}
+                </h3>
+                <p className="text-sm text-slate-500 mt-1">{selectedGuideForAssignment.title}</p>
+              </div>
             
             <div className="p-6 space-y-4">
               <div>
@@ -3877,22 +3641,15 @@ RESPONSE RULES:
                   className="flex-1 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
                 >
                   {lang === 'en' ? 'Assign Guide' : 'Asignar Guía'}
->>>>>>> 2b585a4e729c46ae4f2170cf7183b7afc89ee076
                 </button>
               </div>
             </div>
           </div>
-<<<<<<< HEAD
+        </div>
         )}
       </div>
     )
   }
-=======
-        </div>
-      )}
-    </div>
-  )
->>>>>>> 2b585a4e729c46ae4f2170cf7183b7afc89ee076
 
   const renderChallenges = () => {
     const diffColors = {
@@ -3982,6 +3739,174 @@ RESPONSE RULES:
         </div>
       )}
     </div>
+    )
+  }
+
+  const renderSubscription = () => {
+    const memberCount = teamUsers.length
+    const BETA_END = new Date('2026-06-20')
+    const now = new Date()
+    const daysLeft = Math.max(0, Math.ceil((BETA_END - now) / (1000 * 60 * 60 * 24)))
+    const betaActive = now < BETA_END
+
+    const PLANS = [
+      {
+        id: 'starter',
+        name: 'Starter',
+        limit: 15,
+        price: lang === 'en' ? '$29/mo' : '$29/mes',
+        features: lang === 'en'
+          ? ['Up to 15 members', 'Basic dashboard', 'Custom challenges', 'Custom roles', 'AI chatbot', 'Internal tournaments']
+          : ['Hasta 15 miembros', 'Dashboard básico', 'Desafíos personalizados', 'Roles personalizados', 'Chatbot IA', 'Torneos internos'],
+      },
+      {
+        id: 'team',
+        name: 'Team',
+        limit: 50,
+        price: lang === 'en' ? '$79/mo' : '$79/mes',
+        popular: true,
+        features: lang === 'en'
+          ? ['Up to 50 members', 'Full analytics dashboard', 'Custom & AI challenges', 'Assignable guides', 'Custom roles', 'Internal ranking']
+          : ['Hasta 50 miembros', 'Dashboard con analytics completo', 'Desafíos personalizados e IA', 'Guías asignables con seguimiento', 'Roles personalizados', 'Ranking interno'],
+      },
+      {
+        id: 'enterprise',
+        name: 'Enterprise',
+        limit: Infinity,
+        price: lang === 'en' ? 'Custom' : 'A medida',
+        features: lang === 'en'
+          ? ['Unlimited members', 'Everything in Team', 'Internal tournaments', 'Advanced admin panel', 'Custom onboarding', 'Priority support']
+          : ['Miembros ilimitados', 'Todo del plan Team', 'Torneos internos', 'Panel de admin avanzado', 'Onboarding personalizado', 'Soporte prioritario'],
+      },
+    ]
+
+    const currentPlan = memberCount <= 15 ? 'starter' : memberCount <= 50 ? 'team' : 'enterprise'
+
+    return (
+      <div className="space-y-6 pb-12">
+        {/* Beta banner */}
+        {betaActive && (
+          <div className="rounded-2xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 px-6 py-5 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex items-center gap-3 flex-1">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+                  {lang === 'en' ? 'Beta — Free until June 20, 2026' : 'Beta — Gratis hasta el 20 de junio de 2026'}
+                </p>
+                <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
+                  {lang === 'en'
+                    ? `${daysLeft} days left. All features are unlocked at no cost during the beta period.`
+                    : `${daysLeft} días restantes. Todas las funcionalidades están desbloqueadas sin costo durante la beta.`}
+                </p>
+              </div>
+            </div>
+            <span className="inline-flex items-center rounded-full bg-emerald-500 px-3 py-1 text-xs font-bold text-white shrink-0">
+              {lang === 'en' ? 'Active' : 'Activo'}
+            </span>
+          </div>
+        )}
+
+        {/* Current plan summary */}
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-5">
+          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">
+            {lang === 'en' ? 'Current plan' : 'Plan actual'}
+          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl font-black text-violet-600 dark:text-violet-400">
+                  {PLANS.find(p => p.id === currentPlan)?.name}
+                </span>
+                {betaActive && (
+                  <span className="rounded-full border border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                    {lang === 'en' ? 'Beta free' : 'Beta gratis'}
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                {lang === 'en'
+                  ? `${memberCount} member${memberCount !== 1 ? 's' : ''} · determined by team size`
+                  : `${memberCount} miembro${memberCount !== 1 ? 's' : ''} · determinado por el tamaño del equipo`}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                {betaActive ? (lang === 'en' ? '$0/mo' : '$0/mes') : PLANS.find(p => p.id === currentPlan)?.price}
+              </p>
+              {betaActive && (
+                <p className="text-xs text-slate-400 line-through">
+                  {PLANS.find(p => p.id === currentPlan)?.price}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Plan comparison */}
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">
+            {lang === 'en' ? 'All plans' : 'Todos los planes'}
+          </p>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {PLANS.map((plan) => {
+              const isActive = plan.id === currentPlan
+              return (
+                <div
+                  key={plan.id}
+                  className={`rounded-2xl border p-5 flex flex-col gap-4 transition ${
+                    isActive
+                      ? 'border-violet-400 dark:border-violet-500 bg-violet-50 dark:bg-violet-500/10 ring-1 ring-violet-400 dark:ring-violet-500'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{plan.name}</span>
+                      {isActive && (
+                        <span className="rounded-full bg-violet-600 px-2 py-0.5 text-[10px] font-bold text-white uppercase tracking-wide">
+                          {lang === 'en' ? 'Current' : 'Actual'}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-lg font-black text-slate-900 dark:text-slate-100">{plan.price}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {plan.limit === Infinity
+                        ? (lang === 'en' ? 'Unlimited members' : 'Miembros ilimitados')
+                        : (lang === 'en' ? `Up to ${plan.limit} members` : `Hasta ${plan.limit} miembros`)}
+                    </p>
+                  </div>
+                  <ul className="space-y-1.5 flex-1">
+                    {plan.features.map((f) => (
+                      <li key={f} className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-300">
+                        <svg className="h-3.5 w-3.5 shrink-0 text-emerald-500 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Post-beta note */}
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-5">
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">
+            {lang === 'en' ? 'After the beta period' : 'Después de la beta'}
+          </p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            {lang === 'en'
+              ? 'Billing will begin after June 20, 2026. Your plan will be determined automatically based on your team size. We\'ll notify you before any charges.'
+              : 'La facturación comenzará después del 20 de junio de 2026. Tu plan se determinará automáticamente según el tamaño de tu equipo. Te avisaremos antes de cualquier cobro.'}
+          </p>
+          <a
+            href="mailto:hola@promptool.ai"
+            className="mt-3 inline-flex items-center text-sm font-semibold text-violet-600 dark:text-violet-400 hover:underline"
+          >
+            {lang === 'en' ? 'Contact us about pricing →' : 'Contactarnos sobre precios →'}
+          </a>
+        </div>
+      </div>
     )
   }
 
@@ -4457,6 +4382,7 @@ RESPONSE RULES:
               {tab.icon === 'challenges' && <svg className="inline h-4 w-4 mr-1.5 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
               {tab.icon === 'requests' && <svg className="inline h-4 w-4 mr-1.5 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>}
               {tab.icon === 'guides' && <svg className="inline h-4 w-4 mr-1.5 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>}
+              {tab.icon === 'subscription' && <svg className="inline h-4 w-4 mr-1.5 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>}
               {tab.label}
               {tab.badge ? (
                 <span className="ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-rose-500 px-1.5 text-[11px] font-bold text-white">
@@ -4476,6 +4402,7 @@ RESPONSE RULES:
           {activeTab === 'settings' && renderSettings()}
           {activeTab === 'requests' && renderRequests()}
           {activeTab === 'challenges' && renderChallenges()}
+          {activeTab === 'subscription' && renderSubscription()}
         </div>
       </main>
 
