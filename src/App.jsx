@@ -26,6 +26,8 @@ const EnterpriseLanding = lazy(() => import('./components/EnterpriseLanding'))
 const AuthModal = lazy(() => import('./components/AuthModal'))
 const EnterprisePanel = lazy(() => import('./components/EnterprisePanel'))
 const ConfigModal = lazy(() => import('./components/ConfigModal'))
+const EnterpriseOnboarding = lazy(() => import('./components/EnterpriseOnboarding'))
+const UserOnboarding = lazy(() => import('./components/UserOnboarding'))
 
 // Initialize visual mode on app load — but NOT on landing page
 import('./components/ConfigModal').then(({ loadVisualMode, applyVisualMode }) => {
@@ -158,6 +160,8 @@ function App() {
   const [userType, setUserType] = useState(null)
   const [userTypeLoading, setUserTypeLoading] = useState(false)
   const [userStreak, setUserStreak] = useState(0)
+  const [showEnterpriseOnboarding, setShowEnterpriseOnboarding] = useState(false)
+  const [showUserOnboarding, setShowUserOnboarding] = useState(false)
   const [promptUsuario, setPromptUsuario] = useState('')
   const [aiExplanation, setAiExplanation] = useState('')
   const [scorePercent, setScorePercent] = useState(null)
@@ -400,9 +404,17 @@ function App() {
         .select('user_type, racha_actual')
         .eq('id_usuario', user.id)
         .maybeSingle()
-      setUserType(data?.user_type || 'individual')
+      const type = data?.user_type || 'individual'
+      setUserType(type)
       setUserStreak(data?.racha_actual || 0)
       setUserTypeLoading(false)
+
+      // Onboarding — solo una vez por usuario
+      if (type === 'enterprise' && !localStorage.getItem(`enterprise_onboarded_${user.id}`)) {
+        setShowEnterpriseOnboarding(true)
+      } else if (type !== 'enterprise' && !localStorage.getItem(`user_onboarded_${user.id}`)) {
+        setShowUserOnboarding(true)
+      }
     }
     fetchUserType()
   }, [user?.id])
@@ -1449,6 +1461,12 @@ function App() {
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-cyan-600" />
         </div>
       }>
+        {showEnterpriseOnboarding && (
+          <EnterpriseOnboarding
+            user={user}
+            onDone={() => setShowEnterpriseOnboarding(false)}
+          />
+        )}
         <EnterprisePanel user={user} />
       </Suspense>
     )
@@ -1754,8 +1772,8 @@ function App() {
               </div>
             </section>
 
-            <aside className="order-1 lg:order-2 flex flex-col items-stretch justify-start gap-4 p-4 transition-all duration-500">
-              <div className="w-full relative" style={{ height: 'clamp(280px, 55vw, calc(100vh - 120px))' }}>
+            <aside className="order-1 lg:order-2 flex flex-col items-stretch justify-start gap-4 p-2 sm:p-4 transition-all duration-500">
+              <div className="w-full relative" style={{ height: 'clamp(180px, 42vw, calc(100vh - 120px))' }}>
                 <ImageCard
                   mode={mode}
                   data={imageData ?? {}}
@@ -1806,6 +1824,16 @@ function App() {
       </main>
 
       <Footer />
+
+      {/* User onboarding — solo primera vez */}
+      {showUserOnboarding && user && (
+        <Suspense fallback={null}>
+          <UserOnboarding onDone={() => {
+            localStorage.setItem(`user_onboarded_${user.id}`, '1')
+            setShowUserOnboarding(false)
+          }} />
+        </Suspense>
+      )}
 
       {/* Modal de desbloqueo del prompt original */}
       {revealPrompt && (
