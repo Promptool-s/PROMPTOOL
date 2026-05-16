@@ -701,11 +701,10 @@ function UsuarioApp() {
     setUploadingAvatar(true)
     try {
       await supabase.storage.createBucket('avatars', { public: true }).catch(() => {})
-      const ext = avatarFile.name.split('.').pop()
-      const path = `${user.id}/avatar.${ext}`
+      const path = `${user.id}/avatar`
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(path, avatarFile, { upsert: true })
+        .upload(path, avatarFile, { upsert: true, contentType: avatarFile.type })
       if (uploadError) throw uploadError
       const { data } = supabase.storage.from('avatars').getPublicUrl(path)
       return data.publicUrl
@@ -834,6 +833,7 @@ function UsuarioApp() {
         if (updates.avatar_url) metaUpdates.avatar_url = updates.avatar_url
         if (Object.keys(metaUpdates).length > 0) {
           await supabase.auth.updateUser({ data: metaUpdates })
+          await supabase.auth.refreshSession()
         }
 
         setProfile(p => ({ ...p, ...updates }))
@@ -1128,8 +1128,11 @@ function UsuarioApp() {
     return query ? `${data.publicUrl}?${query}` : data.publicUrl
   }
 
-  // Solo usar el avatar del perfil cargado — nunca el del usuario logueado
-  const getAvatar = () => resolveProfileMediaUrl(profile?.avatar_url)
+  const getAvatar = () =>
+    resolveProfileMediaUrl(profile?.avatar_url) ||
+    user?.user_metadata?.avatar_url ||
+    user?.user_metadata?.picture ||
+    null
   const bannerUrl = resolveProfileMediaUrl(profile?.banner_url)
   const showcaseUrl = resolveProfileMediaUrl(profile?.showcase_url)
   const getScoreColor = (s) => s >= 70 ? 'text-emerald-600' : s >= 50 ? 'text-amber-500' : 'text-rose-500'
