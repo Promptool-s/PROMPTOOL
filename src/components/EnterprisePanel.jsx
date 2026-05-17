@@ -2083,22 +2083,27 @@ RESPONSE RULES:
           </div>
         )}
 
-        {/* ── ZONE 1: KPI strip — 5 cards with context ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        {/* ── ZONE 1: KPI strip — 6 cards with context ── */}
+        <p className="text-[10px] text-slate-400 dark:text-slate-500">
+          {lang === 'en'
+            ? 'Score, participation and ELO are based on all-time data. Activity and trend charts reflect the selected period.'
+            : 'Score, participación y ELO son datos históricos totales. Actividad y gráficos de tendencia reflejan el periodo seleccionado.'}
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {/* Score vs target */}
           <div className={`rounded-xl border p-4 ${avgScore >= 70 ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20' : avgScore >= 50 ? 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20' : 'border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/20'}`}>
             <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">{lang === 'en' ? 'Avg Score' : 'Score Prom.'}</p>
             <p className={`text-2xl font-bold tabular-nums ${avgScore >= 70 ? 'text-emerald-600' : avgScore >= 50 ? 'text-amber-600' : 'text-rose-600'}`}>{avgScore}%</p>
-            <p className="text-[10px] text-slate-500 mt-1">{lang === 'en' ? 'Target: 70%' : 'Objetivo: 70%'}</p>
+            <p className="text-[10px] text-slate-500 mt-1">{lang === 'en' ? 'Target: 70% · all-time' : 'Objetivo: 70% · historico'}</p>
             <div className="mt-2 h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
               <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(avgScore, 100)}%`, backgroundColor: avgScore >= 70 ? '#10b981' : avgScore >= 50 ? '#f59e0b' : '#ef4444' }} />
             </div>
           </div>
           {/* Participation */}
           <div className={`rounded-xl border p-4 ${participationRate >= 70 ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20' : participationRate >= 40 ? 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20' : 'border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/20'}`}>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">{lang === 'en' ? 'Participation' : 'Participación'}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">{lang === 'en' ? 'Ever Active' : 'Jugaron alguna vez'}</p>
             <p className={`text-2xl font-bold tabular-nums ${participationRate >= 70 ? 'text-emerald-600' : participationRate >= 40 ? 'text-amber-600' : 'text-rose-600'}`}>{participationRate}%</p>
-            <p className="text-[10px] text-slate-500 mt-1">{activeMembers}/{memberCount} {lang === 'en' ? 'active' : 'activos'}</p>
+            <p className="text-[10px] text-slate-500 mt-1">{activeMembers}/{memberCount} {lang === 'en' ? 'have played' : 'han jugado'}</p>
             <div className="mt-2 h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
               <div className="h-full rounded-full transition-all" style={{ width: `${participationRate}%`, backgroundColor: participationRate >= 70 ? '#10b981' : participationRate >= 40 ? '#f59e0b' : '#ef4444' }} />
             </div>
@@ -2107,19 +2112,25 @@ RESPONSE RULES:
           <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">{lang === 'en' ? 'Improving' : 'Mejorando'}</p>
             <p className="text-2xl font-bold tabular-nums text-emerald-600">{improvingCount}</p>
-            <p className="text-[10px] text-slate-500 mt-1">{lang === 'en' ? 'last 2 attempts ↑' : 'últimos 2 intentos ↑'}</p>
+            <p className="text-[10px] text-slate-500 mt-1">{lang === 'en' ? 'vs. prior attempt' : 'vs. intento anterior'}</p>
           </div>
           {/* Below target */}
           <div className={`rounded-xl border p-4 ${belowTarget > 0 ? 'border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/20' : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'}`}>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">{lang === 'en' ? 'Below 70%' : 'Bajo 70%'}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">{lang === 'en' ? 'Below target' : 'Bajo objetivo'}</p>
             <p className={`text-2xl font-bold tabular-nums ${belowTarget > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>{belowTargetPct}%</p>
-            <p className="text-[10px] text-slate-500 mt-1">{belowTarget} {lang === 'en' ? `member${belowTarget !== 1 ? 's' : ''}` : `miembro${belowTarget !== 1 ? 's' : ''}`}</p>
+            <p className="text-[10px] text-slate-500 mt-1">{belowTarget} {lang === 'en' ? `member${belowTarget !== 1 ? 's' : ''} <70%` : `miembro${belowTarget !== 1 ? 's' : ''} <70%`}</p>
           </div>
           {/* ELO */}
           <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">ELO {lang === 'en' ? 'Avg' : 'Prom.'}</p>
             <p className="text-2xl font-bold tabular-nums text-violet-600">{avgElo}</p>
-            <p className="text-[10px] text-slate-500 mt-1">{lang === 'en' ? `Best: ${topElo}` : `Mejor: ${topElo}`}</p>
+            <p className="text-[10px] text-slate-500 mt-1">{lang === 'en' ? `Top: ${topElo}` : `Top: ${topElo}`}</p>
+          </div>
+          {/* Avg approval rate */}
+          <div className={`rounded-xl border p-4 ${avgApproval >= 70 ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20' : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'}`}>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">{lang === 'en' ? 'Pass rate' : 'Tasa de aprobacion'}</p>
+            <p className={`text-2xl font-bold tabular-nums ${avgApproval >= 70 ? 'text-emerald-600' : avgApproval >= 50 ? 'text-amber-600' : 'text-slate-700 dark:text-slate-200'}`}>{avgApproval}%</p>
+            <p className="text-[10px] text-slate-500 mt-1">{consistentMembers} {lang === 'en' ? `member${consistentMembers !== 1 ? 's' : ''} ≥70%` : `miembro${consistentMembers !== 1 ? 's' : ''} ≥70%`}</p>
           </div>
         </div>
 
@@ -2172,6 +2183,81 @@ RESPONSE RULES:
                   </div>
                 )
               })}
+            </div>
+          </div>
+        )}
+
+        {/* ── ZONE 2.5: Full member breakdown table ── */}
+        {filteredUsers.length > 0 && (
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                {lang === 'en' ? 'Member Breakdown' : 'Detalle por miembro'}
+              </p>
+              <span className="text-[10px] text-slate-400">{lang === 'en' ? 'All-time · click to view profile' : 'Historico · clic para ver perfil'}</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-slate-50 dark:border-slate-800">
+                    <th className="text-left px-4 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400 w-44">{lang === 'en' ? 'Member' : 'Miembro'}</th>
+                    <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">ELO</th>
+                    <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{lang === 'en' ? 'Avg score' : 'Score'}</th>
+                    <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{lang === 'en' ? 'Pass rate' : 'Aprobacion'}</th>
+                    <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{lang === 'en' ? 'Attempts' : 'Intentos'}</th>
+                    <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{lang === 'en' ? 'Streak' : 'Racha'}</th>
+                    <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{lang === 'en' ? 'Trend' : 'Tendencia'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+                  {[...filteredUsers].sort((a, b) => (b.elo_rating || 1000) - (a.elo_rating || 1000)).map(u => {
+                    const name = u.company_display_name || u.nombre_display || u.nombre || u.email
+                    const profileHref = u.username ? `/user/${u.username}` : `/perfil?id=${u.id_usuario}`
+                    const trend = memberTrends.find(t => t.name === name)
+                    const hasAttempts = (u.total_intentos || 0) > 0
+                    const score = u.promedio_score ?? null
+                    const approval = u.porcentaje_aprobacion ?? null
+                    return (
+                      <tr key={u.id_usuario} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                        <td className="px-4 py-2.5">
+                          <a href={profileHref} className="flex items-center gap-2 group">
+                            <div className="h-6 w-6 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 shrink-0 flex items-center justify-center">
+                              {u.avatar_url
+                                ? <img src={u.avatar_url} alt={name} className="h-full w-full object-cover" />
+                                : <span className="text-[9px] font-bold text-slate-500">{name.substring(0,2).toUpperCase()}</span>}
+                            </div>
+                            <span className="font-medium text-slate-800 dark:text-slate-200 truncate max-w-[110px] group-hover:text-violet-600 transition-colors">{name}</span>
+                          </a>
+                        </td>
+                        <td className="px-3 py-2.5 text-right font-bold text-violet-600 tabular-nums">{u.elo_rating || 1000}</td>
+                        <td className="px-3 py-2.5 text-right tabular-nums">
+                          {hasAttempts && score !== null
+                            ? <span className={`font-semibold ${score >= 70 ? 'text-emerald-600' : score >= 50 ? 'text-amber-600' : 'text-rose-500'}`}>{score}%</span>
+                            : <span className="text-slate-300 dark:text-slate-600">—</span>}
+                        </td>
+                        <td className="px-3 py-2.5 text-right tabular-nums">
+                          {hasAttempts && approval !== null
+                            ? <span className={`font-semibold ${approval >= 70 ? 'text-emerald-600' : 'text-amber-500'}`}>{approval}%</span>
+                            : <span className="text-slate-300 dark:text-slate-600">—</span>}
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-slate-600 dark:text-slate-400 tabular-nums">{u.total_intentos || 0}</td>
+                        <td className="px-3 py-2.5 text-right tabular-nums">
+                          {(u.racha_actual || 0) > 0
+                            ? <span className="text-amber-600 font-semibold">{u.racha_actual}d</span>
+                            : <span className="text-slate-300 dark:text-slate-600">—</span>}
+                        </td>
+                        <td className="px-3 py-2.5 text-right tabular-nums">
+                          {trend
+                            ? <span className={`font-bold text-[11px] ${trend.delta > 0 ? 'text-emerald-600' : trend.delta < 0 ? 'text-rose-500' : 'text-slate-400'}`}>
+                                {trend.delta > 0 ? `+${trend.delta}` : trend.delta === 0 ? '=' : trend.delta}
+                              </span>
+                            : <span className="text-slate-300 dark:text-slate-600 text-[11px]">—</span>}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         )}

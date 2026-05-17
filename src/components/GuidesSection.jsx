@@ -500,16 +500,14 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
         .eq('target_user_id', userId)
         .is('read_at', null)
         .order('created_at', { ascending: false })
-      
-      if (error) throw error
-      
-      // If there are unread notifications, you could show a toast or update UI
+
+      if (error) return // table may not exist yet — fail silently
+
       if (data && data.length > 0) {
-        console.log(`${data.length} new guide notifications`)
-        // You could add a toast notification here
+        // unread guide suggestions available — could trigger a toast here
       }
-    } catch (error) {
-      console.error('Error checking notifications:', error)
+    } catch {
+      // fail silently
     }
   }
 

@@ -801,25 +801,39 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
     return () => { container.removeEventListener('wheel', onWheel); clearTimeout(wheelTimeout) }
   }, [])
 
-  // Touch: swipe vertical
+  // Touch: swipe vertical — prevent native scroll, JS-only navigation
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
     let touchStartY = 0
-    const onTouchStart = (e) => { touchStartY = e.touches[0].clientY }
+    let touchStartX = 0
+    const onTouchStart = (e) => {
+      touchStartY = e.touches[0].clientY
+      touchStartX = e.touches[0].clientX
+    }
+    const onTouchMove = (e) => {
+      // Only prevent default for vertical swipes to keep horizontal interactions working
+      const dy = Math.abs(e.touches[0].clientY - touchStartY)
+      const dx = Math.abs(e.touches[0].clientX - touchStartX)
+      if (dy > dx && dy > 5) e.preventDefault()
+    }
     const onTouchEnd = (e) => {
       if (isScrolling.current) return
       const delta = touchStartY - e.changedTouches[0].clientY
-      if (Math.abs(delta) < 40) return
+      const deltaX = Math.abs(touchStartX - e.changedTouches[0].clientX)
+      // Ignore if mostly horizontal (e.g. button tap with slight drift)
+      if (Math.abs(delta) < 50 || deltaX > Math.abs(delta)) return
       const next = delta > 0
         ? Math.min(currentIdx.current + 1, TOTAL_SECTIONS - 1)
         : Math.max(currentIdx.current - 1, 0)
       animateScrollTo(next)
     }
     container.addEventListener('touchstart', onTouchStart, { passive: true })
+    container.addEventListener('touchmove', onTouchMove, { passive: false })
     container.addEventListener('touchend', onTouchEnd, { passive: true })
     return () => {
       container.removeEventListener('touchstart', onTouchStart)
+      container.removeEventListener('touchmove', onTouchMove)
       container.removeEventListener('touchend', onTouchEnd)
     }
   }, [])
@@ -891,7 +905,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                   </button>
                 </div>
               </div>
-              <div className={`relative overflow-hidden rounded-2xl border p-6 lg:h-[520px] ${card}`}>
+              <div className={`hidden lg:block relative overflow-hidden rounded-2xl border p-6 lg:h-[520px] ${card}`}>
                 <div className="relative h-full">
                   <CommunitySlideshow dark={dark} lang={lang} />
                 </div>
