@@ -8,9 +8,9 @@ Cada día se presenta una imagen y el usuario debe escribir el prompt que cree q
 
 ---
 
-## 🚀 Demo
+## Demo
 
-*(próximamente online)*
+https://promptool.vercel.app
 
 ---
 
@@ -33,16 +33,6 @@ Cada día se presenta una imagen y el usuario debe escribir el prompt que cree q
 - 🤖 Evaluación automática con IA (Gemini)
 - 📊 Feedback detallado en lenguaje natural
 - ⚡ Frontend rápido con Vite + React
-
----
-
-## 🛠️ Tech Stack
-
-- **Frontend:** React + Vite  
-- **Styling:** TailwindCSS  
-- **IA:** Google Gemini API  
-- **Gestión de estado:** React Hooks  
-- **Data:** JSON local (expandible a DB)
 
 ---
 

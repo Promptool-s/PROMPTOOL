@@ -189,9 +189,12 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
   // ── Permiso de portapapeles ───────────────────────────────────────────────
   // El juego requiere que el usuario PERMITA el acceso al portapapeles.
   // Así podemos detectar si pegó algo. Si lo bloquea, no puede jugar.
-  const [clipboardPermission, setClipboardPermission] = useState('prompt') // 'prompt' | 'granted' | 'denied'
+  // En móvil/tablet se omite el chequeo: el teclado virtual hace innecesario el anticheat de clipboard.
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+  const [clipboardPermission, setClipboardPermission] = useState(isMobile ? 'granted' : 'prompt') // 'prompt' | 'granted' | 'denied'
 
   useEffect(() => {
+    if (isMobile) return // skip on mobile — clipboard API triggers system paste popup on iOS
     let cancelled = false
     const check = async () => {
       try {
@@ -301,14 +304,16 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
   const visualScore = words.filter(w => VISUAL_WORDS.some(s => w.includes(s))).length + techCount * 0.5
 
   const getFocusLabel = () => {
+    if (wordsCount === 0) return lang === 'en' ? 'No focus yet' : 'Sin foco aún'
+    if (wordsCount < 4) return lang === 'en' ? 'Too short' : 'Muy corto'
     const total = subjectScore + envScore + visualScore
-    if (total === 0) return lang === 'en' ? 'No focus yet' : 'Sin foco aún'
+    const categories = [subjectScore > 0, envScore > 0, visualScore > 0].filter(Boolean).length
+    if (total === 0) return lang === 'en' ? 'Add visual details' : 'Faltan detalles'
+    if (categories >= 2) return lang === 'en' ? 'Balanced' : 'Balanceado'
     const max = Math.max(subjectScore, envScore, visualScore)
-    const isBalanced = max <= total * 0.45
-    if (isBalanced) return lang === 'en' ? 'Balanced' : 'Balanceado'
-    if (max === subjectScore) return lang === 'en' ? 'Very focused on subject' : 'Muy centrado en sujeto'
-    if (max === envScore) return lang === 'en' ? 'Very focused on environment' : 'Muy centrado en entorno'
-    return lang === 'en' ? 'Very visual' : 'Muy visual'
+    if (max === subjectScore) return lang === 'en' ? 'Subject-focused' : 'Sujeto'
+    if (max === envScore) return lang === 'en' ? 'Environment-focused' : 'Entorno'
+    return lang === 'en' ? 'Visual style' : 'Visual'
   }
 
   // Target values from timerConfig
@@ -398,15 +403,19 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
               ? "Incognito mode — this attempt won't be saved"
               : 'Modo incógnito — este intento no se guardará'}
           </span>
-          {onOpenConfig && (
-            <button
-              type="button"
-              onClick={onOpenConfig}
-              className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200 transition shrink-0"
-            >
-              {lang === 'en' ? 'Disable' : 'Desactivar'}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => {
+              const stored = localStorage.getItem('pt_privacy')
+              const cur = stored ? JSON.parse(stored) : {}
+              const next = { ...cur, incognitoMode: false }
+              localStorage.setItem('pt_privacy', JSON.stringify(next))
+              window.dispatchEvent(new CustomEvent('pt:privacy-change', { detail: next }))
+            }}
+            className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200 transition shrink-0"
+          >
+            {lang === 'en' ? 'Disable' : 'Desactivar'}
+          </button>
         </div>
       )}
 
@@ -475,20 +484,23 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
         />
         {/* Footer de stats — separado por borde superior, mismo ancho que el textarea */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-slate-100 dark:border-slate-700/60 px-3 py-2">
-          <span className="text-[11px] tabular-nums text-slate-400 dark:text-slate-500">
-            {lang === 'en' ? 'Words' : 'Pal.'}{' '}
-            <span className="font-semibold text-slate-600 dark:text-slate-300">{wordsCount}</span>
-            <span className="text-slate-300 dark:text-slate-600 select-none">/{targetWords}</span>
+          <span className="text-[10px] text-slate-400 dark:text-slate-500 select-none font-semibold shrink-0 border-r border-slate-200 dark:border-slate-700 pr-3">
+            {lang === 'en' ? 'vs. original' : 'vs. original'}
           </span>
-          <span className="hidden sm:inline text-[11px] tabular-nums text-slate-400 dark:text-slate-500">
-            {lang === 'en' ? 'Chars' : 'Car.'}{' '}
-            <span className="font-semibold text-slate-600 dark:text-slate-300">{promptUsuario.length}</span>
-            <span className="text-slate-300 dark:text-slate-600 select-none">/{targetChars}</span>
+          <span className="text-[11px] tabular-nums text-slate-400 dark:text-slate-500" title={lang === 'en' ? `Target from original prompt: ~${targetWords} words` : `Referencia del prompt original: ~${targetWords} palabras`}>
+            {lang === 'en' ? 'Words' : 'Palabras'}{' '}
+            <span className={`font-semibold tabular-nums ${wordsCount >= targetWords * 0.8 ? 'text-emerald-500' : 'text-slate-600 dark:text-slate-300'}`}>{wordsCount}</span>
+            <span className="text-slate-300 dark:text-slate-600 select-none"> / ~{targetWords}</span>
           </span>
-          <span className="text-[11px] tabular-nums text-slate-400 dark:text-slate-500">
-            {lang === 'en' ? 'Tech' : 'Téc.'}{' '}
-            <span className="font-semibold text-slate-600 dark:text-slate-300">{techCount}</span>
-            <span className="text-slate-300 dark:text-slate-600 select-none">/{targetTech}</span>
+          <span className="hidden sm:inline text-[11px] tabular-nums text-slate-400 dark:text-slate-500" title={lang === 'en' ? `Target from original prompt: ~${targetChars} chars` : `Referencia del prompt original: ~${targetChars} caracteres`}>
+            {lang === 'en' ? 'Chars' : 'Caracteres'}{' '}
+            <span className={`font-semibold tabular-nums ${promptUsuario.length >= targetChars * 0.8 ? 'text-emerald-500' : 'text-slate-600 dark:text-slate-300'}`}>{promptUsuario.length}</span>
+            <span className="text-slate-300 dark:text-slate-600 select-none"> / ~{targetChars}</span>
+          </span>
+          <span className="text-[11px] tabular-nums text-slate-400 dark:text-slate-500" title={lang === 'en' ? 'Technical prompt terms detected' : 'Términos técnicos de IA detectados'}>
+            {lang === 'en' ? 'Tech terms' : 'Términos técnicos'}{' '}
+            <span className={`font-semibold tabular-nums ${techCount >= targetTech ? 'text-emerald-500' : 'text-slate-600 dark:text-slate-300'}`}>{techCount}</span>
+            <span className="text-slate-300 dark:text-slate-600 select-none"> / ~{targetTech}</span>
           </span>
           <span className="text-[11px] text-slate-400 dark:text-slate-500 ml-auto">
             <span className="font-semibold text-slate-600 dark:text-slate-300">{getFocusLabel()}</span>
@@ -498,7 +510,8 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
+      <div className="flex items-center gap-2 text-xs font-medium">
+        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
         {onModeChange ? (
           <div className="relative group">
             <button
@@ -747,9 +760,11 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
           </div>
         )}
 
+        </div>
+
         {/* New image button — active in random, locked in daily */}
         {(onNewRandom || mode === 'daily') && (
-          <div className="relative group/newimg ml-auto">
+          <div className="relative group/newimg shrink-0">
             {mode === 'daily' ? (
               /* ── Locked state (daily mode) ── */
               <span

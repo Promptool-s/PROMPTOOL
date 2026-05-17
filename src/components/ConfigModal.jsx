@@ -313,8 +313,8 @@ const ConfigModal = ({
                             ? 'Los desafíos de empresa siempre registran tu actividad'
                             : 'Company challenges always record your activity')
                         : (es
-                            ? 'No se guarda actividad ni progreso mientras esté activo'
-                            : 'No activity or progress is saved while active')}
+                            ? 'Invisibilidad total: no se actualiza tu puntuación, no aparecés en el ranking ni en tu perfil. Ideal para practicar sin consecuencias.'
+                            : 'Full invisibility: score won\'t update, you won\'t appear in rankings or your profile. Ideal for practice without consequences.')}
                     </p>
                   </div>
                   <Toggle
@@ -332,8 +332,8 @@ const ConfigModal = ({
                     </p>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
                       {es
-                        ? 'Tus prompts no quedan registrados en tu perfil'
-                        : "Your prompts won't be stored in your profile"}
+                        ? 'Solo omite guardar tus prompts en el historial de tu perfil. Tu puntuación y ranking siguen actualizándose con normalidad.'
+                        : "Only skips saving your prompts in your profile history. Your score and ranking still update normally."}
                     </p>
                   </div>
                   <Toggle id="toggle-history" checked={privacy.noPromptHistory} onChange={() => handlePrivacyToggle('noPromptHistory')} />

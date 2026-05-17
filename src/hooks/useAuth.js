@@ -22,7 +22,7 @@ const ensureUserProfile = async (u) => {
       const nombre = u.user_metadata?.full_name || u.user_metadata?.nombre || u.email?.split('@')[0] || 'Usuario'
       const userType = u.user_metadata?.userType || 'individual'
       const companyName = u.user_metadata?.companyName || null
-      
+
       const profileData = {
         id_usuario: u.id,
         nombre,
@@ -32,13 +32,13 @@ const ensureUserProfile = async (u) => {
         user_type: userType,
       }
 
-      // Si es empresa, agregar campos específicos
       if (userType === 'enterprise') {
         profileData.company_name = companyName || nombre
         profileData.nombre_display = companyName || nombre
       }
 
-      await supabase.from('usuarios').insert([profileData])
+      // upsert con ignoreDuplicates evita el 409 si dos llamadas concurrentes llegan al mismo tiempo
+      await supabase.from('usuarios').upsert([profileData], { onConflict: 'id_usuario', ignoreDuplicates: true })
     }
   } catch {
     // profile creation failed silently

@@ -57,8 +57,7 @@ export const checkRateLimit = async (endpoint = 'login') => {
     })
 
     if (error) {
-      logger.error('Rate limit check failed', error, { endpoint, ip })
-      // On error, allow the request (fail open)
+      // RPC may not exist in all environments — fail open silently
       return { allowed: true, attemptsLeft: 5, resetAt: null, error: error.message }
     }
 
@@ -86,8 +85,6 @@ export const checkRateLimit = async (endpoint = 'login') => {
       error: null
     }
   } catch (err) {
-    logger.error('Rate limit check exception', err, { endpoint })
-    // On exception, allow the request (fail open)
     return { allowed: true, attemptsLeft: 5, resetAt: null, error: err.message }
   }
 }

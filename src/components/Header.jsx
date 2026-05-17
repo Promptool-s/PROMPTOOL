@@ -51,6 +51,7 @@ const Header = ({ companyRefreshKey = 0 }) => {
   const [notificationActionLoading, setNotificationActionLoading] = useState(null)
   const [companyData, setCompanyData] = useState(null)   // empresa a la que pertenece el usuario
   const [companyPanelOpen, setCompanyPanelOpen] = useState(false)
+  const [dbAvatarUrl, setDbAvatarUrl] = useState(null)
   const notificationRef = useRef(null)
   const closeTimer = useRef(null)
   const searchRef = useRef(null)
@@ -58,14 +59,15 @@ const Header = ({ companyRefreshKey = 0 }) => {
 
   // Fetch username del usuario logueado para construir la URL del perfil
   useEffect(() => {
-    if (!user) { setProfileUsername(null); setCompanyData(null); return }
+    if (!user) { setProfileUsername(null); setCompanyData(null); setDbAvatarUrl(null); return }
     supabase
       .from('usuarios')
-      .select('username, company_id')
+      .select('username, company_id, avatar_url')
       .eq('id_usuario', user.id)
       .maybeSingle()
       .then(({ data }) => {
         setProfileUsername(data?.username || null)
+        setDbAvatarUrl(data?.avatar_url || null)
         if (data?.company_id) {
           supabase
             .from('usuarios')
@@ -417,7 +419,7 @@ const Header = ({ companyRefreshKey = 0 }) => {
   }
 
   const getUserAvatar = () => (
-    <UserAvatar avatarUrl={user?.user_metadata?.avatar_url || user?.user_metadata?.picture} />
+    <UserAvatar avatarUrl={dbAvatarUrl || user?.user_metadata?.avatar_url || user?.user_metadata?.picture} />
   )
 
   const getUserName = () => {

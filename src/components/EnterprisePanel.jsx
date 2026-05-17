@@ -10,6 +10,7 @@ import {
 } from 'recharts'
 import { proxyImg } from '../utils/imgProxy'
 import { nowAR } from '../utils/dateAR'
+import ChallengeCreatorModal from './ChallengeCreatorModal'
 import { sanitizeText } from '../utils/inputSanitizer'
 import GUIDE_LIBRARY from '../data/guides'
 import { chatRateLimiter } from '../utils/rateLimiter'
@@ -71,6 +72,7 @@ const EnterprisePanel = ({ user }) => {
     tags: [],
     hints: ['', '', ''],
     evaluationMode: 'standard', // standard | strict | flexible
+    evalInstructions: '', // custom AI eval instructions
   })
   const [challengeImageFile, setChallengeImageFile] = useState(null)
   const [challengeImagePreview, setChallengeImagePreview] = useState(null)
@@ -129,6 +131,7 @@ const EnterprisePanel = ({ user }) => {
   const [roleError, setRoleError] = useState(null) // { userId, msg }
 
   // ── Guías asignadas ──────────────────────────────────────────────────────
+  const [enterpriseGuides, setEnterpriseGuides] = useState([])
   const [guideAssignments, setGuideAssignments] = useState([])
   const [loadingGuides, setLoadingGuides] = useState(false)
   const [guideForm, setGuideForm] = useState(EMPTY_GUIDE_FORM)
@@ -954,6 +957,7 @@ const EnterprisePanel = ({ user }) => {
       tags: [],
       hints: ['', '', ''],
       evaluationMode: 'standard',
+      evalInstructions: '',
     })
     setChallengeImageFile(null)
     setChallengeImagePreview(null)
@@ -983,6 +987,7 @@ const EnterprisePanel = ({ user }) => {
       tags: challenge.challenge_tags || [],
       hints: challenge.challenge_hints || ['', '', ''],
       evaluationMode: challenge.challenge_evaluation_mode || 'standard',
+      evalInstructions: challenge.challenge_eval_instructions || '',
     })
     setChallengeImagePreview(challenge.url_image)
     setEditingChallenge(challenge)
@@ -1052,6 +1057,7 @@ const EnterprisePanel = ({ user }) => {
         challenge_tags: challengeForm.tags.filter(t => t.trim()),
         challenge_hints: challengeForm.hints.filter(h => h.trim()),
         challenge_evaluation_mode: challengeForm.evaluationMode,
+        challenge_eval_instructions: challengeForm.evalInstructions.trim() || null,
       }
 
       const { error: insertError } = await supabase.from('imagenes_ia').insert([payload])
@@ -1113,6 +1119,7 @@ const EnterprisePanel = ({ user }) => {
         challenge_tags: challengeForm.tags.filter(t => t.trim()),
         challenge_hints: challengeForm.hints.filter(h => h.trim()),
         challenge_evaluation_mode: challengeForm.evaluationMode,
+        challenge_eval_instructions: challengeForm.evalInstructions.trim() || null,
       }
 
       const { error: updateError } = await supabase
@@ -1376,9 +1383,14 @@ const EnterprisePanel = ({ user }) => {
       `- "${u.company_display_name || u.nombre_display || u.nombre || u.email}" → id:${u.id_usuario} | ELO:${u.elo_rating || 1000} | score:${u.promedio_score ?? 'N/A'}% | attempts:${u.total_intentos || 0} | streak:${u.racha_actual || 0}d | role:${u.company_role || 'none'}`
     ).join('\n')
 
+    const uiLang = lang === 'en' ? 'English' : 'Spanish (español rioplatense)'
+    const offTopicMsg = lang === 'en'
+      ? 'I focus on team analytics only. Ask me about member performance, scores, or management actions.'
+      : 'Me enfoco solo en el análisis del equipo. Preguntame sobre rendimiento, scores o acciones de gestión.'
+
     return `You are a focused team analytics assistant for ${companyName} on a prompt engineering training platform. You provide data-driven insights and execute management actions ONLY.
 
-LANGUAGE RULE: Always respond in the exact same language the user writes in. No exceptions.
+LANGUAGE: Always respond in ${uiLang}. Never switch languages regardless of what the user writes.
 
 STRICT SCOPE: You ONLY handle:
 1. Team performance questions (scores, ELO, attempts, streaks)
@@ -1453,7 +1465,7 @@ RESPONSE RULES:
 - Be direct and factual
 - No emojis or decorative symbols
 - Focus on actionable insights
-- If asked about forbidden topics, say: "I focus on team analytics only. Ask me about member performance, scores, or management actions."
+- If asked about forbidden topics, say: "${offTopicMsg}"
 - Keep responses concise and data-focused`
   }
 
@@ -2071,22 +2083,27 @@ RESPONSE RULES:
           </div>
         )}
 
-        {/* ── ZONE 1: KPI strip — 5 cards with context ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        {/* ── ZONE 1: KPI strip — 6 cards with context ── */}
+        <p className="text-[10px] text-slate-400 dark:text-slate-500">
+          {lang === 'en'
+            ? 'Score, participation and ELO are based on all-time data. Activity and trend charts reflect the selected period.'
+            : 'Score, participación y ELO son datos históricos totales. Actividad y gráficos de tendencia reflejan el periodo seleccionado.'}
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {/* Score vs target */}
           <div className={`rounded-xl border p-4 ${avgScore >= 70 ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20' : avgScore >= 50 ? 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20' : 'border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/20'}`}>
             <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">{lang === 'en' ? 'Avg Score' : 'Score Prom.'}</p>
             <p className={`text-2xl font-bold tabular-nums ${avgScore >= 70 ? 'text-emerald-600' : avgScore >= 50 ? 'text-amber-600' : 'text-rose-600'}`}>{avgScore}%</p>
-            <p className="text-[10px] text-slate-500 mt-1">{lang === 'en' ? 'Target: 70%' : 'Objetivo: 70%'}</p>
+            <p className="text-[10px] text-slate-500 mt-1">{lang === 'en' ? 'Target: 70% · all-time' : 'Objetivo: 70% · historico'}</p>
             <div className="mt-2 h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
               <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(avgScore, 100)}%`, backgroundColor: avgScore >= 70 ? '#10b981' : avgScore >= 50 ? '#f59e0b' : '#ef4444' }} />
             </div>
           </div>
           {/* Participation */}
           <div className={`rounded-xl border p-4 ${participationRate >= 70 ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20' : participationRate >= 40 ? 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20' : 'border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/20'}`}>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">{lang === 'en' ? 'Participation' : 'Participación'}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">{lang === 'en' ? 'Ever Active' : 'Jugaron alguna vez'}</p>
             <p className={`text-2xl font-bold tabular-nums ${participationRate >= 70 ? 'text-emerald-600' : participationRate >= 40 ? 'text-amber-600' : 'text-rose-600'}`}>{participationRate}%</p>
-            <p className="text-[10px] text-slate-500 mt-1">{activeMembers}/{memberCount} {lang === 'en' ? 'active' : 'activos'}</p>
+            <p className="text-[10px] text-slate-500 mt-1">{activeMembers}/{memberCount} {lang === 'en' ? 'have played' : 'han jugado'}</p>
             <div className="mt-2 h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
               <div className="h-full rounded-full transition-all" style={{ width: `${participationRate}%`, backgroundColor: participationRate >= 70 ? '#10b981' : participationRate >= 40 ? '#f59e0b' : '#ef4444' }} />
             </div>
@@ -2095,19 +2112,25 @@ RESPONSE RULES:
           <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">{lang === 'en' ? 'Improving' : 'Mejorando'}</p>
             <p className="text-2xl font-bold tabular-nums text-emerald-600">{improvingCount}</p>
-            <p className="text-[10px] text-slate-500 mt-1">{lang === 'en' ? 'last 2 attempts ↑' : 'últimos 2 intentos ↑'}</p>
+            <p className="text-[10px] text-slate-500 mt-1">{lang === 'en' ? 'vs. prior attempt' : 'vs. intento anterior'}</p>
           </div>
           {/* Below target */}
           <div className={`rounded-xl border p-4 ${belowTarget > 0 ? 'border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/20' : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'}`}>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">{lang === 'en' ? 'Below 70%' : 'Bajo 70%'}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">{lang === 'en' ? 'Below target' : 'Bajo objetivo'}</p>
             <p className={`text-2xl font-bold tabular-nums ${belowTarget > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>{belowTargetPct}%</p>
-            <p className="text-[10px] text-slate-500 mt-1">{belowTarget} {lang === 'en' ? `member${belowTarget !== 1 ? 's' : ''}` : `miembro${belowTarget !== 1 ? 's' : ''}`}</p>
+            <p className="text-[10px] text-slate-500 mt-1">{belowTarget} {lang === 'en' ? `member${belowTarget !== 1 ? 's' : ''} <70%` : `miembro${belowTarget !== 1 ? 's' : ''} <70%`}</p>
           </div>
           {/* ELO */}
           <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">ELO {lang === 'en' ? 'Avg' : 'Prom.'}</p>
             <p className="text-2xl font-bold tabular-nums text-violet-600">{avgElo}</p>
-            <p className="text-[10px] text-slate-500 mt-1">{lang === 'en' ? `Best: ${topElo}` : `Mejor: ${topElo}`}</p>
+            <p className="text-[10px] text-slate-500 mt-1">{lang === 'en' ? `Top: ${topElo}` : `Top: ${topElo}`}</p>
+          </div>
+          {/* Avg approval rate */}
+          <div className={`rounded-xl border p-4 ${avgApproval >= 70 ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20' : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'}`}>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">{lang === 'en' ? 'Pass rate' : 'Tasa de aprobacion'}</p>
+            <p className={`text-2xl font-bold tabular-nums ${avgApproval >= 70 ? 'text-emerald-600' : avgApproval >= 50 ? 'text-amber-600' : 'text-slate-700 dark:text-slate-200'}`}>{avgApproval}%</p>
+            <p className="text-[10px] text-slate-500 mt-1">{consistentMembers} {lang === 'en' ? `member${consistentMembers !== 1 ? 's' : ''} ≥70%` : `miembro${consistentMembers !== 1 ? 's' : ''} ≥70%`}</p>
           </div>
         </div>
 
@@ -2160,6 +2183,81 @@ RESPONSE RULES:
                   </div>
                 )
               })}
+            </div>
+          </div>
+        )}
+
+        {/* ── ZONE 2.5: Full member breakdown table ── */}
+        {filteredUsers.length > 0 && (
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                {lang === 'en' ? 'Member Breakdown' : 'Detalle por miembro'}
+              </p>
+              <span className="text-[10px] text-slate-400">{lang === 'en' ? 'All-time · click to view profile' : 'Historico · clic para ver perfil'}</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-slate-50 dark:border-slate-800">
+                    <th className="text-left px-4 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400 w-44">{lang === 'en' ? 'Member' : 'Miembro'}</th>
+                    <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">ELO</th>
+                    <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{lang === 'en' ? 'Avg score' : 'Score'}</th>
+                    <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{lang === 'en' ? 'Pass rate' : 'Aprobacion'}</th>
+                    <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{lang === 'en' ? 'Attempts' : 'Intentos'}</th>
+                    <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{lang === 'en' ? 'Streak' : 'Racha'}</th>
+                    <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{lang === 'en' ? 'Trend' : 'Tendencia'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+                  {[...filteredUsers].sort((a, b) => (b.elo_rating || 1000) - (a.elo_rating || 1000)).map(u => {
+                    const name = u.company_display_name || u.nombre_display || u.nombre || u.email
+                    const profileHref = u.username ? `/user/${u.username}` : `/perfil?id=${u.id_usuario}`
+                    const trend = memberTrends.find(t => t.name === name)
+                    const hasAttempts = (u.total_intentos || 0) > 0
+                    const score = u.promedio_score ?? null
+                    const approval = u.porcentaje_aprobacion ?? null
+                    return (
+                      <tr key={u.id_usuario} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                        <td className="px-4 py-2.5">
+                          <a href={profileHref} className="flex items-center gap-2 group">
+                            <div className="h-6 w-6 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 shrink-0 flex items-center justify-center">
+                              {u.avatar_url
+                                ? <img src={u.avatar_url} alt={name} className="h-full w-full object-cover" />
+                                : <span className="text-[9px] font-bold text-slate-500">{name.substring(0,2).toUpperCase()}</span>}
+                            </div>
+                            <span className="font-medium text-slate-800 dark:text-slate-200 truncate max-w-[110px] group-hover:text-violet-600 transition-colors">{name}</span>
+                          </a>
+                        </td>
+                        <td className="px-3 py-2.5 text-right font-bold text-violet-600 tabular-nums">{u.elo_rating || 1000}</td>
+                        <td className="px-3 py-2.5 text-right tabular-nums">
+                          {hasAttempts && score !== null
+                            ? <span className={`font-semibold ${score >= 70 ? 'text-emerald-600' : score >= 50 ? 'text-amber-600' : 'text-rose-500'}`}>{score}%</span>
+                            : <span className="text-slate-300 dark:text-slate-600">—</span>}
+                        </td>
+                        <td className="px-3 py-2.5 text-right tabular-nums">
+                          {hasAttempts && approval !== null
+                            ? <span className={`font-semibold ${approval >= 70 ? 'text-emerald-600' : 'text-amber-500'}`}>{approval}%</span>
+                            : <span className="text-slate-300 dark:text-slate-600">—</span>}
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-slate-600 dark:text-slate-400 tabular-nums">{u.total_intentos || 0}</td>
+                        <td className="px-3 py-2.5 text-right tabular-nums">
+                          {(u.racha_actual || 0) > 0
+                            ? <span className="text-amber-600 font-semibold">{u.racha_actual}d</span>
+                            : <span className="text-slate-300 dark:text-slate-600">—</span>}
+                        </td>
+                        <td className="px-3 py-2.5 text-right tabular-nums">
+                          {trend
+                            ? <span className={`font-bold text-[11px] ${trend.delta > 0 ? 'text-emerald-600' : trend.delta < 0 ? 'text-rose-500' : 'text-slate-400'}`}>
+                                {trend.delta > 0 ? `+${trend.delta}` : trend.delta === 0 ? '=' : trend.delta}
+                              </span>
+                            : <span className="text-slate-300 dark:text-slate-600 text-[11px]">—</span>}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
@@ -4389,11 +4487,10 @@ RESPONSE RULES:
               {tab.icon === 'dashboard' && <svg className="inline h-4 w-4 mr-1.5 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
               {tab.icon === 'leaderboard' && <svg className="inline h-4 w-4 mr-1.5 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>}
               {tab.icon === 'users' && <svg className="inline h-4 w-4 mr-1.5 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
-              {tab.icon === 'guides' && <svg className="inline h-4 w-4 mr-1.5 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>}
+              {tab.icon === 'guides' && <svg className="inline h-4 w-4 mr-1.5 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>}
               {tab.icon === 'settings' && <svg className="inline h-4 w-4 mr-1.5 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
               {tab.icon === 'challenges' && <svg className="inline h-4 w-4 mr-1.5 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
               {tab.icon === 'requests' && <svg className="inline h-4 w-4 mr-1.5 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>}
-              {tab.icon === 'guides' && <svg className="inline h-4 w-4 mr-1.5 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>}
               {tab.icon === 'subscription' && <svg className="inline h-4 w-4 mr-1.5 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>}
               {tab.label}
               {tab.badge ? (
@@ -4421,294 +4518,27 @@ RESPONSE RULES:
       <Footer />
 
       {challengeModalOpen && (
-        <div
-          className="fixed inset-0 z-[220] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-          onClick={closeChallengeModal}
-        >
-          <div
-            className="w-full max-w-2xl max-h-[90vh] rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header fijo */}
-            <div className="flex items-center justify-between p-5 pb-4 border-b border-slate-200 dark:border-slate-800 shrink-0">
-              <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                {editingChallenge 
-                  ? (lang === 'en' ? 'Edit challenge' : 'Editar desafío')
-                  : (lang === 'en' ? 'Create custom challenge' : 'Crear desafío personalizado')
-                }
-              </h3>
-              <button
-                type="button"
-                onClick={closeChallengeModal}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 transition"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-              </button>
-            </div>
-
-            {/* Contenido con scroll */}
-            <div className="overflow-y-auto px-5 py-4 flex-1">
-              <form id="challenge-form" onSubmit={createChallenge} className="space-y-3.5">
-                {/* Imagen */}
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
-                    {lang === 'en' ? 'Challenge image' : 'Imagen del desafío'} <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleChallengeImageChange}
-                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs dark:bg-slate-800 dark:text-slate-100"
-                    required
-                  />
-                  {challengeImagePreview && (
-                    <img src={challengeImagePreview} alt="preview" className="mt-2 h-32 w-full rounded-lg object-cover border border-slate-200 dark:border-slate-700" />
-                  )}
-                </div>
-
-                {/* Prompt original */}
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
-                    {lang === 'en' ? 'Original prompt' : 'Prompt original'} <span className="text-rose-500">*</span>
-                  </label>
-                  <textarea
-                    value={challengeForm.prompt}
-                    onChange={(e) => setChallengeForm(f => ({ ...f, prompt: e.target.value }))}
-                    rows={2}
-                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs resize-none dark:bg-slate-800 dark:text-slate-100"
-                    placeholder={lang === 'en' ? 'Describe the expected image prompt...' : 'Describe el prompt esperado de la imagen...'}
-                    required
-                  />
-                </div>
-
-                {/* Descripción extendida */}
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
-                    {lang === 'en' ? 'Description (optional)' : 'Descripción (opcional)'}
-                  </label>
-                  <textarea
-                    value={challengeForm.description}
-                    onChange={(e) => setChallengeForm(f => ({ ...f, description: e.target.value }))}
-                    rows={2}
-                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs resize-none dark:bg-slate-800 dark:text-slate-100"
-                    placeholder={lang === 'en' ? 'Additional context or instructions...' : 'Contexto adicional o instrucciones...'}
-                  />
-                </div>
-
-                {/* Dificultad y Temática */}
-                <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
-                    {lang === 'en' ? 'Difficulty' : 'Dificultad'} <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={challengeForm.difficulty}
-                    onChange={(e) => setChallengeForm(f => ({ ...f, difficulty: e.target.value }))}
-                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs bg-white dark:bg-slate-800 dark:text-slate-100"
-                  >
-                    <option value="Easy">Easy</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Hard">Hard</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
-                    {lang === 'en' ? 'Theme' : 'Temática'} <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={challengeForm.theme}
-                    onChange={(e) => setChallengeForm(f => ({ ...f, theme: e.target.value }))}
-                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs dark:bg-slate-800 dark:text-slate-100"
-                    placeholder={lang === 'en' ? 'e.g. Cyberpunk city' : 'Ej: Ciudad cyberpunk'}
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Tiempo límite, Intentos máximos, Palabras mínimas */}
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
-                    {lang === 'en' ? 'Time limit (sec)' : 'Tiempo límite (seg)'}
-                  </label>
-                  <input
-                    type="number"
-                    min="30"
-                    max="600"
-                    value={challengeForm.timeLimit}
-                    onChange={(e) => setChallengeForm(f => ({ ...f, timeLimit: parseInt(e.target.value) || 180 }))}
-                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs dark:bg-slate-800 dark:text-slate-100"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
-                    {lang === 'en' ? 'Max attempts' : 'Intentos máx'}
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="10"
-                    value={challengeForm.maxAttempts}
-                    onChange={(e) => setChallengeForm(f => ({ ...f, maxAttempts: parseInt(e.target.value) || 0 }))}
-                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs dark:bg-slate-800 dark:text-slate-100"
-                    placeholder="0 = ∞"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
-                    {lang === 'en' ? 'Min words' : 'Palabras mín'}
-                  </label>
-                  <input
-                    type="number"
-                    min="5"
-                    max="50"
-                    value={challengeForm.minWords}
-                    onChange={(e) => setChallengeForm(f => ({ ...f, minWords: parseInt(e.target.value) || 10 }))}
-                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs dark:bg-slate-800 dark:text-slate-100"
-                  />
-                </div>
-              </div>
-
-              {/* Fechas de inicio y fin */}
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
-                    {lang === 'en' ? 'Start date (optional)' : 'Fecha inicio (opcional)'}
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={challengeForm.startDate}
-                    onChange={(e) => setChallengeForm(f => ({ ...f, startDate: e.target.value }))}
-                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs dark:bg-slate-800 dark:text-slate-100"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
-                    {lang === 'en' ? 'End date (optional)' : 'Fecha fin (opcional)'}
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={challengeForm.endDate}
-                    onChange={(e) => setChallengeForm(f => ({ ...f, endDate: e.target.value }))}
-                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs dark:bg-slate-800 dark:text-slate-100"
-                  />
-                </div>
-              </div>
-
-              {/* Visibilidad, Puntos, Modo de evaluación */}
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
-                    {lang === 'en' ? 'Visibility' : 'Visibilidad'}
-                  </label>
-                  <select
-                    value={challengeForm.visibility}
-                    onChange={(e) => setChallengeForm(f => ({ ...f, visibility: e.target.value }))}
-                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs bg-white dark:bg-slate-800 dark:text-slate-100"
-                  >
-                    <option value="private">{lang === 'en' ? 'Private (team only)' : 'Privado (solo equipo)'}</option>
-                    <option value="public">{lang === 'en' ? 'Public' : 'Público'}</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
-                    {lang === 'en' ? 'Points' : 'Puntos'}
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="1000"
-                    step="10"
-                    value={challengeForm.points}
-                    onChange={(e) => setChallengeForm(f => ({ ...f, points: parseInt(e.target.value) || 100 }))}
-                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs dark:bg-slate-800 dark:text-slate-100"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
-                    {lang === 'en' ? 'Evaluation' : 'Evaluación'}
-                  </label>
-                  <select
-                    value={challengeForm.evaluationMode}
-                    onChange={(e) => setChallengeForm(f => ({ ...f, evaluationMode: e.target.value }))}
-                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs bg-white dark:bg-slate-800 dark:text-slate-100"
-                  >
-                    <option value="standard">{lang === 'en' ? 'Standard' : 'Estándar'}</option>
-                    <option value="strict">{lang === 'en' ? 'Strict' : 'Estricto'}</option>
-                    <option value="flexible">{lang === 'en' ? 'Flexible' : 'Flexible'}</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Tags */}
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
-                  {lang === 'en' ? 'Tags (comma separated)' : 'Tags (separados por coma)'}
-                </label>
-                <input
-                  type="text"
-                  value={challengeForm.tags.join(', ')}
-                  onChange={(e) => setChallengeForm(f => ({ ...f, tags: e.target.value.split(',').map(t => t.trim()) }))}
-                  className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs dark:bg-slate-800 dark:text-slate-100"
-                  placeholder={lang === 'en' ? 'e.g. landscape, nature, sunset' : 'Ej: paisaje, naturaleza, atardecer'}
-                />
-              </div>
-
-              {/* Hints/Pistas */}
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-slate-900 dark:text-slate-100">
-                  {lang === 'en' ? 'Hints (optional)' : 'Pistas (opcional)'}
-                </label>
-                <div className="space-y-2">
-                  {challengeForm.hints.map((hint, i) => (
-                    <input
-                      key={i}
-                      type="text"
-                      value={hint}
-                      onChange={(e) => {
-                        const newHints = [...challengeForm.hints]
-                        newHints[i] = e.target.value
-                        setChallengeForm(f => ({ ...f, hints: newHints }))
-                      }}
-                      className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs dark:bg-slate-800 dark:text-slate-100"
-                      placeholder={`${lang === 'en' ? 'Hint' : 'Pista'} ${i + 1}`}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {challengeStatus && (
-                <p className="text-xs text-slate-600 dark:text-slate-400">{challengeStatus}</p>
-              )}
-              </form>
-            </div>
-
-            {/* Footer fijo */}
-            <div className="flex items-center justify-end gap-2 p-5 pt-4 border-t border-slate-200 dark:border-slate-800 shrink-0">
-              <button
-                type="button"
-                onClick={closeChallengeModal}
-                className="rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-              >
-                {lang === 'en' ? 'Cancel' : 'Cancelar'}
-              </button>
-              <button
-                type="submit"
-                form="challenge-form"
-                disabled={creatingChallenge}
-                className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-60"
-              >
-                {creatingChallenge
-                  ? (lang === 'en' ? 'Creating...' : 'Creando...')
-                  : (lang === 'en' ? 'Create challenge' : 'Crear desafío')}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ChallengeCreatorModal
+          open={challengeModalOpen}
+          onClose={closeChallengeModal}
+          challengeForm={challengeForm}
+          setChallengeForm={setChallengeForm}
+          challengeImageFile={challengeImageFile}
+          setChallengeImageFile={setChallengeImageFile}
+          challengeImagePreview={challengeImagePreview}
+          setChallengeImagePreview={setChallengeImagePreview}
+          onSubmit={createChallenge}
+          creatingChallenge={creatingChallenge}
+          challengeStatus={challengeStatus}
+          lang={lang}
+          companyIndustry={companyData?.industry_type || 'general'}
+          isEditing={!!editingChallenge}
+        />
       )}
 
+
       {/* Modal de estadísticas de desafío */}
+
       {challengeStatsModal && (
         <div
           className="fixed inset-0 z-[220] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
