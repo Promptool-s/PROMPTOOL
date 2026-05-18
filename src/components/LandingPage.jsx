@@ -853,17 +853,24 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
     <div className="fixed inset-0 overflow-hidden">
       {/* Dots de navegación lateral */}
       <div className="fixed right-5 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-2.5">
-        {Array.from({ length: TOTAL_SECTIONS }).map((_, i) => (
-          <button
-            key={i}
-            onClick={() => scrollTo(i)}
-            aria-label={`Sección ${i + 1}`}
-            className={`rounded-full transition-all duration-300 ${
-              i === currentSection
-                ? 'h-6 w-2 bg-cyan-500'
-                : `h-2 w-2 ${dark ? 'bg-slate-600 hover:bg-slate-400' : 'bg-slate-300 hover:bg-slate-500'}`
-            }`}
-          />
+        {(lang === 'en'
+          ? ['Start', 'How it works', 'Your progress', 'Community', 'Tournaments', 'Guides', 'For teams', 'Profiles', 'Get started']
+          : ['Inicio', 'Cómo funciona', 'Tu progreso', 'Comunidad', 'Torneos', 'Guías', 'Para equipos', 'Perfiles', 'Empezar']
+        ).map((label, i) => (
+          <div key={i} className="group relative flex items-center justify-end">
+            <span className="pointer-events-none absolute right-6 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-[11px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100 shadow-lg">
+              {label}
+            </span>
+            <button
+              onClick={() => scrollTo(i)}
+              aria-label={label}
+              className={`rounded-full transition-all duration-300 ${
+                i === currentSection
+                  ? 'h-6 w-2 bg-cyan-500'
+                  : `h-2 w-2 ${dark ? 'bg-slate-600 hover:bg-slate-400' : 'bg-slate-300 hover:bg-slate-500'}`
+              }`}
+            />
+          </div>
         ))}
       </div>
 

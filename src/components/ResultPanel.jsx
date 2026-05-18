@@ -246,7 +246,7 @@ const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, stren
                       {eloDelta >= 0 ? '+' : ''}{eloDelta}
                     </span>
                     <span className="text-[9px] uppercase tracking-wider text-slate-500 dark:text-slate-400 leading-none mt-0.5">
-                      ELO
+                      Rating
                     </span>
                   </div>
                 </div>
@@ -254,9 +254,9 @@ const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, stren
                 {/* Tooltip hover */}
                 <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/elo-stat:block z-[100] w-52">
                   <div className="rounded-lg bg-slate-800 dark:bg-slate-700 px-3 py-2 text-xs shadow-xl border border-slate-700 dark:border-slate-600">
-                    <p className="font-semibold text-slate-100 mb-1">Sistema ELO</p>
+                    <p className="font-semibold text-slate-100 mb-1">Tu puntuación</p>
                     <p className="text-slate-300 dark:text-slate-400 leading-relaxed">
-                      Tu rating cambia según tu desempeño. Scores altos en desafíos difíciles dan más puntos.
+                      Sube cuando acertás bien y baja si el score es bajo. Empieza en 1000 — más de 1200 es experto.
                     </p>
                   </div>
                   <div className="mx-auto w-2 h-2 rotate-45 bg-slate-800 dark:bg-slate-700 border-r border-b border-slate-700 dark:border-slate-600 -mt-1" />

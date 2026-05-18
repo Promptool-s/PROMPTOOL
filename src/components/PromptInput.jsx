@@ -383,8 +383,8 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
           </svg>
           <p className="text-xs font-medium text-amber-800 dark:text-amber-300 leading-relaxed">
             {lang === 'en'
-              ? 'Copying, pasting or switching windows will change the image. Write your prompt without leaving this tab.'
-              : 'Copiar, pegar o cambiar de ventana cambia la imagen. Escribí tu prompt sin salir de esta pestaña.'}
+              ? 'To keep it fair, copying or switching tabs will change the image. Just write your answer here.'
+              : 'Para que sea justo, copiar o cambiar de pestaña cambia la imagen. Escribí tu respuesta acá directamente.'}
           </p>
         </div>
       )}
@@ -400,8 +400,8 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
           </svg>
           <span className="text-xs font-medium text-amber-700 dark:text-amber-300 leading-none flex-1">
             {lang === 'en'
-              ? "Incognito mode — this attempt won't be saved"
-              : 'Modo incógnito — este intento no se guardará'}
+              ? "Private mode — this attempt won't appear on your public profile (good for practice)"
+              : 'Modo privado — este intento no aparecerá en tu perfil público (ideal para practicar sin presión)'}
           </span>
           <button
             type="button"
@@ -433,8 +433,8 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs">
                 {lang === 'en'
-                  ? 'PrompTool needs clipboard access to prevent cheating. Allow it in your browser settings to play.'
-                  : 'PrompTool necesita acceso al portapapeles para evitar trampas. Permitilo en la configuración del navegador para jugar.'}
+                  ? 'PrompTool checks the clipboard to keep the game fair. Allow access in your browser settings to play.'
+                  : 'PrompTool revisa el portapapeles para que el juego sea justo. Permitilo en la configuración del navegador para jugar.'}
               </p>
             </div>
             <button

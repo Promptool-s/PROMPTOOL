@@ -263,19 +263,19 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
                   <div className="mt-4 space-y-2 text-xs text-slate-700 font-medium">
                     <div className="flex items-center gap-2">
                       <svg className="h-3.5 w-3.5 text-violet-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
-                      <span>{lang === 'en' ? 'Custom challenges' : 'Desafíos personalizados'}</span>
+                      <span>{lang === 'en' ? 'Custom challenges for your team' : 'Desafíos propios para tu equipo'}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <svg className="h-3.5 w-3.5 text-violet-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
-                      <span>{lang === 'en' ? 'Multi-user management' : 'Gestión de múltiples usuarios'}</span>
+                      <span>{lang === 'en' ? 'Invite & manage your team' : 'Invitá y gestioná tu equipo'}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <svg className="h-3.5 w-3.5 text-violet-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
-                      <span>{lang === 'en' ? 'Analytics dashboard' : 'Dashboard de análisis'}</span>
+                      <span>{lang === 'en' ? 'Progress dashboard per member' : 'Panel de progreso por integrante'}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <svg className="h-3.5 w-3.5 text-violet-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
-                      <span>{lang === 'en' ? 'Advanced settings' : 'Configuraciones avanzadas'}</span>
+                      <span>{lang === 'en' ? 'Internal ranking & reports' : 'Ranking interno y reportes'}</span>
                     </div>
                   </div>
                 </div>
@@ -333,7 +333,7 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-slate-400">@</span>
                   <input type="text" value={username} onChange={handleUsernameChange}
-                    placeholder="username" maxLength={20}
+                    placeholder={lang === 'en' ? 'username (e.g. jane_smith)' : 'usuario (ej: juan_perez)'} maxLength={20}
                     className={`${inputClass} pl-8 pr-9 ${usernameStatus === 'taken' ? 'border-rose-300' : usernameStatus === 'ok' ? 'border-emerald-300' : ''}`}
                     required />
                   {usernameStatus === 'checking' && <div className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />}
@@ -348,10 +348,10 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
               <div className="space-y-2 pt-1">
                 {/* Términos — obligatorio */}
                 <label className="flex items-start gap-3 cursor-pointer group">
-                  <div className={`mt-0.5 h-4 w-4 shrink-0 rounded border-2 flex items-center justify-center transition ${acceptTerms ? 'border-transparent' : 'border-slate-300 group-hover:border-slate-400'}`}
+                  <div className={`mt-0.5 h-5 w-5 shrink-0 rounded border-2 flex items-center justify-center transition ${acceptTerms ? 'border-transparent' : 'border-slate-300 group-hover:border-violet-400'}`}
                     style={acceptTerms ? { backgroundColor: 'rgb(var(--color-accent))' } : {}}
                     onClick={() => setAcceptTerms(v => !v)}>
-                    {acceptTerms && <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>}
+                    {acceptTerms && <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>}
                   </div>
                   <span className="text-xs text-slate-600 leading-relaxed">
                     {lang === 'en' ? 'I accept the ' : 'Acepto los '}
