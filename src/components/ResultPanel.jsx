@@ -359,6 +359,40 @@ const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, stren
           </div>
         )}
 
+        {/* Banner upsell para guests — aparece en cualquier intento no final */}
+        {!user && !isGuestLastAttempt && (
+          <div className="rounded-2xl border border-violet-200 dark:border-violet-800/60 bg-gradient-to-br from-violet-50 to-indigo-50 dark:from-violet-950/40 dark:to-indigo-950/40 px-4 py-3.5">
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 dark:bg-violet-900/50">
+                <svg className="h-4.5 w-4.5 text-violet-600 dark:text-violet-400" fill="none" viewBox="-3 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-violet-800 dark:text-violet-200">
+                  {lang === 'en' ? 'Want to try another image?' : '¿Querés probar con otra imagen?'}
+                </p>
+                <p className="text-xs text-violet-600 dark:text-violet-400 mt-0.5 leading-relaxed">
+                  {lang === 'en'
+                    ? 'Create a free account to unlock unlimited images.'
+                    : 'Creá una cuenta gratis y desbloqueá imágenes ilimitadas.'}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                  {(lang === 'en'
+                    ? ['Unlimited images', 'Track progress', 'Compete on leaderboard']
+                    : ['Imágenes ilimitadas', 'Progreso y estadísticas', 'Ranking competitivo']
+                  ).map(f => (
+                    <span key={f} className="flex items-center gap-1 text-[11px] text-violet-700 dark:text-violet-300 font-medium">
+                      <svg className="h-3 w-3 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                      {f}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-2">
           {isGuestLastAttempt ? (
             /* Guest en último intento: registrarse o ver prompt */
@@ -384,7 +418,7 @@ const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, stren
               </button>
             </>
           ) : !user ? (
-            /* Guest con intentos restantes — puede reintentar libremente */
+            /* Guest con intentos restantes — puede reintentar + CTA nueva imagen */
             <>
               {onRetry && safeScore < 93 && (
                 <button type="button" onClick={onRetry}
@@ -400,7 +434,7 @@ const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, stren
                 onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgb(var(--color-accent-2))'}
                 onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgb(var(--color-accent))'}
               >
-                {lang === 'en' ? 'Sign up' : 'Registrarse'}
+                {lang === 'en' ? 'Try another image →' : 'Probar otra imagen →'}
               </button>
             </>
           ) : isMastered ? (

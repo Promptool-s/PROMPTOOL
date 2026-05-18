@@ -394,6 +394,10 @@ function App() {
     if (!user) {
       setUserType(null)
       setUserTypeLoading(false)
+      // Onboarding para guests — solo la primera vez
+      if (!localStorage.getItem('user_onboarded_guest')) {
+        setShowUserOnboarding(true)
+      }
       return
     }
 
@@ -1487,7 +1491,7 @@ function App() {
       <main className="flex-1 py-2 px-2 sm:px-4">
         <div className="mx-auto flex max-w-screen-2xl gap-3 items-start">
           {/* Left ad */}
-          <aside className="hidden xl:flex shrink-0 flex-col items-center pt-4">
+          <aside className="hidden xl:flex shrink-0 flex-col items-center self-start sticky top-4">
             <AdSenseUnit slot={import.meta.env.VITE_ADSENSE_SLOT_LEFT || 'LEFT'} />
           </aside>
 
@@ -1572,7 +1576,7 @@ function App() {
                     {!user && !guestDemoLocked && (
                       <div className="flex items-center gap-3 rounded-2xl border border-violet-200 bg-violet-50 dark:border-violet-800/60 dark:bg-violet-950/40 px-4 py-3">
                         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-violet-100 dark:bg-violet-900/40">
-                          <svg className="h-4 w-4 text-violet-600 dark:text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <svg className="h-4 w-4 text-violet-600 dark:text-violet-400" fill="none" viewBox="-3 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                           </svg>
                         </div>
@@ -1817,7 +1821,7 @@ function App() {
           </div>{/* /game area */}
 
           {/* Right ad */}
-          <aside className="hidden xl:flex shrink-0 flex-col items-center pt-4">
+          <aside className="hidden xl:flex shrink-0 flex-col items-center self-start sticky top-4">
             <AdSenseUnit slot={import.meta.env.VITE_ADSENSE_SLOT_RIGHT || 'RIGHT'} />
           </aside>
         </div>{/* /flex wrapper */}
@@ -1825,11 +1829,15 @@ function App() {
 
       <Footer />
 
-      {/* User onboarding — solo primera vez */}
-      {showUserOnboarding && user && (
+      {/* User onboarding — solo primera vez (usuarios y guests) */}
+      {showUserOnboarding && (
         <Suspense fallback={null}>
           <UserOnboarding onDone={() => {
-            localStorage.setItem(`user_onboarded_${user.id}`, '1')
+            if (user) {
+              localStorage.setItem(`user_onboarded_${user.id}`, '1')
+            } else {
+              localStorage.setItem('user_onboarded_guest', '1')
+            }
             setShowUserOnboarding(false)
           }} />
         </Suspense>

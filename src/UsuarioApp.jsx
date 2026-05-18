@@ -2263,7 +2263,13 @@ function UsuarioApp() {
                   {uploadingBanner && <p className="text-xs text-slate-400 text-center">{lang === 'en' ? 'Uploading banner...' : 'Subiendo banner...'}</p>}
 
                   {/* Toggle email público */}
-                  <label className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setEditedProfile(p => ({ ...p, email_publico: !(p.email_publico ?? profile?.email_publico ?? true) }))}
+                    onKeyDown={(e) => e.key === 'Enter' || e.key === ' ' ? setEditedProfile(p => ({ ...p, email_publico: !(p.email_publico ?? profile?.email_publico ?? true) })) : null}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                  >
                     <div>
                       <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
                         {lang === 'en' ? 'Show email on profile' : 'Mostrar email en el perfil'}
@@ -2272,10 +2278,8 @@ function UsuarioApp() {
                         {lang === 'en' ? 'Visible to other users' : 'Visible para otros usuarios'}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setEditedProfile(p => ({ ...p, email_publico: !(p.email_publico ?? profile?.email_publico ?? true) }))}
-                      className="relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none"
+                    <div
+                      className="relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200"
                       style={{
                         backgroundColor: (editedProfile.email_publico ?? profile?.email_publico ?? true)
                           ? chartColor
@@ -2287,12 +2291,18 @@ function UsuarioApp() {
                           ? 'translate-x-4'
                           : 'translate-x-0'
                       }`} />
-                    </button>
-                  </label>
+                    </div>
+                  </div>
 
                   {/* Toggle badge de empresa */}
                   {userCompanyData && (
-                    <label className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setEditedProfile(p => ({ ...p, show_company_badge: !(p.show_company_badge ?? profile?.show_company_badge ?? true) }))}
+                      onKeyDown={(e) => e.key === 'Enter' || e.key === ' ' ? setEditedProfile(p => ({ ...p, show_company_badge: !(p.show_company_badge ?? profile?.show_company_badge ?? true) })) : null}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                    >
                       <div>
                         <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
                           {lang === 'en' ? 'Show company badge' : 'Mostrar badge de empresa'}
@@ -2301,10 +2311,8 @@ function UsuarioApp() {
                           {lang === 'en' ? 'Display your company membership on your profile' : 'Muestra tu membresía en tu perfil'}
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setEditedProfile(p => ({ ...p, show_company_badge: !(p.show_company_badge ?? profile?.show_company_badge ?? true) }))}
-                        className="relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none"
+                      <div
+                        className="relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200"
                         style={{
                           backgroundColor: (editedProfile.show_company_badge ?? profile?.show_company_badge ?? true)
                             ? chartColor
@@ -2316,8 +2324,8 @@ function UsuarioApp() {
                             ? 'translate-x-4'
                             : 'translate-x-0'
                         }`} />
-                      </button>
-                    </label>
+                      </div>
+                    </div>
                   )}
 
                   {/* País */}

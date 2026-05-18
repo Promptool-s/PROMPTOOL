@@ -482,36 +482,71 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
           maxLength={2000}
           className="w-full min-h-[100px] resize-none rounded-t-xl bg-transparent px-4 py-3 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:ring-0 disabled:cursor-not-allowed disabled:text-slate-400"
         />
-        {/* Footer de stats — separado por borde superior, mismo ancho que el textarea */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-slate-100 dark:border-slate-700/60 px-3 py-2">
-          <span className="text-[10px] text-slate-400 dark:text-slate-500 select-none font-semibold shrink-0 border-r border-slate-200 dark:border-slate-700 pr-3">
-            {lang === 'en' ? 'vs. original' : 'vs. original'}
-          </span>
-          <span className="text-[11px] tabular-nums text-slate-400 dark:text-slate-500" title={lang === 'en' ? `Target from original prompt: ~${targetWords} words` : `Referencia del prompt original: ~${targetWords} palabras`}>
-            {lang === 'en' ? 'Words' : 'Palabras'}{' '}
-            <span className={`font-semibold tabular-nums ${wordsCount >= targetWords * 0.8 ? 'text-emerald-500' : 'text-slate-600 dark:text-slate-300'}`}>{wordsCount}</span>
-            <span className="text-slate-300 dark:text-slate-600 select-none"> / ~{targetWords}</span>
-          </span>
-          <span className="hidden sm:inline text-[11px] tabular-nums text-slate-400 dark:text-slate-500" title={lang === 'en' ? `Target from original prompt: ~${targetChars} chars` : `Referencia del prompt original: ~${targetChars} caracteres`}>
-            {lang === 'en' ? 'Chars' : 'Caracteres'}{' '}
-            <span className={`font-semibold tabular-nums ${promptUsuario.length >= targetChars * 0.8 ? 'text-emerald-500' : 'text-slate-600 dark:text-slate-300'}`}>{promptUsuario.length}</span>
-            <span className="text-slate-300 dark:text-slate-600 select-none"> / ~{targetChars}</span>
-          </span>
-          <span className="text-[11px] tabular-nums text-slate-400 dark:text-slate-500" title={lang === 'en' ? 'Technical prompt terms detected' : 'Términos técnicos de IA detectados'}>
-            {lang === 'en' ? 'Tech terms' : 'Términos técnicos'}{' '}
-            <span className={`font-semibold tabular-nums ${techCount >= targetTech ? 'text-emerald-500' : 'text-slate-600 dark:text-slate-300'}`}>{techCount}</span>
-            <span className="text-slate-300 dark:text-slate-600 select-none"> / ~{targetTech}</span>
-          </span>
-          <span className="text-[11px] text-slate-400 dark:text-slate-500 ml-auto">
-            <span className="font-semibold text-slate-600 dark:text-slate-300">{getFocusLabel()}</span>
-          </span>
+        {/* Footer de stats rediseñado */}
+        <div className="border-t border-slate-100 dark:border-slate-700/60 px-3 pt-2 pb-1.5 space-y-1.5">
+          {/* Fila 1: métricas de longitud + foco */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="text-[10px] text-slate-400 dark:text-slate-500 select-none font-bold shrink-0 border-r border-slate-200 dark:border-slate-700 pr-3 uppercase tracking-wide">
+              {lang === 'en' ? 'vs. original' : 'vs. original'}
+            </span>
+
+            {/* Palabras con mini-barra */}
+            <div className="flex items-center gap-1.5 group/words relative" title={lang === 'en' ? `The original prompt has ~${targetWords} words. Aim for at least ${Math.round(targetWords * 0.8)}.` : `El prompt original tiene ~${targetWords} palabras. Apuntá a al menos ${Math.round(targetWords * 0.8)}.`}>
+              <span className="text-[10px] text-slate-400 dark:text-slate-500">{lang === 'en' ? 'Words' : 'Palabras'}</span>
+              <span className={`text-[11px] font-bold tabular-nums ${wordsCount >= targetWords * 0.8 ? 'text-emerald-500' : 'text-slate-600 dark:text-slate-300'}`}>{wordsCount}</span>
+              <span className="text-[10px] text-slate-300 dark:text-slate-600 select-none">/{targetWords}</span>
+              <div className="h-1 w-8 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                <div className={`h-full rounded-full transition-all duration-300 ${wordsCount >= targetWords * 0.8 ? 'bg-emerald-400' : 'bg-slate-300 dark:bg-slate-600'}`} style={{ width: `${Math.min(100, (wordsCount / targetWords) * 100)}%` }} />
+              </div>
+            </div>
+
+            {/* Términos técnicos con mini-barra */}
+            <div className="flex items-center gap-1.5" title={lang === 'en' ? `AI technical terms boost your score. Use things like: bokeh, golden hour, cinematic, 4K, HDR…` : `Los términos técnicos de IA mejoran tu score. Usá: bokeh, golden hour, cinematic, 4K, HDR…`}>
+              <span className="text-[10px] text-slate-400 dark:text-slate-500">{lang === 'en' ? 'AI terms' : 'Términos IA'}</span>
+              <span className={`text-[11px] font-bold tabular-nums ${techCount >= targetTech ? 'text-emerald-500' : techCount > 0 ? 'text-amber-500' : 'text-slate-600 dark:text-slate-300'}`}>{techCount}</span>
+              <span className="text-[10px] text-slate-300 dark:text-slate-600 select-none">/{targetTech}</span>
+              <div className="h-1 w-8 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                <div className={`h-full rounded-full transition-all duration-300 ${techCount >= targetTech ? 'bg-emerald-400' : techCount > 0 ? 'bg-amber-400' : 'bg-slate-300 dark:bg-slate-600'}`} style={{ width: `${Math.min(100, (techCount / targetTech) * 100)}%` }} />
+              </div>
+            </div>
+
+            {/* Foco */}
+            <span className={`ml-auto text-[11px] font-semibold tabular-nums ${
+              getFocusLabel() === (lang === 'en' ? 'Balanced' : 'Balanceado') ? 'text-emerald-500' :
+              getFocusLabel() === (lang === 'en' ? 'No focus yet' : 'Sin foco aún') || getFocusLabel() === (lang === 'en' ? 'Add visual details' : 'Faltan detalles') ? 'text-slate-400 dark:text-slate-500' :
+              'text-sky-500'
+            }`}>
+              {getFocusLabel()}
+            </span>
+          </div>
+
+          {/* Fila 2: badges de términos detectados O sugerencias */}
+          {techCount > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              {techMatched.slice(0, 6).map(({ label }) => (
+                <span key={label} className="rounded bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                  {label}
+                </span>
+              ))}
+              {techMatched.length > 6 && (
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 self-center">+{techMatched.length - 6}</span>
+              )}
+            </div>
+          ) : (
+            <p className="text-[10px] text-slate-400 dark:text-slate-500">
+              {lang === 'en'
+                ? <><span className="font-semibold text-slate-500 dark:text-slate-400">No AI terms yet.</span> Try: bokeh · golden hour · cinematic · 4K · dramatic lighting</>
+                : <><span className="font-semibold text-slate-500 dark:text-slate-400">Sin términos IA.</span> Probá: bokeh · golden hour · cinematic · 4K · iluminación dramática</>
+              }
+            </p>
+          )}
         </div>
         </>
         )}
       </div>
 
       <div className="flex items-center gap-2 text-xs font-medium">
-        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-1 min-w-0 flex-wrap sm:flex-nowrap">
         {onModeChange ? (
           <div className="relative group">
             <button
@@ -833,7 +868,14 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
         )}
       </div>
 
-      <p className="text-xs text-slate-400 dark:text-slate-500">{t('promptRecommendation')}</p>
+      <div className="flex items-start gap-2 rounded-lg border border-amber-100 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-900/20 px-3 py-2">
+        <svg className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+        </svg>
+        <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-snug">
+          {t('promptRecommendation')}
+        </p>
+      </div>
 
       {overtimeSeconds > 0 && penaltyOvertimeSeconds === 0 && (
         <p className="text-xs text-amber-600 dark:text-amber-500">
