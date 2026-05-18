@@ -211,6 +211,21 @@ export const useAuth = () => {
         })
         if (loginError) throw loginError
       }
+
+      // Email de bienvenida — fire and forget
+      try {
+        const lang = localStorage.getItem('lang') || 'es'
+        fetch('/api/send-welcome', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nombre: nombreResult.sanitized,
+            email: emailResult.sanitized,
+            userType: userType || 'individual',
+            lang,
+          }),
+        })
+      } catch (_) {}
     }
 
     return data
