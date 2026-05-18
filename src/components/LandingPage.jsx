@@ -869,11 +869,11 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
       <div
         ref={containerRef}
         className={`h-full overflow-y-scroll ${base}`}
-        style={{ overscrollBehavior: 'none' }}
+        style={{ overscrollBehavior: 'none', scrollSnapType: 'y mandatory', touchAction: 'none' }}
       >
 
         {/* ── HERO ── */}
-        <section style={{ height: '100vh', overflowY: 'hidden' }}
+        <section style={{ height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }}
           className="relative flex items-center px-6 py-20 lg:px-8">
           <div className="mx-auto w-full max-w-6xl">
             <div className="grid items-center gap-16 lg:grid-cols-2">
@@ -929,7 +929,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
         </section>
 
         {/* ── HOW IT WORKS ── */}
-        <section style={{ height: '100vh', overflowY: 'hidden' }}
+        <section style={{ height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }}
           className="flex items-center px-6 py-20 lg:px-8">
           <div className="mx-auto w-full max-w-6xl">
             <div className="text-center mb-12">
@@ -942,7 +942,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
         </section>
 
         {/* ── PROGRESS ── */}
-        <section style={{ height: '100vh', overflowY: 'hidden' }}
+        <section style={{ height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }}
           className="flex items-center px-6 py-20 lg:px-8">
           <div className="mx-auto w-full max-w-6xl grid gap-20 lg:grid-cols-2 items-center">
             <div>
@@ -965,7 +965,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
         </section>
 
         {/* ── COMMUNITY ── */}
-        <section style={{ height: '100vh', overflowY: 'hidden' }}
+        <section style={{ height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }}
           className="flex items-center px-6 py-20 lg:px-8">
           <div className="mx-auto w-full max-w-6xl grid gap-20 lg:grid-cols-2 items-center">
             <div>
@@ -996,7 +996,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
         </section>
 
         {/* ── TOURNAMENTS ── */}
-        <section style={{ height: '100vh', overflowY: 'hidden' }}
+        <section style={{ height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }}
           className="flex items-center px-6 py-20 lg:px-8">
           <div className="mx-auto w-full max-w-6xl grid gap-20 lg:grid-cols-2 items-center">
             <div className={`rounded-2xl border p-8 space-y-5 ${card}`}>
@@ -1032,7 +1032,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
         </section>
 
         {/* ── GUIDES ── */}
-        <section style={{ height: '100vh', overflowY: 'hidden' }}
+        <section style={{ height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }}
           className="flex items-center px-6 py-20 lg:px-8">
           <div className="mx-auto w-full max-w-6xl grid gap-16 lg:grid-cols-2 items-center">
             <div>
@@ -1075,7 +1075,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
         </section>
 
         {/* ── ORGANIZATIONS ── */}
-        <section style={{ height: '100vh', overflowY: 'hidden' }}
+        <section style={{ height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }}
           className="flex items-center px-6 py-20 lg:px-8">
           <div className="mx-auto w-full max-w-6xl">
             <div className="max-w-2xl mb-12">
@@ -1098,7 +1098,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
         </section>
 
         {/* ── PROFILES ── */}
-        <section style={{ height: '100vh', overflowY: 'hidden' }}
+        <section style={{ height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }}
           className="flex items-center px-6 py-20 lg:px-8">
           <div className="mx-auto w-full max-w-6xl grid gap-16 lg:grid-cols-2 items-center">
             <div>
@@ -1141,7 +1141,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
         </section>
 
         {/* ── CTA ── */}
-        <section style={{ height: '100vh', overflowY: 'hidden' }}
+        <section style={{ height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }}
           className="flex items-center justify-center px-6 py-20 lg:px-8">
           <div className="mx-auto max-w-4xl text-center space-y-6">
             <h2 className="text-4xl sm:text-5xl font-black tracking-tight">{c.ctaTitle}</h2>

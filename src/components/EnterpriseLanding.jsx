@@ -268,11 +268,11 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
       <div
         ref={containerRef}
         className={`h-full overflow-y-scroll ${bg}`}
-        style={{ overscrollBehavior: 'none' }}
+        style={{ overscrollBehavior: 'none', scrollSnapType: 'y mandatory', touchAction: 'none' }}
       >
 
         {/* ── HERO ── */}
-        <section style={{ height: '100vh', overflowY: 'hidden' }} className="relative flex items-center px-4 py-20 sm:px-6 lg:px-8">
+        <section style={{ height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }} className="relative flex items-center px-4 py-20 sm:px-6 lg:px-8">
           <button
             type="button"
             onClick={onBack}
@@ -376,7 +376,7 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
         </section>
 
         {/* ── FEATURES ── */}
-        <section style={{ height: '100vh', overflowY: 'hidden' }} className="flex items-center px-4 py-20 sm:px-6 lg:px-8">
+        <section style={{ height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }} className="flex items-center px-4 py-20 sm:px-6 lg:px-8">
           <div className="mx-auto w-full max-w-6xl">
             <Reveal>
               <div className="mb-10 sm:mb-14">
@@ -408,7 +408,7 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
         </section>
 
         {/* ── DASHBOARD PREVIEW ── */}
-        <section style={{ height: '100vh', overflowY: 'hidden' }} className="flex items-center px-4 py-20 sm:px-6 lg:px-8">
+        <section style={{ height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }} className="flex items-center px-4 py-20 sm:px-6 lg:px-8">
           <div className="mx-auto w-full max-w-6xl grid gap-12 lg:gap-20 lg:grid-cols-2 items-center">
             <Reveal>
               <div>
@@ -478,7 +478,7 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
         </section>
 
         {/* ── CHALLENGES ── */}
-        <section style={{ height: '100vh', overflowY: 'hidden' }} className="flex items-center px-4 py-20 sm:px-6 lg:px-8">
+        <section style={{ height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }} className="flex items-center px-4 py-20 sm:px-6 lg:px-8">
           <div className="mx-auto w-full max-w-6xl grid gap-12 lg:gap-20 lg:grid-cols-2 items-center">
             <Reveal>
               <div>
@@ -535,7 +535,7 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
         </section>
 
         {/* ── GUIDES ── */}
-        <section style={{ height: '100vh', overflowY: 'hidden' }} className="flex items-center px-4 py-20 sm:px-6 lg:px-8">
+        <section style={{ height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }} className="flex items-center px-4 py-20 sm:px-6 lg:px-8">
           <div className="mx-auto w-full max-w-6xl grid gap-12 lg:gap-20 lg:grid-cols-2 items-center">
             <Reveal>
               <div>
@@ -612,7 +612,7 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
         </section>
 
         {/* ── PRICING ── */}
-        <section style={{ height: '100vh', overflowY: 'hidden' }} className="flex items-center px-4 py-20 sm:px-6 lg:px-8">
+        <section style={{ height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }} className="flex items-center px-4 py-20 sm:px-6 lg:px-8">
           <div className="mx-auto w-full max-w-6xl">
             <Reveal>
               <div className="text-center mb-10 sm:mb-14">
@@ -695,7 +695,7 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
         </section>
 
         {/* ── CUSTOM PLAN BUILDER ── */}
-        <section style={{ height: '100vh', overflowY: 'hidden' }} className="flex items-center px-4 py-20 sm:px-6 lg:px-8">
+        <section style={{ height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }} className="flex items-center px-4 py-20 sm:px-6 lg:px-8">
           <div className="mx-auto w-full max-w-4xl">
             <Reveal>
               <div className="text-center mb-10">
@@ -789,7 +789,7 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
         </section>
 
         {/* ── CTA ── */}
-        <section style={{ height: '100vh', overflowY: 'hidden' }} className="flex items-center justify-center px-4 py-20 sm:px-6 lg:px-8">
+        <section style={{ height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }} className="flex items-center justify-center px-4 py-20 sm:px-6 lg:px-8">
           <Reveal>
             <div className="mx-auto max-w-3xl text-center space-y-6">
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight">
