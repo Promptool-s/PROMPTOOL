@@ -767,6 +767,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
     isScrolling.current = true
     currentIdx.current = targetIdx
     setCurrentSection(targetIdx)
+    container.style.scrollSnapType = 'none'
     const duration = 750
     const start = performance.now()
     const step = (now) => {
@@ -777,6 +778,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
         requestAnimationFrame(step)
       } else {
         container.scrollTop = to
+        container.style.scrollSnapType = 'y mandatory'
         isScrolling.current = false
       }
     }
@@ -900,12 +902,22 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                 <button
                   type="button"
                   onClick={onEnterprise}
-                  className={`group inline-flex items-center gap-2 text-sm font-medium transition ${dark ? 'text-slate-400 hover:text-violet-400' : 'text-slate-500 hover:text-violet-600'}`}
+                  className="group flex items-center justify-between gap-4 w-full max-w-sm rounded-xl border-2 border-violet-200 bg-violet-50 px-4 py-3 text-left transition hover:border-violet-400 hover:bg-violet-100"
                 >
-                  <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-600">
+                      <svg className="h-4.5 w-4.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-violet-900">{lang === 'en' ? 'For companies & teams' : '¿Sos empresa o equipo?'}</p>
+                      <p className="text-xs text-violet-600">{lang === 'en' ? 'See enterprise plans' : 'Ver planes para equipos'}</p>
+                    </div>
+                  </div>
+                  <svg className="h-4 w-4 shrink-0 text-violet-500 transition group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                   </svg>
-                  {lang === 'en' ? 'For teams & companies → See enterprise plans' : '¿Sos empresa? → Ver planes para equipos'}
                 </button>
               </div>
               <div className={`hidden lg:block relative overflow-hidden rounded-2xl border p-6 lg:h-[520px] ${card}`}>

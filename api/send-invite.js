@@ -33,12 +33,12 @@ function buildEmailHtml({ companyName, inviterName, recipientEmail, joinUrl, isE
 
           <!-- Header gradient -->
           <tr>
-            <td style="background:linear-gradient(135deg,#7c3aed 0%,#4f46e5 50%,#06b6d4 100%);padding:40px 40px 32px;">
+            <td style="background:linear-gradient(135deg,#7c3aed 0%,#4f46e5 100%);padding:40px 40px 32px;">
               <!-- Logo mark -->
               <table cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="background:rgba(255,255,255,0.15);border-radius:12px;padding:10px 16px;">
-                    <span style="color:#ffffff;font-size:18px;font-weight:800;letter-spacing:-0.5px;">Prompt<span style="color:#a5f3fc;">Tool</span></span>
+                    <span style="color:#ffffff;font-size:18px;font-weight:800;letter-spacing:-0.5px;">Prompt<span style="color:#a78bfa;">Tool</span></span>
                   </td>
                 </tr>
               </table>
@@ -80,7 +80,7 @@ function buildEmailHtml({ companyName, inviterName, recipientEmail, joinUrl, isE
               <!-- CTA Button -->
               <table cellpadding="0" cellspacing="0" style="margin:0 0 28px;">
                 <tr>
-                  <td style="background:linear-gradient(135deg,#7c3aed,#06b6d4);border-radius:10px;padding:1px;">
+                  <td style="background:linear-gradient(135deg,#7c3aed,#4f46e5);border-radius:10px;padding:1px;">
                     <a href="${joinUrl}" style="display:inline-block;background:#7c3aed;border-radius:9px;padding:14px 32px;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;">${ctaLabel} →</a>
                   </td>
                 </tr>

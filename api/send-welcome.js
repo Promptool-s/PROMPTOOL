@@ -60,12 +60,12 @@ function buildWelcomeHtml({ nombre, email, userType, lang }) {
 
           <!-- Header -->
           <tr>
-            <td style="background:linear-gradient(135deg,#0e0e1a 0%,#1a1040 40%,#0c2a3a 100%);padding:44px 44px 36px;position:relative;">
+            <td style="background:linear-gradient(135deg,#0e0e1a 0%,#1a0f3a 50%,#160d30 100%);padding:44px 44px 36px;position:relative;">
               <!-- Logo -->
               <table cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
                 <tr>
                   <td style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:10px 18px;">
-                    <span style="color:#fff;font-size:19px;font-weight:800;letter-spacing:-0.5px;">Prompt<span style="color:#22d3ee;">Tool</span></span>
+                    <span style="color:#fff;font-size:19px;font-weight:800;letter-spacing:-0.5px;">Prompt<span style="color:#a78bfa;">Tool</span></span>
                   </td>
                 </tr>
               </table>
@@ -96,7 +96,7 @@ function buildWelcomeHtml({ nombre, email, userType, lang }) {
                     <table cellpadding="0" cellspacing="0" width="100%">
                       <tr>
                         <td style="width:44px;vertical-align:top;">
-                          <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#06b6d4);display:flex;align-items:center;justify-content:center;text-align:center;line-height:36px;">
+                          <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#4f46e5);display:flex;align-items:center;justify-content:center;text-align:center;line-height:36px;">
                             <span style="color:#fff;font-size:12px;font-weight:800;">${s.n}</span>
                           </div>
                         </td>
@@ -127,7 +127,7 @@ function buildWelcomeHtml({ nombre, email, userType, lang }) {
               <table cellpadding="0" cellspacing="0" style="margin-top:32px;">
                 <tr>
                   <td style="border-radius:12px;background:linear-gradient(135deg,#7c3aed 0%,#06b6d4 100%);padding:1px;">
-                    <a href="${ctaUrl}" style="display:block;background:linear-gradient(135deg,#7c3aed 0%,#0891b2 100%);border-radius:11px;padding:15px 36px;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;text-align:center;">${ctaLabel}</a>
+                    <a href="${ctaUrl}" style="display:block;background:linear-gradient(135deg,#7c3aed 0%,#4f46e5 100%);border-radius:11px;padding:15px 36px;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;text-align:center;">${ctaLabel}</a>
                   </td>
                 </tr>
               </table>

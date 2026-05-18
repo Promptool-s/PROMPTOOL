@@ -158,6 +158,7 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
     isScrolling.current = true
     currentIdx.current = targetIdx
     setCurrentSection(targetIdx)
+    container.style.scrollSnapType = 'none'
     const duration = 750
     const start = performance.now()
     const step = (now) => {
@@ -168,6 +169,7 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
         requestAnimationFrame(step)
       } else {
         container.scrollTop = to
+        container.style.scrollSnapType = 'y mandatory'
         isScrolling.current = false
       }
     }
