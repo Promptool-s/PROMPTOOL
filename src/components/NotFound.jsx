@@ -74,14 +74,11 @@ export default function NotFound() {
         }}
       />
 
-      {/* Header mínimo */}
-      <header className="relative z-10 border-b border-slate-200/70 bg-white/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center gap-3 px-6 py-3">
-          <a href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
-            <img src="/favicon.png" alt="PrompTool" className="w-7 h-7 object-contain" />
-            <span className="text-lg font-bold tracking-tight text-slate-900">
-              Promp<span style={{ color: 'rgb(var(--color-accent))' }}>Tool</span>
-            </span>
+      {/* Header — igual al del resto de la app */}
+      <header className="relative z-10 sticky top-0 border-b border-slate-200/90 bg-white/95 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center gap-4 px-6 py-3">
+          <a href="/" className="shrink-0 flex items-center gap-2 transition-opacity hover:opacity-80">
+            <span className="text-lg font-bold tracking-tight text-slate-900">Promp<span style={{ color: 'rgb(var(--color-accent))' }}>Tool</span></span>
           </a>
         </div>
       </header>
