@@ -2958,7 +2958,7 @@ function UsuarioApp() {
                       </span>
                       {nextRank && (
                         <span className="text-xs text-slate-400">
-                          → {lang === 'en' ? nextRank.nameEn : nextRank.name} ({nextRank.min - elo} pts)
+                          {lang === 'en' ? nextRank.nameEn : nextRank.name} ({nextRank.min - elo} pts)
                         </span>
                       )}
                     </div>

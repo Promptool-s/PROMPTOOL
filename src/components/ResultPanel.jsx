@@ -127,7 +127,7 @@ const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, stren
       ctx.fill()
       ctx.fillStyle = badgeColor
       ctx.font = 'bold 14px system-ui, sans-serif'
-      ctx.fillText(isPass ? (lang === 'en' ? '✓ Level Passed' : '✓ Nivel Superado') : (lang === 'en' ? '✗ Keep Trying' : '✗ Sigue intentando'), rx + 14, 104)
+      ctx.fillText(isPass ? (lang === 'en' ? 'Level Passed' : 'Nivel Superado') : (lang === 'en' ? 'Keep Trying' : 'Sigue intentando'), rx + 14, 104)
 
       // Difficulty
       ctx.fillStyle = 'rgba(255,255,255,0.15)'
@@ -236,7 +236,7 @@ const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, stren
                     <span className={`text-xs font-bold ${
                       eloDelta >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                     }`}>
-                      {eloDelta >= 0 ? '▲' : '▼'}
+                      {eloDelta >= 0 ? '+' : '-'}
                     </span>
                   </div>
                   <div className="flex flex-col">

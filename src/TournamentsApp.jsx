@@ -339,7 +339,7 @@ function TournamentsApp() {
 
                         <div className="text-right text-xs text-slate-400">
                           <p>{new Date(t.fecha_inicio).toLocaleDateString(lang === 'en' ? 'en-US' : 'es-ES', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-                          <p>→ {new Date(t.fecha_fin).toLocaleDateString(lang === 'en' ? 'en-US' : 'es-ES', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                          <p>{lang === 'en' ? 'Until:' : 'Hasta:'} {new Date(t.fecha_fin).toLocaleDateString(lang === 'en' ? 'en-US' : 'es-ES', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                         </div>
 
                         {(isUpcoming || isActive) && (

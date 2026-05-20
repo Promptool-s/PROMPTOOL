@@ -350,8 +350,8 @@ function LeaderboardApp() {
                 </p>
                 <p className="mt-0.5 text-[11px] text-slate-400">
                   {lang === 'en'
-                    ? 'Play with the ⚡ Ranked toggle on'
-                    : 'Jugá con el toggle ⚡ Rankeado activado'}
+                    ? 'Play with the Ranked toggle on'
+                    : 'Juga con el toggle Rankeado activado'}
                 </p>
               </div>
             )}

@@ -337,8 +337,8 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
                     className={`${inputClass} pl-8 pr-9 ${usernameStatus === 'taken' ? 'border-rose-300' : usernameStatus === 'ok' ? 'border-emerald-300' : ''}`}
                     required />
                   {usernameStatus === 'checking' && <div className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />}
-                  {usernameStatus === 'ok' && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-emerald-500">✓</span>}
-                  {usernameStatus === 'taken' && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-rose-500">✗</span>}
+                  {usernameStatus === 'ok' && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500"><svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>}
+                  {usernameStatus === 'taken' && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-rose-500"><svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></span>}
                 </div>
               </>
             )}

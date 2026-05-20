@@ -1180,7 +1180,7 @@ function App() {
           <div className="flex items-center gap-2">
             {trend !== 0 && (
               <span className={['text-xs font-bold', trend > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'].join(' ')}>
-                {trend > 0 ? '▲' : '▼'}{trend}
+                {trend > 0 ? '+' : ''}{trend}
               </span>
             )}
             <div className="relative group/progress">
@@ -1377,7 +1377,7 @@ function App() {
           </p>
           {unlocked && (
             <p className="text-amber-400 font-medium">
-              {lang === 'en' ? '✓ Click to reveal the original prompt' : '✓ Hacé clic para ver el prompt original'}
+              {lang === 'en' ? 'Click to reveal the original prompt' : 'Hace clic para ver el prompt original'}
             </p>
           )}
         </div>
@@ -1518,7 +1518,7 @@ function App() {
                       'text-cyan-800'
                     }`}>
                       {inviteState === 'loading' && (lang === 'en' ? 'Joining company...' : 'Uniéndote a la empresa...')}
-                      {inviteState === 'joined' && `✓ ${lang === 'en' ? `You joined ${inviteCompany?.company_name || 'the company'}!` : `¡Te uniste a ${inviteCompany?.company_name || 'la empresa'}!`}`}
+                      {inviteState === 'joined' && (lang === 'en' ? `You joined ${inviteCompany?.company_name || 'the company'}!` : `Te uniste a ${inviteCompany?.company_name || 'la empresa'}!`)}
                       {inviteState === 'already' && (lang === 'en' ? 'You are already a member of a company.' : 'Ya sos miembro de una empresa.')}
                       {inviteState === 'error' && (lang === 'en' ? 'Could not join. Try again.' : 'No se pudo unir. Intentá de nuevo.')}
                     </p>

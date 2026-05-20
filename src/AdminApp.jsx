@@ -359,7 +359,7 @@ function AdminApp() {
     try {
       const { error } = await supabase.from('usuarios').update({ verified: newVal }).eq('id_usuario', row.id_usuario)
       if (error) throw error
-      showToast(newVal ? '✓ Empresa verificada' : 'Verificación removida')
+      showToast(newVal ? 'Empresa verificada' : 'Verificacion removida')
       if (selectedUser?.id_usuario === row.id_usuario) setSelectedUser({ ...selectedUser, verified: newVal })
       fetchTableData()
     } catch (err) {
@@ -591,7 +591,7 @@ function AdminApp() {
                       ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
                       : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
                   }`}>
-                  {selectedUser.verified ? '✓ Verified — click to remove' : 'Verify company'}
+                  {selectedUser.verified ? 'Verified — click to remove' : 'Verify company'}
                 </button>
               )}
             </div>
@@ -769,7 +769,7 @@ function AdminApp() {
                                       className={`rounded px-2.5 py-1 text-xs font-semibold transition ${
                                         row.verified ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
                                       }`}>
-                                      {row.verified ? '✓ Verified' : 'Verify'}
+                                      {row.verified ? 'Verified' : 'Verify'}
                                     </button>
                                   )}
                                 </>
