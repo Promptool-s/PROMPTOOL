@@ -160,7 +160,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'PrompTool <soporte@promptool.app>',
+        from: 'PrompTool <support@promptool.app>',
         to: [recipientEmail],
         subject,
         html,
