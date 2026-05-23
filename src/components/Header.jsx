@@ -26,7 +26,7 @@ const UserAvatar = ({ avatarUrl, className = 'h-full w-full object-cover' }) => 
   return <BrandedAvatar />
 }
 
-const Header = ({ companyRefreshKey = 0 }) => {
+const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
   const { user, loading, signInWithGoogle, signInWithEmail, signUpWithEmail, signOut } = useAuth()
   const { isAdmin } = useAdmin(user?.id)
   const { isDev } = useDev(user?.id)
@@ -573,6 +573,21 @@ const Header = ({ companyRefreshKey = 0 }) => {
                         <path d="M10.28 2.28L4.5 8.06 1.72 5.28a1 1 0 00-1.44 1.44l3.5 3.5a1 1 0 001.44 0l6.5-6.5a1 1 0 00-1.44-1.44z"/>
                       </svg>
                     )}
+                  </button>
+                )}
+
+                {/* Botón de configuración */}
+                {onOpenSettings && (
+                  <button
+                    onClick={onOpenSettings}
+                    className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+                    title={lang === 'en' ? 'Settings' : 'Configuración'}
+                    aria-label={lang === 'en' ? 'Settings' : 'Configuración'}
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
                   </button>
                 )}
 

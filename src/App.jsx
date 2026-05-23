@@ -1479,7 +1479,7 @@ function App() {
   // Si es individual, mostrar juego
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
-      <Header companyRefreshKey={inviteState === 'joined' ? 1 : 0} />
+      <Header companyRefreshKey={inviteState === 'joined' ? 1 : 0} onOpenSettings={() => setConfigOpen(true)} />
 
       {suspensionInfo && (
         <div className="bg-rose-600 px-4 py-3 text-center text-sm font-medium text-white">
