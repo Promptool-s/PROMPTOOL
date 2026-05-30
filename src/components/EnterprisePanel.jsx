@@ -183,6 +183,8 @@ const EnterprisePanel = ({ user }) => {
   const [chatLoading, setChatLoading] = useState(false)
   const [chatError, setChatError] = useState(null)
   const chatEndRef = useRef(null)
+  // Ref so outside-effect code can call fetchCompanyData without it being in scope
+  const fetchCompanyDataRef = useRef(null)
   // Chatbot member autocomplete
   const [chatSuggestions, setChatSuggestions] = useState([])
   const [chatSuggestionMode, setChatSuggestionMode] = useState(null) // 'rename' | 'role' | 'remove'
@@ -565,6 +567,7 @@ const EnterprisePanel = ({ user }) => {
       }
     }
 
+    fetchCompanyDataRef.current = fetchCompanyData
     fetchCompanyData()
   }, [user?.id])
 
@@ -684,7 +687,7 @@ const EnterprisePanel = ({ user }) => {
       if (error) throw error
       
       // Refrescar lista de roles y miembros
-      await Promise.all([fetchCustomRoles(), fetchCompanyData()])
+      await Promise.all([fetchCustomRoles(), fetchCompanyDataRef.current?.()])
     } catch (error) {
       console.error('Error deleting role:', error)
       alert(error.message || (lang === 'en' ? 'Could not delete role' : 'No se pudo eliminar el rol'))
@@ -964,6 +967,7 @@ const EnterprisePanel = ({ user }) => {
 
   const resetChallengeForm = () => {
     setChallengeForm({
+      contentType: 'image',
       prompt: '',
       difficulty: 'Medium',
       theme: '',
@@ -1626,8 +1630,12 @@ RESPONSE RULES:
             // Security: verify user belongs to this team
             const isMember = teamUsers.some(u => u.id_usuario === actionData.userId)
             if (isMember) {
-              const validRoles = ['manager', 'analyst', 'trainee', 'observer', '']
-              const role = validRoles.includes(actionData.role) ? actionData.role : null
+              const customRoleNames = customRoles.map(r => (r.name || r).toLowerCase())
+              const builtInRoles = ['manager', 'analyst', 'trainee', 'observer', '']
+              const requestedRole = String(actionData.role ?? '').trim()
+              const isValidRole = builtInRoles.includes(requestedRole.toLowerCase()) ||
+                customRoleNames.includes(requestedRole.toLowerCase())
+              const role = isValidRole ? requestedRole : null
               await supabase.rpc('assign_company_role', {
                 target_user_id: actionData.userId,
                 role: role || '',
@@ -1695,7 +1703,7 @@ RESPONSE RULES:
               if (error) throw error
               
               // Refresh custom roles and team users
-              await Promise.all([fetchCustomRoles(), fetchCompanyData()])
+              await Promise.all([fetchCustomRoles(), fetchCompanyDataRef.current?.()])
               
               // Add success message to chat
               setChatMessages(prev => [...prev, { 
@@ -1821,10 +1829,32 @@ RESPONSE RULES:
     // Recruiter-specific stats
     const topElo = filteredUsers.length > 0 ? Math.max(...filteredUsers.map(u => u.elo_rating || 1000)) : 0
     const bestStreak = filteredUsers.length > 0 ? Math.max(...filteredUsers.map(u => u.racha_actual || 0)) : 0
-    const consistentMembers = filteredUsers.filter(u => (u.porcentaje_aprobacion || 0) >= 70).length
-    const highPerformers = filteredUsers.filter(u => (u.promedio_score || 0) >= 70).length
+
+    // When a time filter is active, derive per-user score metrics from filtered attempts
+    // rather than the all-time DB columns (promedio_score / porcentaje_aprobacion)
+    const getUserFilteredScore = (userId) => {
+      if (!usingTimeFilter) return userAttemptStats?.[userId]?.avgScore ?? null
+      const attempts = memberFilteredAttempts.filter(a => a.id_usuario === userId)
+      if (attempts.length === 0) return null
+      return Math.round(attempts.reduce((s, a) => s + (a.puntaje_similitud || 0), 0) / attempts.length)
+    }
+    const getUserApproval = (userId) => {
+      if (!usingTimeFilter) return (filteredUsers.find(u => u.id_usuario === userId)?.porcentaje_aprobacion || 0)
+      const attempts = memberFilteredAttempts.filter(a => a.id_usuario === userId)
+      if (attempts.length === 0) return 0
+      const passing = attempts.filter(a => (a.puntaje_similitud || 0) >= 50).length
+      return Math.round((passing / attempts.length) * 100)
+    }
+
+    const consistentMembers = filteredUsers.filter(u => getUserApproval(u.id_usuario) >= 70).length
+    const highPerformers = filteredUsers.filter(u => {
+      const sc = usingTimeFilter
+        ? getUserFilteredScore(u.id_usuario)
+        : (u.promedio_score || 0)
+      return (sc ?? 0) >= 70
+    }).length
     const avgApproval = memberCount > 0
-      ? Math.round(filteredUsers.reduce((s, u) => s + (u.porcentaje_aprobacion || 0), 0) / memberCount)
+      ? Math.round(filteredUsers.reduce((s, u) => s + getUserApproval(u.id_usuario), 0) / memberCount)
       : 0
 
     // Score distribution
@@ -1863,10 +1893,22 @@ RESPONSE RULES:
       .sort((a, b) => (b.elo_rating || 1000) - (a.elo_rating || 1000))
       .slice(0, 5)
 
-    // Needs coaching (filtered)
+    // Needs coaching (filtered — uses time-filtered scores when filter is active)
     const needsAttention = [...filteredUsers]
-      .filter(u => (u.total_intentos || 0) > 0 && (u.promedio_score || 0) < 55)
-      .sort((a, b) => (a.promedio_score || 0) - (b.promedio_score || 0))
+      .filter(u => {
+        const attempts = usingTimeFilter
+          ? memberFilteredAttempts.filter(a => a.id_usuario === u.id_usuario).length
+          : (u.total_intentos || 0)
+        const score = usingTimeFilter
+          ? (getUserFilteredScore(u.id_usuario) ?? 100)
+          : (u.promedio_score || 0)
+        return attempts > 0 && score < 55
+      })
+      .map(u => ({
+        ...u,
+        _filteredScore: usingTimeFilter ? (getUserFilteredScore(u.id_usuario) ?? 0) : (u.promedio_score || 0),
+      }))
+      .sort((a, b) => a._filteredScore - b._filteredScore)
       .slice(0, 4)
 
     // ── Skill breakdown from filtered attempts ──
@@ -1970,8 +2012,8 @@ RESPONSE RULES:
         ? `${needsAttention.length} member${needsAttention.length > 1 ? 's' : ''} below 55%`
         : `${needsAttention.length} miembro${needsAttention.length > 1 ? 's' : ''} bajo 55%`,
       body: lang === 'en'
-        ? needsAttention.map(u => `${u.company_display_name || u.nombre_display || u.nombre || u.email} (${u.promedio_score ?? 0}%)`).join(' · ')
-        : needsAttention.map(u => `${u.company_display_name || u.nombre_display || u.nombre || u.email} (${u.promedio_score ?? 0}%)`).join(' · '),
+        ? needsAttention.map(u => `${u.company_display_name || u.nombre_display || u.nombre || u.email} (${u._filteredScore ?? u.promedio_score ?? 0}%)`).join(' · ')
+        : needsAttention.map(u => `${u.company_display_name || u.nombre_display || u.nombre || u.email} (${u._filteredScore ?? u.promedio_score ?? 0}%)`).join(' · '),
     })
     if (inactiveMembers > 0) insights.push({
       type: 'warning',
@@ -2471,7 +2513,8 @@ RESPONSE RULES:
                         const name = u.company_display_name||u.nombre_display||u.nombre||u.email
                         const profileHref = u.username?`/user/${u.username}`:`/perfil?id=${u.id_usuario}`
                         const trend = memberTrends.find(t=>t.name===name)
-                        const gap = 70-(u.promedio_score||0)
+                        const displayScore = u._filteredScore ?? u.promedio_score ?? 0
+                        const gap = 70 - displayScore
                         return (
                           <a key={u.id_usuario} href={profileHref} className="flex items-center gap-3 px-4 py-2.5 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors group">
                             <div className="h-7 w-7 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 shrink-0 flex items-center justify-center">
@@ -2482,7 +2525,7 @@ RESPONSE RULES:
                               <p className="text-[10px] text-rose-400">{gap}pts {lang==='en'?'to reach target':'para llegar al objetivo'}</p>
                             </div>
                             <div className="text-right shrink-0">
-                              <p className="text-xs font-bold text-rose-500">{u.promedio_score??0}%</p>
+                              <p className="text-xs font-bold text-rose-500">{displayScore}%</p>
                               <div className="flex items-center gap-1 mt-1">
                                 {trend&&trend.delta!==0&&<span className={`text-[9px] font-bold ${trend.delta>0?'text-emerald-500':'text-rose-500'}`}>{trend.delta>0?`+${trend.delta}`:trend.delta}</span>}
                                 <button

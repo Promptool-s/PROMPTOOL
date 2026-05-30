@@ -976,7 +976,7 @@ function App() {
                   timing: {
                     elapsedSeconds: timingData.elapsedSeconds,
                     recommendedSeconds: timingData.recommendedSeconds,
-                    penaltyOvertimeSeconds: timingData.penaltyOvertimeSeconds ?? 0,
+                    penaltyOvertimeSeconds: timingData.overtimeSeconds ?? 0,
                   },
                 })
 
