@@ -678,7 +678,7 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
 
                     <button
                       type="button"
-                      onClick={plan.name === 'Enterprise' ? () => window.location.href = 'mailto:hola@promptool.ai' : onOpenAuth}
+                      onClick={plan.name === 'Enterprise' ? () => window.location.href = 'mailto:soporte@promptool.app' : onOpenAuth}
                       className={`w-full rounded-lg py-2.5 text-sm font-semibold transition ${
                         plan.popular
                           ? 'bg-violet-600 text-white hover:bg-violet-700'

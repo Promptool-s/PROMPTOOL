@@ -1,5 +1,90 @@
 import { useEffect, useRef, useState } from 'react'
 
+// ── File type detection ──────────────────────────────────────────────────────
+const CODE_EXTS = new Set(['js','jsx','ts','tsx','py','cs','java','cpp','c','h','hpp','css','scss','html','xml','json','sql','sh','bash','rb','go','rs','php','swift','kt','vue','yaml','yml','toml','r','lua','dart','scala'])
+const DOC_EXTS  = new Set(['txt','md','csv','log'])
+const IMG_EXTS  = new Set(['jpg','jpeg','png','gif','webp','svg','bmp','ico','avif'])
+
+const LANG_MAP = {
+  js:'JavaScript', jsx:'JavaScript', ts:'TypeScript', tsx:'TypeScript',
+  py:'Python', cs:'C#', java:'Java', cpp:'C++', c:'C', h:'C', hpp:'C++',
+  css:'CSS', scss:'SCSS', html:'HTML', xml:'XML', json:'JSON', sql:'SQL',
+  sh:'Shell', bash:'Shell', rb:'Ruby', go:'Go', rs:'Rust', php:'PHP',
+  swift:'Swift', kt:'Kotlin', vue:'Vue', yaml:'YAML', yml:'YAML', toml:'TOML',
+  r:'R', lua:'Lua', dart:'Dart', scala:'Scala',
+}
+const KEYWORDS = new Set(['abstract','as','async','await','base','bool','break','byte','case','catch','char','class','const','continue','decimal','default','do','double','else','enum','event','explicit','extern','false','finally','fixed','float','for','foreach','goto','if','implicit','import','in','int','interface','internal','is','lock','long','namespace','new','null','object','operator','out','override','params','private','protected','public','readonly','ref','return','sbyte','sealed','short','sizeof','static','string','struct','switch','this','throw','true','try','typeof','uint','ulong','unchecked','unsafe','ushort','using','virtual','void','volatile','while','def','from','lambda','nonlocal','pass','raise','with','yield','elif','except','and','or','not','None','True','False','self','super','let','var','function','export','default','typeof','instanceof','of','extends','implements','type','module','declare','fun','val','when','companion','data','sealed','open','func','guard','protocol','extension','typealias','inout','package','throws','final','abstract','native'])
+
+function getExt(url = '') { return url.split('.').pop()?.toLowerCase().split('?')[0] || '' }
+function getUrlCategory(url) {
+  if (!url) return 'image'
+  const ext = getExt(url)
+  if (CODE_EXTS.has(ext)) return 'code'
+  if (DOC_EXTS.has(ext))  return 'document'
+  return 'image'
+}
+
+function tokenizeLine(line) {
+  const tokens = []
+  let i = 0
+  while (i < line.length) {
+    if (line[i] === '/' && line[i+1] === '/') { tokens.push({ t:'comment', v: line.slice(i) }); break }
+    if (line[i] === '#') { tokens.push({ t:'comment', v: line.slice(i) }); break }
+    if (line[i] === '"' || line[i] === "'") {
+      const q = line[i]; let j = i+1
+      while (j < line.length && !(line[j] === q && line[j-1] !== '\\')) j++
+      tokens.push({ t:'string', v: line.slice(i, j+1) }); i = j+1; continue
+    }
+    if (/\d/.test(line[i]) && (i === 0 || /\W/.test(line[i-1]))) {
+      let j = i; while (j < line.length && /[\d._]/.test(line[j])) j++
+      tokens.push({ t:'number', v: line.slice(i, j) }); i = j; continue
+    }
+    if (/[a-zA-Z_$]/.test(line[i])) {
+      let j = i; while (j < line.length && /[\w$]/.test(line[j])) j++
+      const w = line.slice(i, j)
+      tokens.push({ t: KEYWORDS.has(w) ? 'keyword' : 'ident', v: w }); i = j; continue
+    }
+    if (/[{}[\]().,;:=<>+\-*/%!&|^~?@]/.test(line[i])) { tokens.push({ t:'punct', v: line[i] }); i++; continue }
+    tokens.push({ t:'plain', v: line[i] }); i++
+  }
+  return tokens
+}
+const TC = { keyword:'#a78bfa', string:'#6ee7b7', comment:'#64748b', number:'#fcd34d', punct:'#94a3b8', ident:'#e2e8f0', plain:'#cbd5e1' }
+
+const CodeView = ({ code, language }) => {
+  const lines = code.split('\n')
+  return (
+    <div className="relative h-full w-full overflow-hidden rounded-xl bg-slate-900 font-mono text-xs leading-relaxed">
+      <div className="absolute right-3 top-3 rounded-md bg-slate-700/80 px-2 py-0.5 text-[10px] font-semibold text-slate-300 z-10 backdrop-blur-sm">
+        {language || 'Code'}
+      </div>
+      <div className="h-full overflow-auto p-4">
+        <table className="w-full border-collapse">
+          <tbody>
+            {lines.map((line, idx) => (
+              <tr key={idx} className="hover:bg-white/5 group">
+                <td className="select-none pr-4 text-right text-slate-600 group-hover:text-slate-500 w-10 shrink-0 align-top">{idx+1}</td>
+                <td className="whitespace-pre-wrap break-all align-top">
+                  {tokenizeLine(line).map((tok, ti) => (
+                    <span key={ti} style={{ color: TC[tok.t] }}>{tok.v}</span>
+                  ))}
+                  {line === '' && <span className="opacity-0">_</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+const DocView = ({ content }) => (
+  <div className="h-full overflow-auto rounded-xl bg-white border border-slate-200 p-5">
+    <pre className="whitespace-pre-wrap text-sm text-slate-700 leading-relaxed font-sans">{content}</pre>
+  </div>
+)
+
 /**
  * Aplica un watermark invisible al canvas con el userId.
  * Usa esteganografía básica: modifica el bit menos significativo
@@ -53,6 +138,24 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
   })
   const canvasRef = useRef(null)
   const watermarkedRef = useRef(false)
+  const [fileContent, setFileContent] = useState('')
+  const [fileLoading, setFileLoading] = useState(false)
+
+  const urlCategory = getUrlCategory(data?.url_image)
+  const isCodeFile = urlCategory === 'code'
+  const isDocFile  = urlCategory === 'document'
+  const isNonImage = isCodeFile || isDocFile
+
+  // Fetch text content for code/doc challenges
+  useEffect(() => {
+    if (!isNonImage || !data?.url_image) { setFileContent(''); return }
+    setFileLoading(true)
+    fetch(data.url_image)
+      .then(r => r.text())
+      .then(text => setFileContent(text))
+      .catch(() => setFileContent('// Could not load file content'))
+      .finally(() => setFileLoading(false))
+  }, [data?.url_image, isNonImage])
 
   const handleFirstHover = () => {
     if (zoomHintSeen) return
@@ -110,6 +213,36 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
   }, [previewOpen])
 
   const renderContent = () => {
+    // Code / document challenge
+    if (imageStatus === 'ok' && isNonImage) {
+      if (fileLoading) {
+        return (
+          <div className="flex h-full min-h-[300px] w-full items-center justify-center bg-slate-900 rounded-xl">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-600 border-t-cyan-400" />
+          </div>
+        )
+      }
+      const ext = getExt(data?.url_image)
+      const language = LANG_MAP[ext] || 'Code'
+      return (
+        <div className="h-full min-h-[300px] w-full">
+          {isCodeFile ? (
+            <CodeView code={fileContent} language={language} />
+          ) : (
+            <DocView content={fileContent} />
+          )}
+          {revealedPrompt && (
+            <div className="mt-3 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 mb-1">Respuesta esperada</p>
+              <p className="text-sm text-emerald-900 leading-relaxed select-none" onCopy={e => e.preventDefault()}>
+                {revealedPrompt}
+              </p>
+            </div>
+          )}
+        </div>
+      )
+    }
+
     if (imageStatus === 'loading') {
       return (
         <div className="flex h-full min-h-[400px] w-full flex-col items-center justify-center gap-3 p-6 bg-slate-50 dark:bg-slate-900">

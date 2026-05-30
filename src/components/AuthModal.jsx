@@ -5,10 +5,16 @@ import { proxyImg } from '../utils/imgProxy'
 import { checkRateLimit, formatTimeRemaining } from '../services/rateLimitService'
 import { sanitizeUsername } from '../utils/inputSanitizer'
 
+function makeMathQuestion() {
+  const a = Math.floor(Math.random() * 9) + 1
+  const b = Math.floor(Math.random() * 9) + 1
+  return { a, b, answer: String(a + b) }
+}
+
 const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSignUpWithEmail, inviteCompany = null, initialPlan = null }) => {
   const { t, lang } = useLang()
   const [mode, setMode] = useState('signin')
-  const [signupStep, setSignupStep] = useState('type') // 'type' | 'info'
+  const [signupStep, setSignupStep] = useState('type') // 'type' | 'info' | 'otp'
   const [userType, setUserType] = useState(null) // 'individual' | 'enterprise'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -21,6 +27,11 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
   const [acceptTerms, setAcceptTerms] = useState(false)
   const [acceptEmails, setAcceptEmails] = useState(false)
   const [rateLimitWarning, setRateLimitWarning] = useState(null)
+  const [mathQ] = useState(makeMathQuestion)
+  const [mathInput, setMathInput] = useState('')
+  const [otpToken, setOtpToken] = useState('')
+  const [otpCode, setOtpCode] = useState('')
+  const [pendingSignup, setPendingSignup] = useState(null)
 
   useEffect(() => {
     if (open && initialPlan) {
@@ -61,28 +72,22 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
     setRateLimitWarning(null)
     setLoading(true)
 
-    // Check rate limit before attempting auth
     const endpoint = mode === 'signup' ? 'signup' : 'login'
     const rateLimit = await checkRateLimit(endpoint)
-    
+
     if (!rateLimit.allowed) {
       const timeRemaining = formatTimeRemaining(rateLimit.resetAt, lang)
-      setError(
-        lang === 'en' 
-          ? `Too many attempts. Please try again in ${timeRemaining}.`
-          : `Demasiados intentos. Intentá de nuevo en ${timeRemaining}.`
-      )
+      setError(lang === 'en'
+        ? `Too many attempts. Please try again in ${timeRemaining}.`
+        : `Demasiados intentos. Intentá de nuevo en ${timeRemaining}.`)
       setLoading(false)
       return
     }
 
-    // Show warning if approaching limit
     if (rateLimit.attemptsLeft <= 2 && rateLimit.attemptsLeft > 0) {
-      setRateLimitWarning(
-        lang === 'en'
-          ? `${rateLimit.attemptsLeft} attempt${rateLimit.attemptsLeft !== 1 ? 's' : ''} remaining`
-          : `${rateLimit.attemptsLeft} intento${rateLimit.attemptsLeft !== 1 ? 's' : ''} restante${rateLimit.attemptsLeft !== 1 ? 's' : ''}`
-      )
+      setRateLimitWarning(lang === 'en'
+        ? `${rateLimit.attemptsLeft} attempt${rateLimit.attemptsLeft !== 1 ? 's' : ''} remaining`
+        : `${rateLimit.attemptsLeft} intento${rateLimit.attemptsLeft !== 1 ? 's' : ''} restante${rateLimit.attemptsLeft !== 1 ? 's' : ''}`)
     }
 
     try {
@@ -92,20 +97,29 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
         if (usernameStatus === 'taken') { setError(t('usernameTaken')); setLoading(false); return }
         if (userType === 'enterprise' && !companyName.trim()) {
           setError(lang === 'en' ? 'Company name is required' : 'El nombre de la empresa es requerido')
-          setLoading(false)
-          return
+          setLoading(false); return
         }
         if (!acceptTerms) {
           setError(lang === 'en' ? 'You must accept the terms to continue.' : 'Tenés que aceptar los términos para continuar.')
           setLoading(false); return
         }
-        await onSignUpWithEmail(email, password, nombre, username, userType, companyName)
-        // Guardar preferencia de emails
-        if (acceptEmails) {
-          const { data: { user } } = await supabase.auth.getUser()
-          if (user) supabase.from('usuarios').update({ email_marketing: true }).eq('id_usuario', user.id)
+        if (mathInput.trim() !== mathQ.answer) {
+          setError(lang === 'en' ? 'Incorrect answer. Please solve the math question.' : 'Respuesta incorrecta. Resolvé la pregunta.')
+          setLoading(false); return
         }
-        onClose()
+
+        // Send OTP to email
+        const res = await fetch('/api/send-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, lang: lang || 'es' }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Failed to send verification code')
+
+        setOtpToken(data.token)
+        setPendingSignup({ email, password, nombre, username, userType, companyName, acceptTerms, acceptEmails })
+        setSignupStep('otp')
       } else {
         await onSignInWithEmail(email, password)
         onClose()
@@ -117,10 +131,39 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
     }
   }
 
+  const handleOtpVerify = async (e) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    try {
+      const res = await fetch('/api/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: otpToken, code: otpCode.trim(), email: pendingSignup.email }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        const msg = data.error === 'Code expired'
+          ? (lang === 'en' ? 'Code expired. Please go back and try again.' : 'El código expiró. Volvé e intentá de nuevo.')
+          : (lang === 'en' ? 'Incorrect code. Check your email and try again.' : 'Código incorrecto. Revisá tu correo e intentá de nuevo.')
+        setError(msg)
+        setLoading(false)
+        return
+      }
+      const { email: em, password: pw, nombre: nb, username: un, userType: ut, companyName: cn, acceptTerms: at, acceptEmails: ae } = pendingSignup
+      await onSignUpWithEmail(em, pw, nb, un, ut, cn, at, ae)
+      onClose()
+    } catch (err) {
+      setError(err.message || 'Error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const resetForm = () => {
     setEmail(''); setPassword(''); setNombre(''); setUsername(''); setCompanyName('')
     setUsernameStatus(null); setError(''); setAcceptTerms(false); setAcceptEmails(false)
-    setUserType(null); setSignupStep('type')
+    setUserType(null); setSignupStep('type'); setMathInput(''); setOtpToken(''); setOtpCode(''); setPendingSignup(null)
   }
   const switchMode = () => { setMode(m => m === 'signin' ? 'signup' : 'signin'); resetForm() }
 
@@ -138,7 +181,7 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
 
   const canSubmit = mode === 'signin'
     ? !loading && !!email
-    : !loading && usernameStatus === 'ok' && acceptTerms
+    : !loading && usernameStatus === 'ok' && acceptTerms && mathInput.trim() === mathQ.answer
 
   return (
     <div
@@ -158,6 +201,8 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
               <h2 className="text-lg font-semibold text-slate-900">
                 {mode === 'signin'
                   ? (lang === 'en' ? 'Sign in' : 'Iniciar sesión')
+                  : mode === 'signup' && signupStep === 'otp'
+                  ? (lang === 'en' ? 'Verify your email' : 'Verificá tu email')
                   : mode === 'signup' && signupStep === 'type'
                   ? (lang === 'en' ? 'Choose your plan' : 'Elige tu plan')
                   : mode === 'signup' && userType === 'enterprise'
@@ -167,6 +212,8 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
               <p className="text-xs text-slate-400 mt-0.5">
                 {mode === 'signin'
                   ? (lang === 'en' ? 'Welcome back to PrompTool' : 'Bienvenido de vuelta')
+                  : mode === 'signup' && signupStep === 'otp'
+                  ? (lang === 'en' ? 'Enter the code we sent to your email' : 'Ingresá el código que enviamos a tu correo')
                   : mode === 'signup' && signupStep === 'type'
                   ? (lang === 'en' ? 'Select a plan to get started' : 'Selecciona un plan para comenzar')
                   : (lang === 'en' ? `Complete your ${userType === 'enterprise' ? 'enterprise' : 'personal'} profile` : `Completa tu perfil ${userType === 'enterprise' ? 'empresarial' : 'personal'}`)}
@@ -194,6 +241,50 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
           )}
 
         <div className="px-6 py-5 space-y-3">
+
+          {/* OTP verification step */}
+          {mode === 'signup' && signupStep === 'otp' ? (
+            <form onSubmit={handleOtpVerify} className="space-y-4">
+              <div>
+                <p className="text-sm font-semibold text-slate-900 mb-1">
+                  {lang === 'en' ? 'Check your email' : 'Revisá tu correo'}
+                </p>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  {lang === 'en'
+                    ? `We sent a 6-digit code to ${pendingSignup?.email}. Enter it below.`
+                    : `Enviamos un código de 6 dígitos a ${pendingSignup?.email}. Ingresalo acá.`}
+                </p>
+              </div>
+              <input
+                type="text"
+                value={otpCode}
+                onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder={lang === 'en' ? '6-digit code' : 'Código de 6 dígitos'}
+                className={inputClass + ' text-center text-2xl font-mono tracking-[0.4em]'}
+                maxLength={6}
+                autoComplete="one-time-code"
+                autoFocus
+              />
+              {error && (
+                <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2 flex items-center gap-2">
+                  <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {error}
+                </div>
+              )}
+              <button type="submit" disabled={loading || otpCode.length !== 6}
+                className="w-full rounded-xl py-2.5 text-sm font-semibold text-white transition disabled:opacity-40"
+                style={{ backgroundColor: 'rgb(var(--color-accent))' }}>
+                {loading ? '...' : (lang === 'en' ? 'Verify & create account' : 'Verificar y crear cuenta')}
+              </button>
+              <button type="button" onClick={() => { setSignupStep('info'); setError(''); setOtpCode('') }}
+                className="w-full rounded-xl py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition">
+                {lang === 'en' ? 'Back' : 'Volver'}
+              </button>
+            </form>
+          ) : null}
+
           {/* Mostrar selección de tipo de usuario en signup */}
           {mode === 'signup' && signupStep === 'type' ? (
             <div className="space-y-3">
@@ -341,6 +432,23 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
                   {usernameStatus === 'taken' && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-rose-500"><svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></span>}
                 </div>
               </>
+            )}
+
+            {/* Math captcha — solo en signup step info */}
+            {mode === 'signup' && signupStep === 'info' && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <label className="block text-xs font-semibold text-slate-700 mb-2">
+                  {lang === 'en' ? `Quick check: ${mathQ.a} + ${mathQ.b} = ?` : `Verificación rápida: ${mathQ.a} + ${mathQ.b} = ?`}
+                </label>
+                <input
+                  type="number"
+                  value={mathInput}
+                  onChange={e => setMathInput(e.target.value)}
+                  placeholder={lang === 'en' ? 'Answer' : 'Respuesta'}
+                  className={inputClass}
+                  autoComplete="off"
+                />
+              </div>
             )}
 
             {/* Checkboxes solo en signup step info */}
