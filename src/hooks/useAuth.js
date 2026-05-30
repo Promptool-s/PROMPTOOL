@@ -121,7 +121,7 @@ export const useAuth = () => {
     if (error) throw error
   }
 
-  const signUpWithEmail = async (email, password, nombre, username, userType = 'individual', companyName = null) => {
+  const signUpWithEmail = async (email, password, nombre, username, userType = 'individual', companyName = null, acceptedTerms = false, emailMarketing = false) => {
     // Check rate limit first
     const rateLimit = await checkRateLimit('signup')
     if (!rateLimit.allowed) {
@@ -191,6 +191,8 @@ export const useAuth = () => {
         idioma_preferido: 'es',
         adminstate: false,
         user_type: userType || 'individual',
+        accepted_terms: !!acceptedTerms,
+        email_marketing: !!emailMarketing,
       }
 
       // Si es empresa, agregar campos específicos
@@ -202,17 +204,7 @@ export const useAuth = () => {
       const { error: dbError } = await supabase.from('usuarios').insert([profileData])
       if (dbError) throw dbError
 
-      // Auto-login después del registro — no pedir que inicie sesión por separado
-      // Si la sesión ya está activa (confirmación de email desactivada), esto la refresca
-      if (!data.session) {
-        const { error: loginError } = await supabase.auth.signInWithPassword({
-          email: emailResult.sanitized,
-          password: passwordResult.sanitized,
-        })
-        if (loginError) throw loginError
-      }
-
-      // Email de bienvenida — fire and forget
+      // Email de bienvenida — fire and forget, antes del auto-login para que siempre se envíe
       try {
         const lang = localStorage.getItem('lang') || 'es'
         fetch('/api/send-welcome', {
@@ -226,6 +218,16 @@ export const useAuth = () => {
           }),
         })
       } catch (_) {}
+
+      // Auto-login después del registro — no pedir que inicie sesión por separado
+      // Si la sesión ya está activa (confirmación de email desactivada), esto la refresca
+      if (!data.session) {
+        const { error: loginError } = await supabase.auth.signInWithPassword({
+          email: emailResult.sanitized,
+          password: passwordResult.sanitized,
+        })
+        if (loginError) throw loginError
+      }
     }
 
     return data

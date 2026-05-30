@@ -58,21 +58,22 @@ const EnterprisePanel = ({ user }) => {
   const [creatingChallenge, setCreatingChallenge] = useState(false)
   const [challengeStatus, setChallengeStatus] = useState(null)
   const [challengeForm, setChallengeForm] = useState({
+    contentType: 'image', // image | code | document
     prompt: '',
     difficulty: 'Medium',
     theme: '',
     description: '',
-    timeLimit: 180, // segundos
-    maxAttempts: 0, // 0 = ilimitado
+    timeLimit: 180,
+    maxAttempts: 0,
     minWords: 10,
     startDate: '',
     endDate: '',
-    visibility: 'private', // private | public
+    visibility: 'private',
     points: 100,
     tags: [],
     hints: ['', '', ''],
-    evaluationMode: 'standard', // standard | strict | flexible
-    evalInstructions: '', // custom AI eval instructions
+    evaluationMode: 'standard',
+    evalInstructions: '',
   })
   const [challengeImageFile, setChallengeImageFile] = useState(null)
   const [challengeImagePreview, setChallengeImagePreview] = useState(null)
@@ -785,7 +786,7 @@ const EnterprisePanel = ({ user }) => {
         : `https://promptool.app/?invite=${user.id}&email=${encodeURIComponent(inviteEmail.trim())}`
 
       try {
-        await fetch('/api/send-invite', {
+        const inviteRes = await fetch('/api/send-invite', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -796,6 +797,9 @@ const EnterprisePanel = ({ user }) => {
             isExistingUser: !!existingUser?.id_usuario,
           }),
         })
+        if (!inviteRes.ok) {
+          console.error('[send-invite] HTTP error:', inviteRes.status)
+        }
       } catch (_) {}
 
       setInviteEmail('')
@@ -1032,13 +1036,16 @@ const EnterprisePanel = ({ user }) => {
     
     if (!challengeImageFile || !challengeForm.prompt.trim() || !challengeForm.theme.trim()) {
       setChallengeStatus(lang === 'en'
-        ? 'Complete image, prompt and theme.'
-        : 'Completa imagen, prompt y temática.')
+        ? 'Complete content, prompt and theme.'
+        : 'Completa el contenido, prompt y temática.')
       return
     }
 
     setCreatingChallenge(true)
-    setChallengeStatus(lang === 'en' ? 'Uploading image...' : 'Subiendo imagen...')
+    const uploadLabel = challengeForm.contentType === 'image'
+      ? (lang === 'en' ? 'Uploading image...' : 'Subiendo imagen...')
+      : (lang === 'en' ? 'Uploading file...' : 'Subiendo archivo...')
+    setChallengeStatus(uploadLabel)
     try {
       const ext = (challengeImageFile.name.split('.').pop() || 'jpg').toLowerCase()
       const path = `${user.id}/${Date.now()}-challenge.${ext}`
@@ -4039,7 +4046,7 @@ RESPONSE RULES:
               : 'La facturación comenzará después del 20 de junio de 2026. Tu plan se determinará automáticamente según el tamaño de tu equipo. Te avisaremos antes de cualquier cobro.'}
           </p>
           <a
-            href="mailto:hola@promptool.ai"
+            href="mailto:soporte@promptool.app"
             className="mt-3 inline-flex items-center text-sm font-semibold text-violet-600 dark:text-violet-400 hover:underline"
           >
             {lang === 'en' ? 'Contact us about pricing →' : 'Contactarnos sobre precios →'}

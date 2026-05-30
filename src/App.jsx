@@ -160,6 +160,7 @@ function App() {
   const [userType, setUserType] = useState(null)
   const [userTypeLoading, setUserTypeLoading] = useState(false)
   const [userStreak, setUserStreak] = useState(0)
+  const [userHasCompany, setUserHasCompany] = useState(false)
   const [showEnterpriseOnboarding, setShowEnterpriseOnboarding] = useState(false)
   const [showUserOnboarding, setShowUserOnboarding] = useState(false)
   const [promptUsuario, setPromptUsuario] = useState('')
@@ -405,16 +406,17 @@ function App() {
       setUserTypeLoading(true)
       const { data } = await supabase
         .from('usuarios')
-        .select('user_type, racha_actual')
+        .select('user_type, racha_actual, company_id, enterprise_onboarded')
         .eq('id_usuario', user.id)
         .maybeSingle()
       const type = data?.user_type || 'individual'
       setUserType(type)
       setUserStreak(data?.racha_actual || 0)
+      setUserHasCompany(!!data?.company_id)
       setUserTypeLoading(false)
 
       // Onboarding — solo una vez por usuario
-      if (type === 'enterprise' && !localStorage.getItem(`enterprise_onboarded_${user.id}`)) {
+      if (type === 'enterprise' && !data?.enterprise_onboarded) {
         setShowEnterpriseOnboarding(true)
       } else if (type !== 'enterprise' && !localStorage.getItem(`user_onboarded_${user.id}`)) {
         setShowUserOnboarding(true)
@@ -1488,12 +1490,14 @@ function App() {
         </div>
       )}
 
-      <main className="flex-1 py-2 px-2 sm:px-4">
+      <main className="flex-1 overflow-y-auto py-2 px-2 sm:px-4">
         <div className="mx-auto flex max-w-screen-2xl gap-3 items-start">
-          {/* Left ad */}
+          {/* Left ad — hidden for company members */}
+          {!userHasCompany && (
           <aside className="hidden xl:flex shrink-0 flex-col self-start sticky top-4 w-40 h-[calc(100vh-2rem)]">
             <AdSenseUnit slot={import.meta.env.VITE_ADSENSE_SLOT_LEFT || 'LEFT'} />
           </aside>
+          )}
 
           {/* Game area */}
           <div className="flex-1 min-w-0 overflow-hidden rounded-2xl bg-slate-50 dark:bg-slate-900">
@@ -1820,10 +1824,12 @@ function App() {
           </div>
           </div>{/* /game area */}
 
-          {/* Right ad */}
+          {/* Right ad — hidden for company members */}
+          {!userHasCompany && (
           <aside className="hidden xl:flex shrink-0 flex-col self-start sticky top-4 w-40 h-[calc(100vh-2rem)]">
             <AdSenseUnit slot={import.meta.env.VITE_ADSENSE_SLOT_RIGHT || 'RIGHT'} />
           </aside>
+          )}
         </div>{/* /flex wrapper */}
       </main>
 

@@ -693,22 +693,71 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
   return (
     <section id="guias" className="mx-auto mt-2 w-full max-w-none px-6 pb-8">
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-        <aside ref={sidebarRef} className="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-end justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{ui.library}</p>
-              <h2 className="mt-1 text-2xl font-semibold text-slate-900">{ui.guides}</h2>
+        {/* ── Sidebar gamificado ── */}
+        {(() => {
+          // XP & level system
+          const totalXP = GUIDE_LIBRARY.reduce((sum, g) => sum + Math.round((guideProgress[g.id] ?? 0)), 0)
+          const maxXP = GUIDE_LIBRARY.length * 100
+          const LEVELS = [
+            { min: 0,   label: lang === 'en' ? 'Novice'        : 'Novato',       bg: 'bg-slate-700' },
+            { min: 200, label: lang === 'en' ? 'Beginner'      : 'Principiante', bg: 'bg-blue-700' },
+            { min: 400, label: lang === 'en' ? 'Intermediate'  : 'Intermedio',   bg: 'bg-cyan-700' },
+            { min: 650, label: lang === 'en' ? 'Advanced'      : 'Avanzado',     bg: 'bg-violet-700' },
+            { min: 900, label: lang === 'en' ? 'Expert'        : 'Experto',      bg: 'bg-amber-600' },
+          ]
+          const currentLevel = [...LEVELS].reverse().find(l => totalXP >= l.min) || LEVELS[0]
+          const nextLevel = LEVELS[LEVELS.indexOf(currentLevel) + 1]
+          const xpToNext = nextLevel ? nextLevel.min - totalXP : 0
+          const levelPct = nextLevel ? Math.round(((totalXP - currentLevel.min) / (nextLevel.min - currentLevel.min)) * 100) : 100
+          const completedCount = GUIDE_LIBRARY.filter(g => (guideProgress[g.id] ?? 0) >= 100).length
+
+          return (
+        <aside ref={sidebarRef} className="rounded-[2rem] border border-slate-200 bg-white shadow-sm overflow-hidden">
+
+          {/* XP banner */}
+          <div className={`${currentLevel.bg} px-5 py-4`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-widest text-white/60">
+                  {lang === 'en' ? 'Your level' : 'Tu nivel'}
+                </p>
+                <h2 className="mt-0.5 text-lg font-extrabold text-white leading-none">{currentLevel.label}</h2>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-extrabold text-white leading-none">{totalXP}</p>
+                <p className="text-[11px] text-white/60 font-semibold">/ {maxXP} XP</p>
+              </div>
             </div>
-            <div className="hidden sm:block text-xs font-semibold text-slate-500">
-              {activeSection === 'library' ? GUIDE_LIBRARY.length : enterpriseGuides.length}
-            </div>
+            {nextLevel && (
+              <div className="mt-3">
+                <div className="h-1 rounded-full bg-white/20 overflow-hidden">
+                  <div className="h-full rounded-full bg-white transition-all duration-700" style={{ width: `${Math.max(2, levelPct)}%` }} />
+                </div>
+                <p className="mt-1.5 text-[10px] text-white/50">
+                  {xpToNext} XP {lang === 'en' ? 'to' : 'para'} {nextLevel.label}
+                </p>
+              </div>
+            )}
           </div>
 
+          <div className="p-4">
+            {/* Stats strip */}
+            <div className="mb-4 grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-center">
+                <p className="text-lg font-extrabold text-slate-900">{completedCount}</p>
+                <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">{lang === 'en' ? 'Completed' : 'Completadas'}</p>
+              </div>
+              <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-center">
+                <p className="text-lg font-extrabold text-slate-900">{GUIDE_LIBRARY.length - completedCount}</p>
+                <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">{lang === 'en' ? 'Remaining' : 'Restantes'}</p>
+              </div>
+            </div>
+
           {/* Tab switcher */}
-          <div className="mt-4 flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+          <div className="flex rounded-xl border border-slate-200 bg-slate-50 p-1 mb-4">
             <button
               onClick={() => setActiveSection('library')}
-              className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
+              className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-all ${
                 activeSection === 'library'
                   ? 'bg-white text-slate-900 shadow-sm'
                   : 'text-slate-500 hover:text-slate-700'
@@ -718,7 +767,7 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
             </button>
             <button
               onClick={() => setActiveSection('enterprise')}
-              className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
+              className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-all ${
                 activeSection === 'enterprise'
                   ? 'bg-white text-slate-900 shadow-sm'
                   : 'text-slate-500 hover:text-slate-700'
@@ -813,7 +862,7 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
             </div>
           )}
 
-          <div className="mt-4 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-2">
+          <div className="mt-4 space-y-1">
             {activeSection === 'library' ? (
               <nav className="space-y-1">
                 {GUIDE_LIBRARY.map((guide) => {
@@ -821,6 +870,8 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
                   const isRecommended = recommendedSet.has(guide.id)
                   const isCompanyAssigned = companyAssignedIds.has(guide.id)
                   const a = ACCENTS[guide.accent] || ACCENTS.slate
+                  const pct = guideProgress[guide.id] ?? 0
+                  const isDone = pct >= 100
                   return (
                     <a
                       key={guide.id}
@@ -829,28 +880,28 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
                         isActive ? `bg-white ${a.border} shadow-sm` : 'border-transparent hover:bg-white/70'
                       }`}
                     >
-                      <span
-                        className={`mt-0.5 h-3 w-3 flex-shrink-0 rounded-full ring-1 ring-slate-200 ${a.pill}`}
-                        aria-hidden="true"
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold text-slate-900">{guide.title}</span>
-                        <span className="mt-0.5 block truncate text-xs text-slate-500">{guide.summary}</span>
-                        <span className="mt-2 flex items-center gap-2">
-                          {isRecommended && !isCompanyAssigned && (
-                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${a.pill}`}>
-                              {ui.recommended}
-                            </span>
-                          )}
-                          {isCompanyAssigned && (
-                            <span className="rounded-full bg-violet-100 text-violet-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]">
-                              {lang === 'en' ? 'Company' : 'Empresa'}
-                            </span>
-                          )}
-                          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-                            {guideProgress[guide.id] ?? 0}%
-                          </span>
+                      {/* Progress ring */}
+                      <div className="relative shrink-0 h-8 w-8">
+                        <svg className="h-8 w-8 -rotate-90" viewBox="0 0 36 36">
+                          <circle cx="18" cy="18" r="14" fill="none" strokeWidth="3.5" className="stroke-slate-100" />
+                          <circle cx="18" cy="18" r="14" fill="none" strokeWidth="3.5"
+                            strokeDasharray={`${(pct / 100) * 87.96} 87.96`}
+                            strokeLinecap="round"
+                            style={{ stroke: isDone ? '#10b981' : undefined }}
+                            className={!isDone ? a.text.replace('text-','stroke-') : ''}
+                          />
+                        </svg>
+                        <span className={`absolute inset-0 flex items-center justify-center text-[9px] font-bold leading-none ${isDone ? 'text-emerald-500' : isActive ? a.text : 'text-slate-400'}`}>
+                          {isDone ? '✓' : `${pct}%`}
                         </span>
+                      </div>
+                      <span className="min-w-0 flex-1">
+                        <span className={`block truncate text-xs font-bold ${isActive ? 'text-slate-900' : 'text-slate-700'}`}>{guide.title}</span>
+                        {(isRecommended || isCompanyAssigned) && (
+                          <span className={`mt-0.5 inline-block text-[9px] font-bold uppercase tracking-wide ${isRecommended ? a.text : 'text-violet-600'}`}>
+                            {isRecommended ? ui.recommended : (lang === 'en' ? 'Company' : 'Empresa')}
+                          </span>
+                        )}
                       </span>
                       <span
                         className={`absolute inset-y-3 right-3 w-1 rounded-full transition-all duration-300 ${
@@ -940,44 +991,47 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
               </div>
             )}
           </div>
+          </div>{/* /p-4 */}
         </aside>
+          )
+        })()}
 
-        <section className="flex flex-col rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm">
-          <div ref={rightHeaderRef} className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className={`text-xs font-semibold uppercase tracking-[0.2em] ${accent.text}`}>{ui.selected}</p>
-              <h3 className="mt-1 text-2xl font-semibold text-slate-900">{selectedGuide.title}</h3>
-              <p className="mt-1 text-sm text-slate-600">{selectedGuide.summary}</p>
-              {activeSection === 'enterprise' && selectedGuide.notes && (
-                <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                  <p className="text-xs font-semibold text-amber-800 mb-1">
-                    {lang === 'en' ? 'Assignment Notes:' : 'Notas de Asignación:'}
-                  </p>
-                  <p className="text-xs text-amber-700">{selectedGuide.notes}</p>
-                </div>
-              )}
-            </div>
-            <div className="min-w-[220px] rounded-[1.25rem] border border-slate-200 bg-slate-50 p-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">{ui.progress}</p>
-                <p className="text-xs font-semibold text-slate-600">{selectedProgress}%</p>
+        <section className="flex flex-col rounded-[2rem] border border-slate-200 bg-white shadow-sm overflow-hidden">
+          {/* Content header — gradient banner */}
+          <div ref={rightHeaderRef} className={`${accent.soft} ${accent.border} border-b px-6 py-5`}>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <span className={`inline-block rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest ${accent.pill} mb-2`}>
+                  {activeSection === 'enterprise' ? (lang === 'en' ? 'Company guide' : 'Guía de empresa') : (lang === 'en' ? 'Guide' : 'Guía')}
+                </span>
+                <h3 className="text-xl font-extrabold text-slate-900 leading-snug">{selectedGuide.title}</h3>
+                <p className="mt-1 text-sm text-slate-600 leading-relaxed">{selectedGuide.summary}</p>
+                {activeSection === 'enterprise' && selectedGuide.notes && (
+                  <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+                    <p className="text-xs font-bold text-amber-700">
+                      💬 {lang === 'en' ? 'Note:' : 'Nota:'} {selectedGuide.notes}
+                    </p>
+                  </div>
+                )}
               </div>
-              <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full bg-slate-900 transition-all duration-500 ease-out"
-                  style={{ width: `${selectedProgress}%` }}
-                />
-              </div>
-              {activeSection === 'enterprise' && selectedGuide.due_date && (
-                <div className="mt-2 pt-2 border-t border-slate-200">
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 mb-1">
-                    {lang === 'en' ? 'Due Date' : 'Fecha Límite'}
-                  </p>
-                  <p className="text-xs text-slate-600">
-                    {new Date(selectedGuide.due_date).toLocaleDateString()}
-                  </p>
+              {/* Progress circle */}
+              <div className="shrink-0 flex flex-col items-center gap-1">
+                <div className="relative h-16 w-16">
+                  <svg className="h-16 w-16 -rotate-90" viewBox="0 0 60 60">
+                    <circle cx="30" cy="30" r="24" fill="none" strokeWidth="5" className="stroke-white/70" />
+                    <circle cx="30" cy="30" r="24" fill="none" strokeWidth="5"
+                      strokeDasharray={`${(selectedProgress / 100) * 150.8} 150.8`}
+                      strokeLinecap="round"
+                      style={{ stroke: selectedProgress >= 100 ? '#10b981' : undefined }}
+                      className={selectedProgress < 100 ? accent.text.replace('text-','stroke-') : ''}
+                    />
+                  </svg>
+                  <span className={`absolute inset-0 flex items-center justify-center text-sm font-extrabold ${selectedProgress >= 100 ? 'text-emerald-600' : accent.text}`}>
+                    {selectedProgress >= 100 ? '✓' : `${selectedProgress}%`}
+                  </span>
                 </div>
-              )}
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">{ui.progress}</p>
+              </div>
             </div>
           </div>
 
@@ -1027,13 +1081,23 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
             )}
 
             {hasLesson && (
-              <div className={`rounded-[1.25rem] border bg-white p-4 ${accent.border}`}>
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${accent.text}`}>{ui.lesson}</p>
-                    <h4 className="mt-1 text-lg font-semibold text-slate-900">{selectedGuide.lesson.title}</h4>
+              <div className={`rounded-[1.25rem] border-2 bg-white overflow-hidden ${accent.border}`}>
+                {/* Lesson header */}
+                <div className={`${accent.soft} px-4 py-3 flex items-center justify-between gap-3 border-b ${accent.border}`}>
+                  <div className="flex items-center gap-3">
+                    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-extrabold ${accent.pill}`}>
+                      1
+                    </span>
+                    <div>
+                      <p className={`text-[10px] font-bold uppercase tracking-widest ${accent.text}`}>{lang === 'en' ? 'Step 1 — Read first' : 'Paso 1 — Leé primero'}</p>
+                      <h4 className="text-sm font-extrabold text-slate-900 leading-snug">{selectedGuide.lesson.title}</h4>
+                    </div>
                   </div>
-                  <label className="flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white">
+                  <label className={`flex cursor-pointer items-center gap-2 rounded-full border-2 px-3 py-1.5 text-xs font-bold transition-all ${
+                    lessonAcknowledged
+                      ? `${accent.border} ${accent.soft} ${accent.text}`
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                  }`}>
                     <input
                       type="checkbox"
                       checked={lessonAcknowledged}
@@ -1043,39 +1107,44 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
                           [selectedGuide.id]: e.target.checked,
                         }))
                       }
-                      className="h-4 w-4 accent-slate-900"
+                      className="h-3.5 w-3.5"
                     />
-                    {ui.readLesson}
+                    {lessonAcknowledged ? `✓ ${ui.readLesson}` : ui.readLesson}
                   </label>
                 </div>
 
-                <div className="mt-4 grid gap-2">
+                <div className="p-4 grid gap-2">
                   {selectedGuide.lesson.blocks.map((block, idx) => {
                     const key = `${selectedGuide.id}::${block.heading}`
                     const isOpen = openLessonBlock === key
                     return (
-                      <div key={block.heading} className="rounded-[1.1rem] border border-slate-200 bg-slate-50">
+                      <div key={block.heading} className={`rounded-xl border-2 overflow-hidden transition-all duration-200 ${isOpen ? accent.border : 'border-slate-100'}`}>
                         <button
                           type="button"
                           onClick={() => setOpenLessonBlock((prev) => (prev === key ? null : key))}
-                          className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left"
+                          className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors ${isOpen ? accent.soft : 'bg-slate-50 hover:bg-slate-100'}`}
                         >
-                          <div>
-                            <p className="text-sm font-semibold text-slate-900">{block.heading}</p>
-                            <p className="mt-1 text-xs text-slate-500">{ui.card} {idx + 1} {ui.of} {selectedGuide.lesson.blocks.length}</p>
-                          </div>
-                          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isOpen ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 border border-slate-200'}`}>
-                            {isOpen ? ui.close : ui.open}
+                          <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-extrabold ${
+                            isOpen ? `${accent.pill}` : 'bg-slate-200 text-slate-600'
+                          }`}>
+                            {idx + 1}
                           </span>
+                          <span className="flex-1 min-w-0">
+                            <span className="block text-sm font-bold text-slate-900">{block.heading}</span>
+                          </span>
+                          <svg className={`h-4 w-4 shrink-0 transition-transform duration-200 ${isOpen ? `rotate-180 ${accent.text}` : 'text-slate-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                          </svg>
                         </button>
 
                         {isOpen && (
-                          <div className="px-4 pb-4">
+                          <div className="px-4 pb-4 pt-2 bg-white">
                             {block.body && <p className="text-sm leading-relaxed text-slate-700">{block.body}</p>}
                             {block.bullets?.length ? (
-                              <ul className="mt-3 space-y-2">
-                                {block.bullets.map((b) => (
-                                  <li key={b} className="rounded-xl border border-slate-100 bg-white px-3 py-2 text-sm text-slate-700">
+                              <ul className="mt-3 space-y-1.5">
+                                {block.bullets.map((b, bi) => (
+                                  <li key={b} className="flex items-start gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                                    <span className={`mt-0.5 h-4 w-4 shrink-0 rounded-full text-[9px] font-extrabold flex items-center justify-center ${accent.pill}`}>{bi + 1}</span>
                                     {b}
                                   </li>
                                 ))}
@@ -1089,9 +1158,11 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
                 </div>
 
                 {selectedGuide.lesson.takeaway && (
-                  <div className="mt-3 rounded-[1.1rem] border border-slate-200 bg-white px-4 py-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{ui.keyIdea}</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-800">{selectedGuide.lesson.takeaway}</p>
+                  <div className={`mx-4 mb-4 rounded-xl border-2 ${accent.border} ${accent.soft} px-4 py-3 flex items-start gap-3`}>
+                    <div>
+                      <p className={`text-[10px] font-extrabold uppercase tracking-widest ${accent.text}`}>{ui.keyIdea}</p>
+                      <p className="mt-0.5 text-sm font-semibold text-slate-800 leading-snug">{selectedGuide.lesson.takeaway}</p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1118,13 +1189,10 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
             {selectedGuide.activity?.type === 'order' && (
               <div className="mt-4">
                 {activityLocked ? (
-                  <div className="relative overflow-hidden rounded-[1.25rem] border border-slate-200 bg-white p-4">
-                    <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px]" />
-                    <div className="relative">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Actividad bloqueada</p>
-                      <p className="mt-1 text-sm text-slate-700">
-                        Para jugar, marcá <span className="font-semibold">“Lei la leccion”</span> arriba. La idea es: primero entender, después practicar.
-                      </p>
+                  <div className="rounded-[1.25rem] border-2 border-amber-200 bg-amber-50 p-4">
+                    <div>
+                      <p className="text-sm font-extrabold text-amber-800">{ui.locked}</p>
+                      <p className="mt-1 text-xs text-amber-700 leading-relaxed">{ui.lockedDesc}</p>
                     </div>
                   </div>
                 ) : (
@@ -1142,52 +1210,89 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
             )}
 
             <div className="mt-4 grid gap-3 lg:grid-cols-2">
-              <div className="rounded-[1.25rem] border border-slate-200 bg-white p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{ui.steps}</p>
-                <ol className="mt-3 space-y-2">
-                  {(selectedGuide.steps || []).map((step) => (
-                    <li key={step} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 text-sm text-slate-700">
-                      {step}
+              {/* Steps */}
+              <div className="rounded-[1.25rem] border-2 border-slate-100 bg-white overflow-hidden">
+                <div className="flex items-center gap-2.5 border-b border-slate-100 bg-slate-50 px-4 py-3">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-800 text-[10px] font-extrabold text-white">2</span>
+                  <p className="text-xs font-extrabold uppercase tracking-widest text-slate-700">{lang === 'en' ? 'How to practice' : 'Cómo practicar'}</p>
+                </div>
+                <ol className="p-3 space-y-2">
+                  {(selectedGuide.steps || []).map((step, i) => (
+                    <li key={step} className="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
+                      <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-extrabold ${accent.pill}`}>{i + 1}</span>
+                      <span className="leading-snug">{step}</span>
                     </li>
                   ))}
                 </ol>
               </div>
 
-              <div className="rounded-[1.25rem] border border-slate-200 bg-white p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{ui.drills}</p>
-                <ul className="mt-3 space-y-2">
-                  {(selectedGuide.drills || []).map((drill) => (
-                    <li key={drill} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 text-sm text-slate-700">
-                      {drill}
+              {/* Drills */}
+              <div className="rounded-[1.25rem] border-2 border-slate-100 bg-white overflow-hidden">
+                <div className="flex items-center gap-2.5 border-b border-slate-100 bg-slate-50 px-4 py-3">
+                  <p className="text-xs font-extrabold uppercase tracking-widest text-slate-700">{lang === 'en' ? 'Practice exercises' : 'Ejercicios de práctica'}</p>
+                </div>
+                <ul className="p-3 space-y-2">
+                  {(selectedGuide.drills || []).map((drill, i) => (
+                    <li key={drill} className="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
+                      <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-extrabold ${accent.pill}`}>{i + 1}</span>
+                      <span className="leading-snug">{drill}</span>
                     </li>
                   ))}
                 </ul>
               </div>
             </div>
 
-            <div className="mt-3 rounded-[1.25rem] border border-slate-200 bg-white p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{ui.checkpoints}</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {(selectedGuide.checkpoints || []).map((checkpoint) => {
-                  const key = `${selectedGuide.id}::${checkpoint}`
-                  const isDone = !!doneMap[key]
-                  return (
-                    <button
-                      type="button"
-                      key={checkpoint}
-                      onClick={() => toggleCheckpoint(selectedGuide.id, checkpoint)}
-                      className={`rounded-full border px-3 py-2 text-xs font-semibold transition-all duration-300 ${
-                        isDone
-                          ? 'border-emerald-300 bg-emerald-100 text-emerald-800'
-                          : 'border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200'
-                      }`}
-                    >
-                      {checkpoint}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
+            {(() => {
+              const checkpoints = selectedGuide.checkpoints || []
+              const doneCount = checkpoints.filter(cp => !!doneMap[`${selectedGuide.id}::${cp}`]).length
+              const allDone = checkpoints.length > 0 && doneCount === checkpoints.length
+              return (
+                <div className={`mt-3 rounded-[1.25rem] border-2 bg-white overflow-hidden transition-colors duration-500 ${allDone ? 'border-emerald-300' : 'border-slate-100'}`}>
+                  <div className={`flex items-center justify-between gap-3 border-b px-4 py-3 transition-colors ${allDone ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-100'}`}>
+                    <div className="flex items-center gap-2.5">
+                      <p className={`text-xs font-extrabold uppercase tracking-widest ${allDone ? 'text-emerald-700' : 'text-slate-700'}`}>
+                        {lang === 'en' ? 'Self-check — can you do these?' : '¿Ya lo hacés? — Marcá lo que ya sabés'}
+                      </p>
+                    </div>
+                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-extrabold ${
+                      allDone ? 'bg-emerald-200 text-emerald-800' : 'bg-slate-200 text-slate-600'
+                    }`}>
+                      {doneCount}/{checkpoints.length}
+                    </span>
+                  </div>
+                  <div className="p-3 flex flex-wrap gap-2">
+                    {checkpoints.map((checkpoint) => {
+                      const key = `${selectedGuide.id}::${checkpoint}`
+                      const isDone = !!doneMap[key]
+                      return (
+                        <button
+                          type="button"
+                          key={checkpoint}
+                          onClick={() => toggleCheckpoint(selectedGuide.id, checkpoint)}
+                          className={`flex items-center gap-1.5 rounded-xl border-2 px-3 py-2 text-xs font-semibold transition-all duration-200 ${
+                            isDone
+                              ? 'border-emerald-300 bg-emerald-100 text-emerald-800 shadow-sm'
+                              : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-white'
+                          }`}
+                        >
+                          <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] font-extrabold transition-all ${
+                            isDone ? 'border-emerald-400 bg-emerald-400 text-white' : 'border-slate-300 bg-white text-transparent'
+                          }`}>✓</span>
+                          {checkpoint}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {allDone && (
+                    <div className="mx-3 mb-3 rounded-xl bg-emerald-100 border border-emerald-200 px-4 py-2.5">
+                      <p className="text-xs font-bold text-emerald-800">
+                        {lang === 'en' ? 'All checked. You\'ve mastered this guide.' : 'Todo marcado. Dominás esta guía.'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
           </div>
         </section>
       </div>

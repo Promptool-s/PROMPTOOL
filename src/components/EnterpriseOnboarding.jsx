@@ -76,7 +76,7 @@ const EnterpriseOnboarding = ({ user, onDone }) => {
       : `https://promptool.app/?invite=${user.id}&email=${encodeURIComponent(email)}`
 
     try {
-      await fetch('/api/send-invite', {
+      const inviteRes = await fetch('/api/send-invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -87,6 +87,9 @@ const EnterpriseOnboarding = ({ user, onDone }) => {
           isExistingUser: !!existingUser?.id_usuario,
         }),
       })
+      if (!inviteRes.ok) {
+        console.error('[send-invite] HTTP error:', inviteRes.status)
+      }
     } catch (_) {}
 
     setSaving(false)
@@ -94,8 +97,13 @@ const EnterpriseOnboarding = ({ user, onDone }) => {
     setTimeout(() => setStep(s => s + 1), 1000)
   }
 
-  const finish = () => {
-    localStorage.setItem(`enterprise_onboarded_${user.id}`, '1')
+  const finish = async () => {
+    try {
+      await supabase
+        .from('usuarios')
+        .update({ enterprise_onboarded: true })
+        .eq('id_usuario', user.id)
+    } catch (_) {}
     onDone()
   }
 
