@@ -455,11 +455,11 @@ const InteractiveDemo = ({ dark, lang }) => {
   const [isVisible, setIsVisible] = useState(false)
   const demoRef = useRef(null)
   
-  // Datos reales de ejemplo - gato astronauta
-  const demoImage = 'https://image-generator.com/assets/img/ai-generated-image-main.png'
+  // Foto: gato naranja de Andrew McCarthy alcanzando la Vía Láctea
+  const demoImage = 'https://petapixel.com/2025/10/13/astrophotographer-andrew-mccarthy-adds-his-adorable-cat-to-far-out-space-photos/spicy-star/'
   const userPrompt = lang === 'es'
-    ? 'Gato naranja con traje de astronauta en el espacio, estrellas y la Tierra de fondo'
-    : 'Orange cat in astronaut suit in space with stars and Earth behind'
+    ? 'Generame un gato naranja en el espacio agarrando la via lactea, que sea gigante'
+    : 'Generate a giant orange cat in space grabbing the Milky Way'
   const targetScore = 73
   
   const card = dark ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'
@@ -467,14 +467,14 @@ const InteractiveDemo = ({ dark, lang }) => {
   
   // Sugerencias de mejora
   const improvements = lang === 'en' ? [
-    'Add more details about the cat\'s appearance (breed, size, expression)',
-    'Specify the lighting style (cinematic, natural, dramatic)',
-    'Describe the astronaut suit in more detail',
+    'Add more details about the cat\'s appearance (breed, fur color, expression)',
+    'Specify the lighting style (cinematic, nebula glow, dramatic)',
+    'Describe the scale and perspective (giant, cosmic, surreal)',
     'Mention the art style (photorealistic, digital art, illustration)'
   ] : [
-    'Agrega más detalles sobre la apariencia del gato (raza, tamaño, expresión)',
-    'Especifica el estilo de iluminación (cinematográfica, natural, dramática)',
-    'Describe el traje de astronauta con más detalle',
+    'Agrega más detalles sobre la apariencia del gato (raza, color del pelaje, expresión)',
+    'Especifica el estilo de iluminación (cinematográfica, brillo de nebulosa, dramática)',
+    'Describe la escala y perspectiva (gigante, cósmico, surrealista)',
     'Menciona el estilo artístico (fotorrealista, arte digital, ilustración)'
   ]
   
@@ -587,13 +587,14 @@ const InteractiveDemo = ({ dark, lang }) => {
               {lang === 'en' ? 'Daily' : 'Diario'}
             </span>
           </div>
-          <div className="relative aspect-[4/3] rounded-xl overflow-hidden border border-slate-200 bg-slate-900">
-            <img 
-              src={demoImage} 
-              alt="Demo challenge" 
+          <div className="relative aspect-[3/4] rounded-xl overflow-hidden border border-slate-200 bg-gradient-to-br from-slate-800 to-slate-900 max-h-72 lg:max-h-80 mx-auto">
+            <img
+              src={demoImage}
+              alt=""
               className="w-full h-full object-cover object-center"
-              loading="lazy"
-              style={{ objectPosition: '50% 35%' }}
+              loading="eager"
+              decoding="async"
+              style={{ objectPosition: '50% 30%' }}
             />
           </div>
         </div>
@@ -704,27 +705,6 @@ const InteractiveDemo = ({ dark, lang }) => {
                 </ul>
               </div>
               
-              {/* Recommended guides */}
-              <div className={`rounded-xl border p-3 ${dark ? 'border-blue-800 bg-blue-900/20' : 'border-blue-200 bg-blue-50'}`}>
-                <div className="flex items-center gap-2 mb-2">
-                  <svg className="w-3.5 h-3.5 text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-                  </svg>
-                  <span className={`text-xs font-semibold ${dark ? 'text-blue-400' : 'text-blue-700'}`}>
-                    {lang === 'en' ? 'Recommended guides' : 'Guías recomendadas'}
-                  </span>
-                </div>
-                <div className="space-y-1.5">
-                  {recommendedGuides.map((guide, i) => (
-                    <div key={i} className={`flex items-center justify-between text-xs p-2 rounded-lg ${dark ? 'bg-slate-800/50' : 'bg-white/50'}`}>
-                      <span className={`${dark ? 'text-slate-300' : 'text-slate-700'} text-xs leading-tight`}>{guide.title}</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ml-2 ${dark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-700'}`}>
-                        {guide.tag}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
             </div>
           )}
         </div>
@@ -962,7 +942,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
 
         {/* ── HOW IT WORKS ── */}
         <section style={isMobile ? { minHeight: '100svh', scrollSnapAlign: 'start' } : { height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }}
-          className="flex items-center px-6 py-12 lg:py-20 lg:px-8">
+          className="flex items-center px-6 py-12 lg:py-16 lg:px-8">
           <div className="mx-auto w-full max-w-6xl">
             <div className="text-center mb-8 lg:mb-12">
               <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.howTag}</p>

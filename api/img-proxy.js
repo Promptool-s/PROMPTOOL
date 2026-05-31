@@ -10,6 +10,9 @@ const ALLOWED_DOMAINS = [
   'i.imgur.com',
   'image-generator.com',
   'cdn.spaceprompts.com',
+  'googleusercontent.com',
+  'lh3.googleusercontent.com',
+  'blogger.googleusercontent.com',
 ]
 
 // Block private/internal IP ranges (SSRF protection)
@@ -27,6 +30,7 @@ const BLOCKED_IP_PATTERNS = [
 ]
 
 const MAX_SIZE_BYTES = 10 * 1024 * 1024 // 10MB
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function isBlockedHost(hostname) {
   return BLOCKED_IP_PATTERNS.some(p => p.test(hostname))
@@ -34,6 +38,35 @@ function isBlockedHost(hostname) {
 
 function isDomainAllowed(hostname) {
   return ALLOWED_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d))
+}
+
+async function resolveTargetUrl(req) {
+  const { url, id } = req.query
+
+  if (id) {
+    if (!UUID_RE.test(id)) return { error: 'Invalid id', status: 400 }
+
+    const supabaseUrl = (process.env.VITE_SUPABASE_URL || '').replace(/\/$/, '')
+    const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || ''
+    if (!supabaseUrl || !supabaseKey) return { error: 'Server config error', status: 500 }
+
+    const dbResp = await fetch(
+      `${supabaseUrl}/rest/v1/imagenes_ia?id_imagen=eq.${id}&select=url_image&limit=1`,
+      { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } }
+    )
+    if (!dbResp.ok) return { error: 'DB error', status: 502 }
+
+    const rows = await dbResp.json()
+    if (!rows.length || !rows[0].url_image) return { error: 'Not found', status: 404 }
+
+    return { targetUrl: rows[0].url_image }
+  }
+
+  if (url) {
+    return { targetUrl: decodeURIComponent(url) }
+  }
+
+  return { error: 'Missing url or id parameter', status: 400 }
 }
 
 export default async function handler(req, res) {
@@ -57,43 +90,35 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { url } = req.query
+  const resolved = await resolveTargetUrl(req).catch(() => ({ error: 'Proxy error', status: 500 }))
+  if (resolved.error) return res.status(resolved.status).json({ error: resolved.error })
 
-  if (!url) {
-    return res.status(400).json({ error: 'Missing url parameter' })
-  }
-
-  let targetUrl
   let parsedUrl
   try {
-    targetUrl = decodeURIComponent(url)
-    parsedUrl = new URL(targetUrl)
+    parsedUrl = new URL(resolved.targetUrl)
   } catch {
     return res.status(400).json({ error: 'Invalid url' })
   }
 
-  // Protocol check
   if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
     return res.status(400).json({ error: 'Only http/https allowed' })
   }
 
   const hostname = parsedUrl.hostname.toLowerCase()
 
-  // Block internal/private IPs (SSRF)
   if (isBlockedHost(hostname)) {
     return res.status(403).json({ error: 'Forbidden' })
   }
 
-  // Domain allowlist
   if (!isDomainAllowed(hostname)) {
     return res.status(403).json({ error: 'Domain not allowed' })
   }
 
   try {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 10000) // 10s timeout
+    const timeout = setTimeout(() => controller.abort(), 10000)
 
-    const response = await fetch(targetUrl, {
+    const response = await fetch(resolved.targetUrl, {
       signal: controller.signal,
       headers: {
         'User-Agent': 'PrompToolProxy/1.0',
@@ -113,7 +138,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'URL is not an allowed image type' })
     }
 
-    // Size check — stream with limit
     const contentLength = parseInt(response.headers.get('content-length') || '0', 10)
     if (contentLength > MAX_SIZE_BYTES) {
       return res.status(413).json({ error: 'Image too large' })
@@ -125,7 +149,6 @@ export default async function handler(req, res) {
       return res.status(413).json({ error: 'Image too large' })
     }
 
-    // Security headers on response
     const corsOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0]
     res.setHeader('Access-Control-Allow-Origin', corsOrigin)
     res.setHeader('Content-Type', contentType.split(';')[0].trim())

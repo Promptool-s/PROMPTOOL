@@ -192,6 +192,18 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end()
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
+  // Verify the shared secret sent by Supabase Auth Hook.
+  // Set SUPABASE_AUTH_HOOK_SECRET in Vercel env vars AND in the Supabase
+  // Auth Hook configuration (Authorization header → Bearer <secret>).
+  const AUTH_HOOK_SECRET = process.env.SUPABASE_AUTH_HOOK_SECRET
+  if (AUTH_HOOK_SECRET) {
+    const authHeader = req.headers.authorization || ''
+    const provided = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : ''
+    if (provided !== AUTH_HOOK_SECRET) {
+      return res.status(401).json({ error: 'Unauthorized' })
+    }
+  }
+
   const RESEND_API_KEY = process.env.RESEND_API_KEY
   if (!RESEND_API_KEY) return res.status(500).json({ error: 'Email service not configured' })
 

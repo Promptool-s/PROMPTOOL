@@ -1,7 +1,6 @@
 import Header from './components/Header'
 import Footer from './components/Footer'
 import GuidesSection from './components/GuidesSection'
-import GuideCatalog from './components/GuideCatalog'
 import GuideArticle from './components/GuideArticle'
 import GuideNotFound from './components/GuideNotFound'
 import { useLang } from './contexts/LangContext'
@@ -71,8 +70,8 @@ const GuidesApp = () => {
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
       <Header />
       <main className="flex-1 py-6">
-        <section className="mx-auto w-full max-w-none px-4 sm:px-6">
-          <div className="mb-4 rounded-[1.5rem] border border-slate-200 bg-white px-5 sm:px-6 py-4 sm:py-5">
+        <section className="mx-auto w-full max-w-none px-4 sm:px-6 mb-4">
+          <div className="rounded-[1.5rem] border border-slate-200 bg-white px-5 sm:px-6 py-4 sm:py-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">PrompTool</p>
@@ -98,7 +97,6 @@ const GuidesApp = () => {
             </div>
           </div>
         </section>
-        <GuideCatalog />
         <GuidesSection companyAssignments={user ? companyAssignments : []} />
       </main>
       <Footer />

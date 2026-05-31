@@ -121,6 +121,21 @@ function buildEmailHtml({ companyName, inviterName, recipientEmail, joinUrl, isE
 </html>`
 }
 
+const ALLOWED_JOIN_ORIGINS = ['https://promptool.app', 'https://www.promptool.app', 'https://promptool.vercel.app']
+
+async function verifySupabaseJwt(authHeader) {
+  const token = authHeader?.replace('Bearer ', '').trim()
+  if (!token) return null
+  const SUPABASE_URL = process.env.VITE_SUPABASE_URL || ''
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { Authorization: `Bearer ${token}`, apikey: process.env.VITE_SUPABASE_ANON_KEY || '' }
+    })
+    if (!r.ok) return null
+    return await r.json()
+  } catch { return null }
+}
+
 export default async function handler(req, res) {
   const origin = req.headers.origin || ''
   const corsOrigin = getCorsOrigin(origin)
@@ -131,6 +146,10 @@ export default async function handler(req, res) {
 
   if (req.method === 'OPTIONS') return res.status(204).end()
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+
+  // Require authenticated Supabase user
+  const supabaseUser = await verifySupabaseJwt(req.headers.authorization)
+  if (!supabaseUser?.id) return res.status(401).json({ error: 'Unauthorized' })
 
   const RESEND_API_KEY = process.env.RESEND_API_KEY
   if (!RESEND_API_KEY) return res.status(500).json({ error: 'Email service not configured' })
@@ -146,11 +165,19 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid email address' })
   }
 
-  const subject = isExistingUser
-    ? `${companyName} te invita a unirte a su equipo en PrompTool`
-    : `Tenés una invitación para PrompTool de parte de ${companyName}`
+  // Prevent open-redirect phishing — joinUrl must point to our own domains
+  const joinUrlValid = ALLOWED_JOIN_ORIGINS.some(base => joinUrl.startsWith(base + '/'))
+  if (!joinUrlValid) return res.status(400).json({ error: 'Invalid join URL' })
 
-  const html = buildEmailHtml({ companyName, inviterName, recipientEmail, joinUrl, isExistingUser })
+  // Basic sanitization of text fields going into email HTML
+  const safeName = String(companyName).slice(0, 100).replace(/[<>"']/g, '')
+  const safeInviter = String(inviterName || '').slice(0, 100).replace(/[<>"']/g, '')
+
+  const subject = isExistingUser
+    ? `${safeName} te invita a unirte a su equipo en PrompTool`
+    : `Tenés una invitación para PrompTool de parte de ${safeName}`
+
+  const html = buildEmailHtml({ companyName: safeName, inviterName: safeInviter, recipientEmail, joinUrl, isExistingUser })
 
   try {
     const response = await fetch('https://api.resend.com/emails', {

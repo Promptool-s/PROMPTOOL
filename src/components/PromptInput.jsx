@@ -545,8 +545,8 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
         )}
       </div>
 
-      <div className="flex items-center gap-2 text-xs font-medium">
-        <div className="flex items-center gap-2 flex-1 min-w-0 flex-wrap sm:flex-nowrap">
+      <div className="flex items-center justify-between gap-2 text-xs font-medium">
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
         {onModeChange ? (
           <div className="relative group">
             <button
@@ -746,6 +746,8 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
           </div>
         </div>
 
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
         {onToggleRanked && (
           <div className="relative group">
             <button
@@ -762,31 +764,31 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
               </svg>
               <span className="font-semibold">
                 {isRanked
-                  ? (lang === 'en' ? 'Ranked' : 'Rankeado')
-                  : (lang === 'en' ? 'Unranked' : 'Sin rankeo')}
+                  ? (lang === 'en' ? 'Ranked' : 'Competitivo')
+                  : (lang === 'en' ? 'Unranked' : 'Sin puntaje')}
               </span>
             </button>
             <div className="pointer-events-none absolute bottom-full left-0 mb-2 hidden group-hover:block z-50 w-56">
               <div className="rounded-xl bg-slate-900 px-3 py-2.5 text-xs text-white shadow-xl space-y-1.5">
                 {isRanked ? (
                   <>
-                    <p className="font-semibold text-cyan-300">{lang === 'en' ? 'Ranked mode ON' : 'Modo rankeado ACTIVADO'}</p>
+                    <p className="font-semibold text-cyan-300">{lang === 'en' ? 'Ranked mode ON' : 'Modo competitivo ACTIVADO'}</p>
                     <p className="text-slate-300 leading-relaxed">
                       {lang === 'en'
-                        ? 'This game counts toward your ELO and the leaderboard. You need 5 ranked games to appear in the league.'
-                        : 'Esta partida cuenta para tu ELO y la leaderboard. Necesitás 5 partidas rankeadas para aparecer en la liga.'}
+                        ? 'This game counts toward your score and the leaderboard. You need 5 ranked games to appear in the league.'
+                        : 'Esta partida cuenta para tu puntaje general y el leaderboard. Necesitás 5 partidas para aparecer en la liga.'}
                     </p>
-                    <p className="text-slate-400">{lang === 'en' ? 'Click to play without affecting your rank.' : 'Click para jugar sin afectar tu ranking.'}</p>
+                    <p className="text-slate-400">{lang === 'en' ? 'Click to play without affecting your rank.' : 'Click para practicar sin afectar tu puntaje.'}</p>
                   </>
                 ) : (
                   <>
-                    <p className="font-semibold text-slate-400">{lang === 'en' ? 'Unranked mode' : 'Modo sin rankeo'}</p>
+                    <p className="font-semibold text-slate-400">{lang === 'en' ? 'Unranked mode' : 'Modo práctica'}</p>
                     <p className="text-slate-300 leading-relaxed">
                       {lang === 'en'
-                        ? 'This game won\'t affect your ELO or leaderboard position. Good for practicing without pressure.'
-                        : 'Esta partida no afecta tu ELO ni tu posición en la liga. Ideal para practicar sin presión.'}
+                        ? 'This game won\'t affect your score or leaderboard position. Good for practicing without pressure.'
+                        : 'Esta partida no afecta tu puntaje general ni tu posición en la liga. Ideal para practicar sin presión.'}
                     </p>
-                    <p className="text-slate-400">{lang === 'en' ? 'Click to play ranked.' : 'Click para jugar rankeado.'}</p>
+                    <p className="text-slate-400">{lang === 'en' ? 'Click to play ranked.' : 'Click para jugar en modo competitivo.'}</p>
                   </>
                 )}
               </div>
@@ -794,8 +796,6 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
             </div>
           </div>
         )}
-
-        </div>
 
         {/* New image button — active in random, locked in daily */}
         {(onNewRandom || mode === 'daily') && (
@@ -866,6 +866,7 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
             </div>
           </div>
         )}
+        </div>
       </div>
 
       <div className="flex items-start gap-2 rounded-lg border border-amber-100 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-900/20 px-3 py-2">

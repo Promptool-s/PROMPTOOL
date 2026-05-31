@@ -14,12 +14,16 @@ export const generateChallengeConfig = async ({ userPrompt, imageFile, companyIn
   try {
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
 
-    // Convertir imagen a base64
-    const imageData = await fileToGenerativePart(imageFile)
+    // Only convert to image part when a file is provided (code/document challenges have no image)
+    const imagePart = imageFile ? await fileToGenerativePart(imageFile) : null
 
-    const prompt = `Eres un experto en crear desafíos de prompting para IA generativa. 
+    const imageInstruction = imagePart
+      ? 'Analiza esta imagen y la descripción del usuario para generar una configuración completa de desafío.'
+      : 'Basándote en la descripción del usuario, generá una configuración completa de desafío de prompting.'
 
-Analiza esta imagen y la descripción del usuario para generar una configuración completa de desafío.
+    const prompt = `Eres un experto en crear desafíos de prompting para IA generativa.
+
+${imageInstruction}
 
 **Descripción del usuario:** ${userPrompt}
 **Industria:** ${companyIndustry}
@@ -51,7 +55,8 @@ Genera un JSON con esta estructura EXACTA (sin markdown, solo JSON puro):
 
 Responde SOLO con el JSON, sin explicaciones adicionales.`
 
-    const result = await model.generateContent([prompt, imageData])
+    const contentParts = imagePart ? [prompt, imagePart] : [prompt]
+    const result = await model.generateContent(contentParts)
     const response = await result.response
     const text = response.text()
 

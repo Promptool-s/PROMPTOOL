@@ -53,7 +53,7 @@ function LeaderboardApp() {
   const myRowRef = useRef(null)
 
   const cols = [
-    { key: 'elo_rating',           label: lang === 'en' ? 'ELO' : 'Puntuación',    suffix: '',  tableOnly: false },
+    { key: 'elo_rating',           label: lang === 'en' ? 'Score' : 'Puntaje general',    suffix: '',  tableOnly: false },
     { key: 'promedio_score',       label: lang === 'en' ? 'Avg'      : 'Promedio',  suffix: '%', tableOnly: false },
     { key: 'mejor_score',          label: lang === 'en' ? 'Best'     : 'Mejor',     suffix: '%', tableOnly: false },
     { key: 'total_intentos',       label: lang === 'en' ? 'Attempts' : 'Intentos',  suffix: '',  tableOnly: false },
@@ -346,12 +346,12 @@ function LeaderboardApp() {
                   {myAttempts}<span className="text-slate-300">/5</span>
                 </p>
                 <p className="mt-1 text-xs text-slate-500 font-medium">
-                  {lang === 'en' ? 'ranked games to join the league' : 'partidas rankeadas para entrar a la liga'}
+                  {lang === 'en' ? 'ranked games to join the league' : 'partidas para entrar a la liga'}
                 </p>
                 <p className="mt-0.5 text-[11px] text-slate-400">
                   {lang === 'en'
-                    ? 'Play with the Ranked toggle on'
-                    : 'Juga con el toggle Rankeado activado'}
+                    ? 'Play with Ranked mode on'
+                    : 'Jugá en modo Competitivo'}
                 </p>
               </div>
             )}
@@ -393,14 +393,14 @@ function LeaderboardApp() {
         {loading ? (
           <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
             {/* Header skeleton */}
-            <div className="grid grid-cols-[3rem_1fr_5rem_5rem_5rem_5.5rem] gap-3 px-5 py-3 bg-slate-50 border-b border-slate-200">
-              {[...Array(6)].map((_, i) => (
+            <div className="grid grid-cols-[3rem_1fr_5rem_5rem_5rem_5.5rem_5.5rem] gap-3 px-5 py-3 bg-slate-50 border-b border-slate-200">
+              {[...Array(7)].map((_, i) => (
                 <div key={i} className="h-3 rounded-full bg-slate-200 animate-pulse" />
               ))}
             </div>
             {/* Row skeletons */}
             {[...Array(10)].map((_, i) => (
-              <div key={i} className="grid grid-cols-[3rem_1fr_5rem_5rem_5rem_5.5rem] gap-3 items-center px-5 py-3.5 border-b border-slate-100 last:border-0">
+              <div key={i} className="grid grid-cols-[3rem_1fr_5rem_5rem_5rem_5.5rem_5.5rem] gap-3 items-center px-5 py-3.5 border-b border-slate-100 last:border-0">
                 <div className="h-4 w-4 rounded-full bg-slate-200 animate-pulse mx-auto" />
                 <div className="flex items-center gap-3">
                   <div className="h-8 w-8 rounded-full bg-slate-200 animate-pulse shrink-0" />

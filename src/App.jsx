@@ -35,18 +35,21 @@ import('./components/ConfigModal').then(({ loadVisualMode, applyVisualMode }) =>
   // Store the mode but don't apply yet — landing is always clean
 })
 
-// ── Imagen demo para guests ───────────────────────────────────────────────────
-// Imagen de los Beatles — fácil, icónica, buena para que nuevos usuarios prueben la app.
-// El prompt se fetcha de Supabase al momento del submit, igual que las imágenes normales.
-const DEMO_IMAGE_ID = '83e56086-3c79-482e-8761-9c7f412bd8e2'
+// ── Config demo para guests ───────────────────────────────────────────────────
+// Los guests ven una imagen Easy aleatoria (diferente en cada sesión, persistida en
+// sessionStorage para no cambiar dentro de la misma sesión). La daily es la misma
+// para todos — registrados y no registrados.
 const GUEST_MAX_ATTEMPTS = 4
 
 // Columnas reales: id_imagen, url_image, prompt_original, seed, fecha, image_diff, image_theme
 const normalizeImageData = (row) => {
   if (!row) return null
+  // Spread all fields first so challenge-specific columns (challenge_eval_instructions, etc.)
+  // are preserved, then overwrite the fields we normalize.
   return {
+    ...row,
     id_imagen: row.id_imagen ?? null,
-    url_image: row.url_image ? proxyImg(row.url_image) : null,
+    url_image: row.url_image ? `/api/img-proxy?url=${encodeURIComponent(row.url_image)}` : null,
     // prompt_original NO se guarda en estado — se fetcha al momento del submit
     seed: row.seed ?? null,
     fecha: row.fecha ?? null,
@@ -211,10 +214,19 @@ function App() {
   const [personalizedTime, setPersonalizedTime] = useState(null)
   const [showAnticheatWarning, setShowAnticheatWarning] = useState(false)
   const anticheatTimerRef = useRef(null)
+  const guestToastTimerRef = useRef(null)
+  const [guestFeatureToast, setGuestFeatureToast] = useState('')
 
-  // Limpiar timer al desmontar
+  const showGuestFeatureToast = (message) => {
+    setGuestFeatureToast(message)
+    if (guestToastTimerRef.current) clearTimeout(guestToastTimerRef.current)
+    guestToastTimerRef.current = setTimeout(() => setGuestFeatureToast(''), 4000)
+  }
+
+  // Limpiar timers al desmontar
   useEffect(() => () => {
     if (anticheatTimerRef.current) clearTimeout(anticheatTimerRef.current)
+    if (guestToastTimerRef.current) clearTimeout(guestToastTimerRef.current)
   }, [])
   const recommendedGuideIds = getRecommendedGuides(improvements, suggestions)
 
@@ -406,7 +418,7 @@ function App() {
       setUserTypeLoading(true)
       const { data } = await supabase
         .from('usuarios')
-        .select('user_type, racha_actual, company_id, enterprise_onboarded')
+        .select('user_type, racha_actual, company_id, enterprise_onboarded, user_onboarded')
         .eq('id_usuario', user.id)
         .maybeSingle()
       const type = data?.user_type || 'individual'
@@ -418,7 +430,7 @@ function App() {
       // Onboarding — solo una vez por usuario
       if (type === 'enterprise' && !data?.enterprise_onboarded) {
         setShowEnterpriseOnboarding(true)
-      } else if (type !== 'enterprise' && !localStorage.getItem(`user_onboarded_${user.id}`)) {
+      } else if (type !== 'enterprise' && !data?.user_onboarded) {
         setShowUserOnboarding(true)
       }
     }
@@ -442,29 +454,62 @@ function App() {
     })
   }, [showLanding])
 
-  // Cuando el usuario se loguea, asignar todos los intentos pendientes de guest
+  // Cuando el usuario se loguea, migrar todos los intentos pendientes de guest
   useEffect(() => {
     if (!user) return
-    // Array de intentos (nuevo formato)
+
+    // Array de intentos (formato actual)
     const pendingList = sessionStorage.getItem('guestAttempts')
     if (pendingList) {
       try {
         const attempts = JSON.parse(pendingList)
         if (Array.isArray(attempts) && attempts.length > 0) {
-          supabase.from('intentos').insert(attempts.map(a => ({ ...a, id_usuario: user.id })))
-            .then(() => sessionStorage.removeItem('guestAttempts'))
+          supabase.from('intentos')
+            .insert(attempts.map(a => ({ ...a, id_usuario: user.id })))
+            .then(({ error }) => {
+              sessionStorage.removeItem('guestAttempts')
+              if (!error && attempts.length > 0) {
+                // Actualizar el contador total_intentos con los intentos migrados
+                supabase.from('usuarios')
+                  .select('total_intentos')
+                  .eq('id_usuario', user.id)
+                  .maybeSingle()
+                  .then(({ data }) => {
+                    supabase.from('usuarios')
+                      .update({ total_intentos: (data?.total_intentos ?? 0) + attempts.length })
+                      .eq('id_usuario', user.id)
+                  })
+              }
+            })
         }
       } catch { sessionStorage.removeItem('guestAttempts') }
     }
+
     // Compatibilidad con el formato viejo (un solo intento)
     const pending = sessionStorage.getItem('pendingAttempt')
     if (pending) {
       try {
         const attempt = JSON.parse(pending)
         supabase.from('intentos').insert([{ ...attempt, id_usuario: user.id }])
-          .then(() => sessionStorage.removeItem('pendingAttempt'))
+          .then(({ error }) => {
+            sessionStorage.removeItem('pendingAttempt')
+            if (!error) {
+              supabase.from('usuarios')
+                .select('total_intentos')
+                .eq('id_usuario', user.id)
+                .maybeSingle()
+                .then(({ data }) => {
+                  supabase.from('usuarios')
+                    .update({ total_intentos: (data?.total_intentos ?? 0) + 1 })
+                    .eq('id_usuario', user.id)
+                })
+            }
+          })
       } catch { sessionStorage.removeItem('pendingAttempt') }
     }
+
+    // Limpiar también la imagen guardada para el guest — ya no la necesita
+    sessionStorage.removeItem('guestImageId')
   }, [user?.id])
 
   // Fetch inicial: extrae las dificultades disponibles en la BD
@@ -522,25 +567,62 @@ function App() {
     // Si hay un desafío de empresa activo, no cargar imagen normal
     if (challengeId) return
 
-    // Guest sin cuenta — cargar la imagen demo de Supabase
+    // Guest sin cuenta — cargar imagen según modo
     if (!user) {
       setImageStatus('loading')
-      supabase.from('imagenes_ia')
-        .select('id_imagen, url_image, seed, fecha, image_diff, image_theme, company_id')
-        .eq('id_imagen', DEMO_IMAGE_ID)
-        .maybeSingle()
-        .then(({ data }) => {
-          if (data) {
-            setImageData(normalizeImageData(data))
-            setDifficulty(data.image_diff || 'Easy')
+      ;(async () => {
+        try {
+          let row = null
+
+          if (mode === 'daily') {
+            // Daily: misma imagen del día que para usuarios registrados
+            const hoy = new Date()
+            hoy.setHours(23, 59, 59, 999)
+            const { data, error } = await supabase.from('imagenes_ia')
+              .select('id_imagen, url_image, seed, fecha, image_diff, image_theme, company_id')
+              .is('company_id', null)
+              .lte('fecha', hoy.toISOString())
+              .order('fecha', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+            if (error) throw error
+            row = data
           } else {
-            setImageStatus('error')
-            return
+            // Random: imagen Easy aleatoria, persistida en sessionStorage para
+            // que no cambie si el usuario recarga dentro de la misma sesión
+            const savedId = sessionStorage.getItem('guestImageId')
+            if (savedId) {
+              const { data, error } = await supabase.from('imagenes_ia')
+                .select('id_imagen, url_image, seed, fecha, image_diff, image_theme, company_id')
+                .eq('id_imagen', savedId)
+                .is('company_id', null)
+                .maybeSingle()
+              if (error) throw error
+              row = data
+            }
+            if (!row) {
+              // Sin imagen guardada (primera visita o sesión nueva): elegir una Easy al azar
+              const { data: rows, error } = await supabase.from('imagenes_ia')
+                .select('id_imagen, url_image, seed, fecha, image_diff, image_theme, company_id')
+                .eq('image_diff', 'Easy')
+                .is('company_id', null)
+              if (error) throw error
+              if (rows && rows.length > 0) {
+                row = rows[Math.floor(Math.random() * rows.length)]
+              }
+            }
+            if (row) sessionStorage.setItem('guestImageId', row.id_imagen)
           }
+
+          if (!row) { setImageStatus('empty'); return }
+          setImageData(normalizeImageData(row))
+          setDifficulty(row.image_diff || 'Easy')
           setImageStatus('ok')
           startFocusTracking()
-        })
-        .catch(() => setImageStatus('error'))
+        } catch {
+          setImageStatus('error')
+        }
+      })()
       return
     }
 
@@ -942,15 +1024,9 @@ function App() {
           else {
             sessionStorage.setItem('guestDailyDate', new Date().toDateString())
             setGuestDailyDone(true)
-            sessionStorage.setItem('pendingAttempt', JSON.stringify({
-              prompt_usuario: submittedPrompt,
-              puntaje_similitud: finalScore,
-              id_imagen: imageData.id_imagen,
-              fecha_hora: nowAR(),
-              strengths: result.strengths ?? [],
-              improvements: result.improvements ?? [],
-              modo: mode,
-            }))
+            // NOTE: The attempt was already saved to guestAttempts[] above.
+            // Do NOT also write pendingAttempt here — that would double-migrate
+            // the same attempt when the guest later signs up.
           }
         }
 
@@ -976,7 +1052,7 @@ function App() {
                   timing: {
                     elapsedSeconds: timingData.elapsedSeconds,
                     recommendedSeconds: timingData.recommendedSeconds,
-                    penaltyOvertimeSeconds: timingData.penaltyOvertimeSeconds ?? 0,
+                    penaltyOvertimeSeconds: timingData.overtimeSeconds ?? 0,
                   },
                 })
 
@@ -1078,9 +1154,34 @@ function App() {
     if (mode !== 'random') {
       setMode('random')
     } else {
-      // Forzar refetch cambiando a un valor temporal y volviendo
       setImageStatus('loading')
       setImageData(null)
+
+      // Guest: nueva imagen Easy al azar (diferente de la anterior)
+      if (!user) {
+        const prevId = sessionStorage.getItem('guestImageId')
+        sessionStorage.removeItem('guestImageId')
+        ;(async () => {
+          try {
+            const { data: rows } = await supabase.from('imagenes_ia')
+              .select('id_imagen, url_image, seed, fecha, image_diff, image_theme, company_id')
+              .eq('image_diff', 'Easy')
+              .is('company_id', null)
+            if (!rows || rows.length === 0) { setImageStatus('error'); return }
+            // Evitar repetir la imagen anterior si hay más de una disponible
+            const candidates = rows.length > 1 ? rows.filter(r => r.id_imagen !== prevId) : rows
+            const selected = candidates[Math.floor(Math.random() * candidates.length)]
+            sessionStorage.setItem('guestImageId', selected.id_imagen)
+            setImageData(normalizeImageData(selected))
+            setDifficulty('Easy')
+            setImageStatus('ok')
+            startFocusTracking()
+          } catch { setImageStatus('error') }
+        })()
+        return
+      }
+
+      // Usuario logueado: lógica normal con filtros avanzados
       const fetchRandom = async () => {
         try {
           let query = supabase.from('imagenes_ia')
@@ -1097,18 +1198,16 @@ function App() {
           if (withoutDaily.length > 0) rows = withoutDaily
 
           // Excluir dominadas
-          if (user) {
-            try {
-              const { data: mastered } = await supabase
-                .from('intentos').select('id_imagen')
-                .eq('id_usuario', user.id).gt('puntaje_similitud', 93)
-              if (mastered?.length) {
-                const masteredIds = new Set(mastered.map(i => i.id_imagen))
-                const filtered = rows.filter(r => !masteredIds.has(r.id_imagen))
-                if (filtered.length > 0) rows = filtered
-              }
-            } catch { /* fail open */ }
-          }
+          try {
+            const { data: mastered } = await supabase
+              .from('intentos').select('id_imagen')
+              .eq('id_usuario', user.id).gt('puntaje_similitud', 93)
+            if (mastered?.length) {
+              const masteredIds = new Set(mastered.map(i => i.id_imagen))
+              const filtered = rows.filter(r => !masteredIds.has(r.id_imagen))
+              if (filtered.length > 0) rows = filtered
+            }
+          } catch { /* fail open */ }
 
           const selected = rows[Math.floor(Math.random() * rows.length)]
           setImageData(selected)
@@ -1726,6 +1825,14 @@ function App() {
                           onModeChange={mode !== 'challenge' ? handleModeToggle : null}
                           onNewRandom={mode === 'random' && !challengeId ? handleNewRandom : null}
                           onDifficultyChange={mode === 'random' && !challengeId ? (newDiff) => {
+                            if (!user) {
+                              showGuestFeatureToast(
+                                lang === 'en'
+                                  ? 'Create a free account to change difficulty and unlock all images'
+                                  : 'Creá una cuenta gratis para cambiar la dificultad y desbloquear todas las imágenes'
+                              )
+                              return
+                            }
                             setDifficulty(newDiff)
                             handleReset()
                           } : null}
@@ -1835,12 +1942,30 @@ function App() {
 
       <Footer />
 
+      {/* Toast: feature bloqueada para guests (ej. cambio de dificultad) */}
+      {guestFeatureToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] flex items-center gap-3 rounded-2xl bg-slate-900 px-5 py-3 shadow-2xl text-white text-sm font-medium animate-in fade-in slide-in-from-bottom-3 duration-300">
+          <svg className="h-4 w-4 text-violet-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 118 0v4" />
+          </svg>
+          <span className="max-w-xs leading-snug">{guestFeatureToast}</span>
+          <button
+            type="button"
+            onClick={handleOpenAuth}
+            className="ml-1 shrink-0 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-violet-500 transition"
+          >
+            {lang === 'en' ? 'Sign up free' : 'Registrarse gratis'}
+          </button>
+        </div>
+      )}
+
       {/* User onboarding — solo primera vez (usuarios y guests) */}
       {showUserOnboarding && (
         <Suspense fallback={null}>
-          <UserOnboarding onDone={() => {
+          <UserOnboarding onDone={async () => {
             if (user) {
-              localStorage.setItem(`user_onboarded_${user.id}`, '1')
+              await supabase.from('usuarios').update({ user_onboarded: true }).eq('id_usuario', user.id)
             } else {
               localStorage.setItem('user_onboarded_guest', '1')
             }

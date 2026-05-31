@@ -51,7 +51,7 @@ const SLIDES = [
         <rect x="44" y="20" width="32" height="42" rx="6" fill="#ede9fe"/>
         <rect x="48" y="26" width="24" height="4" rx="2" fill="#a78bfa"/>
         <rect x="48" y="34" width="18" height="4" rx="2" fill="#ddd6fe"/>
-        <text x="60" y="52" fontSize="6" fill="#7c3aed" textAnchor="middle" fontFamily="sans-serif" fontWeight="bold">Rankeado</text>
+        <text x="60" y="52" fontSize="5" fill="#7c3aed" textAnchor="middle" fontFamily="sans-serif" fontWeight="bold">Competitivo</text>
         <rect x="80" y="20" width="32" height="42" rx="6" fill="#ecfdf5"/>
         <rect x="84" y="26" width="24" height="4" rx="2" fill="#6ee7b7"/>
         <rect x="84" y="34" width="18" height="4" rx="2" fill="#d1fae5"/>
@@ -59,7 +59,7 @@ const SLIDES = [
       </svg>
     ),
     title: 'Tres modos de juego',
-    body: 'Diario para mantener tu racha, Rankeado para subir en el leaderboard global, y Challenge si sos parte de un equipo empresa.',
+    body: 'Diario para mantener tu racha, Competitivo para subir en el leaderboard global, y Challenge si sos parte de un equipo empresa.',
   },
 ]
 

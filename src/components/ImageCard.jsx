@@ -1,5 +1,28 @@
 import { useEffect, useRef, useState } from 'react'
 
+function useSecureImage(url) {
+  const [blobUrl, setBlobUrl] = useState(null)
+  useEffect(() => {
+    if (!url) { setBlobUrl(null); return }
+    let objectUrl = null
+    let cancelled = false
+    fetch(url)
+      .then(r => r.blob())
+      .then(blob => {
+        if (cancelled) return
+        objectUrl = URL.createObjectURL(blob)
+        setBlobUrl(objectUrl)
+      })
+      .catch(() => { if (!cancelled) setBlobUrl(null) })
+    return () => {
+      cancelled = true
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+      setBlobUrl(null)
+    }
+  }, [url])
+  return blobUrl
+}
+
 // ── File type detection ──────────────────────────────────────────────────────
 const CODE_EXTS = new Set(['js','jsx','ts','tsx','py','cs','java','cpp','c','h','hpp','css','scss','html','xml','json','sql','sh','bash','rb','go','rs','php','swift','kt','vue','yaml','yml','toml','r','lua','dart','scala'])
 const DOC_EXTS  = new Set(['txt','md','csv','log'])
@@ -172,6 +195,7 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
     setTimeout(() => setImgLoaded(true), 50)
   }
   const imageUrl = data?.url_image || ''
+  const secureUrl = useSecureImage(imageUrl)
 
   // Detectar aspect ratio cuando la imagen ya cargó en el <img> — sin doble request
   const handleLoad = (e) => {
@@ -280,25 +304,31 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
     // imageStatus === 'ok'
     return (
       <div className="group/img relative h-full w-full select-none">
-        {/* Skeleton loader simple mientras la imagen carga */}
-        {!imgLoaded && (
-          <div className="absolute inset-0 flex items-center justify-center bg-slate-100 dark:bg-slate-800">
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 dark:border-slate-700 border-t-cyan-500" />
+        {/* Skeleton: visible mientras no haya URL o la imagen no haya cargado */}
+        {(!secureUrl || !imgLoaded) && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900">
+            <div className="relative flex items-center justify-center">
+              <div className="absolute h-16 w-16 rounded-full bg-cyan-500/20 animate-ping" style={{ animationDuration: '1.5s' }} />
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 dark:border-slate-700 border-t-cyan-500" />
+            </div>
           </div>
         )}
-        
-        <img
-          key={imageUrl} // Force re-render when URL changes
-          src={imageUrl}
-          alt="Imagen de referencia"
-          className={`h-full w-full object-cover pointer-events-none transition-opacity duration-300 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
-          draggable={false}
-          loading="eager"
-          fetchpriority="high"
-          decoding="async"
-          onLoad={handleLoad}
-          onError={() => setImgLoaded(false)}
-        />
+
+        {/* Solo renderizar img cuando hay URL para evitar que aparezca el alt text */}
+        {secureUrl && (
+          <img
+            key={imageUrl}
+            src={secureUrl}
+            alt=""
+            className={`h-full w-full object-cover pointer-events-none transition-opacity duration-300 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+            draggable={false}
+            loading="eager"
+            fetchpriority="high"
+            decoding="async"
+            onLoad={handleLoad}
+            onError={() => setImgLoaded(false)}
+          />
+        )}
         
         {/* Prompt original revelado - overlay en la parte inferior */}
         {revealedPrompt && (
@@ -390,7 +420,7 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
         >
           <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
             <img
-              src={imageUrl}
+              src={secureUrl || ''}
               alt="Imagen de referencia ampliada"
               className="max-h-[90vh] max-w-[92vw] rounded-xl object-contain select-none pointer-events-none"
               draggable={false}

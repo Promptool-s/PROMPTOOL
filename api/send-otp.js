@@ -1,5 +1,23 @@
 import crypto from 'crypto'
 
+// Simple in-memory rate limit (resets on cold-start — adequate for serverless)
+// Per email: max 3 OTP sends per 10 minutes
+const emailRateMap = new Map()
+function checkEmailRateLimit(email) {
+  const now = Date.now()
+  const key = email.toLowerCase()
+  const entry = emailRateMap.get(key)
+  const WINDOW = 10 * 60 * 1000 // 10 min
+  const MAX = 3
+  if (!entry || now > entry.resetAt) {
+    emailRateMap.set(key, { count: 1, resetAt: now + WINDOW })
+    return true
+  }
+  if (entry.count >= MAX) return false
+  entry.count++
+  return true
+}
+
 const ALLOWED_ORIGINS = [
   'https://promptool.app',
   'https://www.promptool.app',
@@ -13,7 +31,8 @@ function getCorsOrigin(origin) {
 }
 
 function generateCode() {
-  return String(Math.floor(100000 + Math.random() * 900000))
+  // crypto.randomInt is CSPRNG — safe for OTP generation (Node >= 14.10)
+  return String(crypto.randomInt(100000, 1000000))
 }
 
 function signPayload(payload, secret) {
@@ -97,14 +116,20 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
   const RESEND_API_KEY = process.env.RESEND_API_KEY
-  const OTP_SECRET = process.env.OTP_SECRET || 'promptool-otp-default-secret-change-in-prod'
+  const OTP_SECRET = process.env.OTP_SECRET
   if (!RESEND_API_KEY) return res.status(500).json({ error: 'Email service not configured' })
+  if (!OTP_SECRET) return res.status(500).json({ error: 'OTP service not configured' })
 
   const { email, lang } = req.body || {}
   if (!email) return res.status(400).json({ error: 'Missing email' })
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   if (!emailRegex.test(email)) return res.status(400).json({ error: 'Invalid email' })
+
+  // Rate limit: 3 OTP sends per email per 10 minutes
+  if (!checkEmailRateLimit(email)) {
+    return res.status(429).json({ error: 'Too many requests. Please wait before requesting another code.' })
+  }
 
   const code = generateCode()
   const exp = Date.now() + 10 * 60 * 1000 // 10 minutes

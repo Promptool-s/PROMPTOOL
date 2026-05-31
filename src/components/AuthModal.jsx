@@ -280,10 +280,29 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
                 style={{ backgroundColor: 'rgb(var(--color-accent))' }}>
                 {loading ? '...' : (lang === 'en' ? 'Verify & create account' : 'Verificar y crear cuenta')}
               </button>
-              <button type="button" onClick={() => { setSignupStep('info'); setError(''); setOtpCode('') }}
-                className="w-full rounded-xl py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition">
-                {lang === 'en' ? 'Back' : 'Volver'}
-              </button>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => { setSignupStep('info'); setError(''); setOtpCode(''); setOtpToken('') }}
+                  className="flex-1 rounded-xl py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition">
+                  {lang === 'en' ? 'Back' : 'Volver'}
+                </button>
+                <button type="button" disabled={loading}
+                  onClick={async () => {
+                    setError(''); setOtpCode(''); setLoading(true)
+                    try {
+                      const res = await fetch('/api/send-otp', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: pendingSignup?.email, lang: lang || 'es' }),
+                      })
+                      const d = await res.json()
+                      if (!res.ok) throw new Error(d.error || 'Error')
+                      setOtpToken(d.token)
+                    } catch (err) { setError(err.message) }
+                    finally { setLoading(false) }
+                  }}
+                  className="flex-1 rounded-xl py-2 text-sm font-medium text-slate-500 hover:text-slate-700 border border-slate-200 transition disabled:opacity-40">
+                  {lang === 'en' ? 'Resend code' : 'Reenviar código'}
+                </button>
+              </div>
             </form>
           ) : null}
           {/* Mostrar selección de tipo de usuario en signup */}

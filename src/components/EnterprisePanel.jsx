@@ -5,7 +5,6 @@ import Header from './Header'
 import Footer from './Footer'
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  RadarChart, Radar, PolarGrid, PolarAngleAxis,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts'
 import { proxyImg } from '../utils/imgProxy'
@@ -183,6 +182,8 @@ const EnterprisePanel = ({ user }) => {
   const [chatLoading, setChatLoading] = useState(false)
   const [chatError, setChatError] = useState(null)
   const chatEndRef = useRef(null)
+  // Ref so outside-effect code can call fetchCompanyData without it being in scope
+  const fetchCompanyDataRef = useRef(null)
   // Chatbot member autocomplete
   const [chatSuggestions, setChatSuggestions] = useState([])
   const [chatSuggestionMode, setChatSuggestionMode] = useState(null) // 'rename' | 'role' | 'remove'
@@ -521,7 +522,7 @@ const EnterprisePanel = ({ user }) => {
           // Fetch challenges
           const { data: chs } = await supabase
             .from('imagenes_ia')
-            .select('id_imagen, url_image, image_diff, image_theme, fecha, prompt_original, challenge_description, challenge_time_limit, challenge_max_attempts, challenge_min_words, challenge_start_date, challenge_end_date, challenge_visibility, challenge_points, challenge_tags, challenge_hints, challenge_evaluation_mode')
+            .select('id_imagen, url_image, image_diff, image_theme, fecha, prompt_original, challenge_description, challenge_time_limit, challenge_max_attempts, challenge_min_words, challenge_start_date, challenge_end_date, challenge_visibility, challenge_points, challenge_tags, challenge_hints, challenge_evaluation_mode, challenge_eval_instructions, challenge_content_type')
             .eq('company_id', company.id_usuario)
             .order('fecha', { ascending: false })
           setChallenges(chs || [])
@@ -540,7 +541,7 @@ const EnterprisePanel = ({ user }) => {
             const memberIds = (members || []).map(m => m.id_usuario)
             const { data: attemptsData } = await supabase
               .from('intentos')
-              .select('id_intento, id_usuario, id_imagen, puntaje_similitud, prompt_usuario, strengths, improvements, fecha_hora, modo')
+              .select('id_intento, id_usuario, id_imagen, puntaje_similitud, prompt_usuario, strengths, improvements, fecha_hora, modo, visualElements, styleAtmosphere, technicalDetails, clarity')
               .in('id_imagen', challengeIds)
               .in('id_usuario', memberIds)
               .order('fecha_hora', { ascending: false })
@@ -565,6 +566,7 @@ const EnterprisePanel = ({ user }) => {
       }
     }
 
+    fetchCompanyDataRef.current = fetchCompanyData
     fetchCompanyData()
   }, [user?.id])
 
@@ -646,8 +648,15 @@ const EnterprisePanel = ({ user }) => {
 
   // Crear rol personalizado
   const createCustomRole = async () => {
-    if (!newRoleForm.name.trim()) return
-    
+    const trimmedName = newRoleForm.name.trim()
+    if (!trimmedName) return
+    // Prevent duplicate role names (case-insensitive)
+    if (customRoles.some(r => r.role_name?.toLowerCase() === trimmedName.toLowerCase())) {
+      setRoleError({ userId: null, msg: lang === 'en' ? `Role "${trimmedName}" already exists.` : `El rol "${trimmedName}" ya existe.` })
+      setTimeout(() => setRoleError(null), 3000)
+      return
+    }
+
     try {
       const { error } = await supabase.rpc('create_custom_role', {
         role_name: newRoleForm.name.trim(),
@@ -684,7 +693,7 @@ const EnterprisePanel = ({ user }) => {
       if (error) throw error
       
       // Refrescar lista de roles y miembros
-      await Promise.all([fetchCustomRoles(), fetchCompanyData()])
+      await Promise.all([fetchCustomRoles(), fetchCompanyDataRef.current?.()])
     } catch (error) {
       console.error('Error deleting role:', error)
       alert(error.message || (lang === 'en' ? 'Could not delete role' : 'No se pudo eliminar el rol'))
@@ -786,9 +795,13 @@ const EnterprisePanel = ({ user }) => {
         : `https://promptool.app/?invite=${user.id}&email=${encodeURIComponent(inviteEmail.trim())}`
 
       try {
+        const { data: { session } } = await supabase.auth.getSession()
         const inviteRes = await fetch('/api/send-invite', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token ?? ''}`,
+          },
           body: JSON.stringify({
             recipientEmail: inviteEmail.trim(),
             companyName,
@@ -907,6 +920,8 @@ const EnterprisePanel = ({ user }) => {
   }
 
   const assignRole = async (userId, role) => {
+    // Capture original role BEFORE optimistic update so we can revert correctly
+    const originalRole = teamUsers.find(u => u.id_usuario === userId)?.company_role ?? null
     // Optimistic update
     setTeamUsers(prev => prev.map(u => u.id_usuario === userId ? { ...u, company_role: role || null } : u))
     setRoleError(null)
@@ -917,14 +932,16 @@ const EnterprisePanel = ({ user }) => {
       })
       if (error) throw error
     } catch (err) {
-      // Revert optimistic update on failure
-      setTeamUsers(prev => prev.map(u => u.id_usuario === userId ? { ...u, company_role: u.company_role } : u))
+      // Revert to captured original role
+      setTeamUsers(prev => prev.map(u => u.id_usuario === userId ? { ...u, company_role: originalRole } : u))
       setRoleError({ userId, msg: err?.message || (lang === 'en' ? 'Could not assign role.' : 'No se pudo asignar el rol.') })
       setTimeout(() => setRoleError(null), 3000)
     }
   }
 
   const removeMember = async (userId) => {
+    // Prevent admin from removing themselves
+    if (userId === user?.id) return
     setRemovingId(userId)
     try {
       const { error } = await supabase.rpc('remove_team_member', { target_user_id: userId })
@@ -943,7 +960,9 @@ const EnterprisePanel = ({ user }) => {
     if (!editingName || !editingName.value.trim()) return
     setSavingName(true)
     try {
-      const newName = editingName.value.trim()
+      // Sanitize: strip HTML-injectable chars, cap length at 60
+      const newName = editingName.value.trim().slice(0, 60).replace(/[<>"'`]/g, '')
+      if (!newName) return
       // Use RPC to set company_display_name — does NOT touch the user's real nombre/nombre_display
       const { error } = await supabase.rpc('set_company_display_name', {
         target_user_id: editingName.id,
@@ -964,6 +983,7 @@ const EnterprisePanel = ({ user }) => {
 
   const resetChallengeForm = () => {
     setChallengeForm({
+      contentType: 'image',
       prompt: '',
       difficulty: 'Medium',
       theme: '',
@@ -994,6 +1014,7 @@ const EnterprisePanel = ({ user }) => {
   const openEditChallengeModal = (challenge) => {
     // Load challenge data into form
     setChallengeForm({
+      contentType: challenge.challenge_content_type || 'image',
       prompt: challenge.prompt_original || '',
       difficulty: challenge.image_diff || 'Medium',
       theme: challenge.image_theme || '',
@@ -1626,8 +1647,12 @@ RESPONSE RULES:
             // Security: verify user belongs to this team
             const isMember = teamUsers.some(u => u.id_usuario === actionData.userId)
             if (isMember) {
-              const validRoles = ['manager', 'analyst', 'trainee', 'observer', '']
-              const role = validRoles.includes(actionData.role) ? actionData.role : null
+              const customRoleNames = customRoles.map(r => (r.role_name || '').toLowerCase())
+              const builtInRoles = ['manager', 'analyst', 'trainee', 'observer', '']
+              const requestedRole = String(actionData.role ?? '').trim()
+              const isValidRole = builtInRoles.includes(requestedRole.toLowerCase()) ||
+                customRoleNames.includes(requestedRole.toLowerCase())
+              const role = isValidRole ? requestedRole : null
               await supabase.rpc('assign_company_role', {
                 target_user_id: actionData.userId,
                 role: role || '',
@@ -1695,7 +1720,7 @@ RESPONSE RULES:
               if (error) throw error
               
               // Refresh custom roles and team users
-              await Promise.all([fetchCustomRoles(), fetchCompanyData()])
+              await Promise.all([fetchCustomRoles(), fetchCompanyDataRef.current?.()])
               
               // Add success message to chat
               setChatMessages(prev => [...prev, { 
@@ -1775,67 +1800,157 @@ RESPONSE RULES:
     )
 
     // ── KPI calculations ──
+    // When a time cutoff OR a specific challenge is selected, compute KPIs from attempt data
+    // rather than the all-time DB columns (promedio_score, total_intentos, etc.)
     const memberCount = filteredUsers.length
-    const activeMembers = filteredUsers.filter(u => (u.total_intentos || 0) > 0).length
+    const usingTimeFilter = !!timeCutoff  // keep for backward compat references
+    const usingAttemptData = !!timeCutoff || dashboardFilters.selectedChallenge !== 'all'
+
+    // Build per-user stats from filtered attempts when time/challenge filter is active
+    const userAttemptStats = usingAttemptData
+      ? filteredUsers.reduce((acc, u) => {
+          const userAttempts = memberFilteredAttempts.filter(a => a.id_usuario === u.id_usuario)
+          acc[u.id_usuario] = {
+            count: userAttempts.length,
+            avgScore: userAttempts.length > 0
+              ? Math.round(userAttempts.reduce((s, a) => s + (a.puntaje_similitud || 0), 0) / userAttempts.length)
+              : 0,
+          }
+          return acc
+        }, {})
+      : null
+
+    const activeMembers = usingAttemptData
+      ? filteredUsers.filter(u => (userAttemptStats[u.id_usuario]?.count || 0) > 0).length
+      : filteredUsers.filter(u => (u.total_intentos || 0) > 0).length
     const inactiveMembers = memberCount - activeMembers
+
     const avgScore = memberCount > 0
-      ? Math.round(filteredUsers.reduce((s, u) => s + (u.promedio_score || 0), 0) / memberCount)
+      ? usingAttemptData
+        ? (() => {
+            const active = filteredUsers.filter(u => (userAttemptStats[u.id_usuario]?.count || 0) > 0)
+            return active.length > 0
+              ? Math.round(active.reduce((s, u) => s + (userAttemptStats[u.id_usuario]?.avgScore || 0), 0) / active.length)
+              : 0
+          })()
+        : Math.round(filteredUsers.reduce((s, u) => s + (u.promedio_score || 0), 0) / memberCount)
       : 0
+
     const avgElo = memberCount > 0
       ? Math.round(filteredUsers.reduce((s, u) => s + (u.elo_rating || 1000), 0) / memberCount)
       : 1000
-    const totalAttempts = filteredUsers.reduce((s, u) => s + (u.total_intentos || 0), 0)
+
+    const totalAttempts = usingAttemptData
+      ? memberFilteredAttempts.length
+      : filteredUsers.reduce((s, u) => s + (u.total_intentos || 0), 0)
     const participationRate = memberCount > 0 ? Math.round((activeMembers / memberCount) * 100) : 0
 
     // Recruiter-specific stats
     const topElo = filteredUsers.length > 0 ? Math.max(...filteredUsers.map(u => u.elo_rating || 1000)) : 0
-    const bestStreak = filteredUsers.length > 0 ? Math.max(...filteredUsers.map(u => u.racha_actual || 0)) : 0
-    const consistentMembers = filteredUsers.filter(u => (u.porcentaje_aprobacion || 0) >= 70).length
-    const highPerformers = filteredUsers.filter(u => (u.promedio_score || 0) >= 70).length
+
+    // When attempt-level data is active, derive per-user score metrics from filtered attempts
+    // (covers both time-range filter and specific-challenge filter)
+    const getUserFilteredScore = (userId) => {
+      if (usingAttemptData && userAttemptStats?.[userId]) {
+        return userAttemptStats[userId].avgScore
+      }
+      const attempts = memberFilteredAttempts.filter(a => a.id_usuario === userId)
+      if (attempts.length === 0) return null
+      return Math.round(attempts.reduce((s, a) => s + (a.puntaje_similitud || 0), 0) / attempts.length)
+    }
+    const getUserApproval = (userId) => {
+      if (!usingAttemptData) return (filteredUsers.find(u => u.id_usuario === userId)?.porcentaje_aprobacion || 0)
+      const attempts = memberFilteredAttempts.filter(a => a.id_usuario === userId)
+      if (attempts.length === 0) return 0
+      const passing = attempts.filter(a => (a.puntaje_similitud || 0) >= 50).length
+      return Math.round((passing / attempts.length) * 100)
+    }
+
+    const consistentMembers = filteredUsers.filter(u => getUserApproval(u.id_usuario) >= 70).length
+    const highPerformers = filteredUsers.filter(u => {
+      const sc = usingAttemptData
+        ? getUserFilteredScore(u.id_usuario)
+        : (u.promedio_score || 0)
+      return (sc ?? 0) >= 70
+    }).length
     const avgApproval = memberCount > 0
-      ? Math.round(filteredUsers.reduce((s, u) => s + (u.porcentaje_aprobacion || 0), 0) / memberCount)
+      ? Math.round(filteredUsers.reduce((s, u) => s + getUserApproval(u.id_usuario), 0) / memberCount)
       : 0
 
-    // Score distribution
+    // Score distribution — use attempt-level data when filter is active
+    const getEffectiveScore = (u) => usingAttemptData
+      ? (getUserFilteredScore(u.id_usuario) ?? 0)
+      : (u.promedio_score || 0)
     const scoreDist = [
-      { name: lang === 'en' ? 'High ≥70%' : 'Alto ≥70%', value: filteredUsers.filter(u => (u.promedio_score || 0) >= 70).length, color: '#10b981' },
-      { name: lang === 'en' ? 'Mid 50–69%' : 'Medio 50–69%', value: filteredUsers.filter(u => (u.promedio_score || 0) >= 50 && (u.promedio_score || 0) < 70).length, color: '#f59e0b' },
-      { name: lang === 'en' ? 'Low <50%' : 'Bajo <50%', value: filteredUsers.filter(u => (u.promedio_score || 0) > 0 && (u.promedio_score || 0) < 50).length, color: '#ef4444' },
-      { name: lang === 'en' ? 'No data' : 'Sin datos', value: filteredUsers.filter(u => !u.promedio_score).length, color: '#cbd5e1' },
+      { name: lang === 'en' ? 'High ≥70%' : 'Alto ≥70%', value: filteredUsers.filter(u => getEffectiveScore(u) >= 70).length, color: '#10b981' },
+      { name: lang === 'en' ? 'Mid 50–69%' : 'Medio 50–69%', value: filteredUsers.filter(u => getEffectiveScore(u) >= 50 && getEffectiveScore(u) < 70).length, color: '#f59e0b' },
+      { name: lang === 'en' ? 'Low <50%' : 'Bajo <50%', value: filteredUsers.filter(u => getEffectiveScore(u) > 0 && getEffectiveScore(u) < 50).length, color: '#ef4444' },
+      { name: lang === 'en' ? 'No data' : 'Sin datos', value: filteredUsers.filter(u => getEffectiveScore(u) === 0).length, color: '#cbd5e1' },
     ].filter(d => d.value > 0)
 
-    // Challenge participation
-    const challengeParticipation = challenges.slice(0, 6).map(ch => {
+    // Challenge participation — respect timeCutoff
+    const challengeParticipation = challenges.slice(0, 6).map((ch, chIdx) => {
       const attempts = (challengeAttempts[ch.id_imagen] || []).filter(a =>
-        filteredUsers.some(u => u.id_usuario === a.id_usuario)
+        filteredUsers.some(u => u.id_usuario === a.id_usuario) &&
+        (!timeCutoff || (a.fecha_hora && a.fecha_hora >= timeCutoff))
       )
       const uniqueUsers = new Set(attempts.map(a => a.id_usuario)).size
       const avgCh = attempts.length > 0
         ? Math.round(attempts.reduce((s, a) => s + (a.puntaje_similitud || 0), 0) / attempts.length)
         : 0
       return {
+        id: ch.id_imagen,  // use stable id for React keys
         name: ch.image_theme || `#${ch.id_imagen.slice(0, 4)}`,
         participants: uniqueUsers,
         avgScore: avgCh,
       }
     })
 
-    // Weekly activity (last 7 days from teamProgressData)
-    const weeklyData = teamProgressData.slice(-7).map(d => ({
-      label: d.label,
-      intentos: d.count,
-      score: d.avg,
-    }))
+    // Weekly activity — derived from memberFilteredAttempts so it responds to all filters
+    const weeklyMap = {}
+    memberFilteredAttempts.forEach(a => {
+      if (!a.fecha_hora) return
+      const day = a.fecha_hora.slice(0, 10) // YYYY-MM-DD
+      if (!weeklyMap[day]) weeklyMap[day] = { scores: [], count: 0 }
+      weeklyMap[day].count++
+      weeklyMap[day].scores.push(a.puntaje_similitud || 0)
+    })
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date()
+      d.setDate(d.getDate() - (6 - i))
+      return d.toISOString().slice(0, 10)
+    })
+    const weeklyData = last7Days.map(day => {
+      const entry = weeklyMap[day]
+      const scores = entry?.scores || []
+      return {
+        label: new Date(day + 'T12:00:00').toLocaleDateString(lang === 'en' ? 'en-US' : 'es-AR', { weekday: 'short' }),
+        intentos: entry?.count || 0,
+        score: scores.length > 0 ? Math.round(scores.reduce((s, v) => s + v, 0) / scores.length) : null,
+      }
+    })
 
     // Top 5 by ELO (filtered)
     const top5 = [...filteredUsers]
       .sort((a, b) => (b.elo_rating || 1000) - (a.elo_rating || 1000))
       .slice(0, 5)
 
-    // Needs coaching (filtered)
+    // Needs coaching (respects active filters)
     const needsAttention = [...filteredUsers]
-      .filter(u => (u.total_intentos || 0) > 0 && (u.promedio_score || 0) < 55)
-      .sort((a, b) => (a.promedio_score || 0) - (b.promedio_score || 0))
+      .filter(u => {
+        const attempts = usingAttemptData
+          ? (userAttemptStats?.[u.id_usuario]?.count || 0)
+          : (u.total_intentos || 0)
+        const score = usingAttemptData
+          ? (getUserFilteredScore(u.id_usuario) ?? 100)
+          : (u.promedio_score || 0)
+        return attempts > 0 && score < 55
+      })
+      .map(u => ({
+        ...u,
+        _filteredScore: usingAttemptData ? (getUserFilteredScore(u.id_usuario) ?? 0) : (u.promedio_score || 0),
+      }))
+      .sort((a, b) => a._filteredScore - b._filteredScore)
       .slice(0, 4)
 
     // ── Skill breakdown from filtered attempts ──
@@ -1939,8 +2054,8 @@ RESPONSE RULES:
         ? `${needsAttention.length} member${needsAttention.length > 1 ? 's' : ''} below 55%`
         : `${needsAttention.length} miembro${needsAttention.length > 1 ? 's' : ''} bajo 55%`,
       body: lang === 'en'
-        ? needsAttention.map(u => `${u.company_display_name || u.nombre_display || u.nombre || u.email} (${u.promedio_score ?? 0}%)`).join(' · ')
-        : needsAttention.map(u => `${u.company_display_name || u.nombre_display || u.nombre || u.email} (${u.promedio_score ?? 0}%)`).join(' · '),
+        ? needsAttention.map(u => `${u.company_display_name || u.nombre_display || u.nombre || u.email} (${u._filteredScore ?? u.promedio_score ?? 0}%)`).join(' · ')
+        : needsAttention.map(u => `${u.company_display_name || u.nombre_display || u.nombre || u.email} (${u._filteredScore ?? u.promedio_score ?? 0}%)`).join(' · '),
     })
     if (inactiveMembers > 0) insights.push({
       type: 'warning',
@@ -1996,7 +2111,9 @@ RESPONSE RULES:
     const avgAttemptsPerActive = activeMembers > 0 ? Math.round(totalAttempts / activeMembers) : 0
 
     // ── Score target (70%) gap ──
-    const belowTarget = filteredUsers.filter(u => (u.total_intentos||0) > 0 && (u.promedio_score||0) < 70).length
+    const belowTarget = usingAttemptData
+      ? filteredUsers.filter(u => (userAttemptStats?.[u.id_usuario]?.count || 0) > 0 && (getUserFilteredScore(u.id_usuario) ?? 100) < 70).length
+      : filteredUsers.filter(u => (u.total_intentos||0) > 0 && (u.promedio_score||0) < 70).length
     const belowTargetPct = activeMembers > 0 ? Math.round(belowTarget / activeMembers * 100) : 0
 
     return (
@@ -2133,7 +2250,7 @@ RESPONSE RULES:
           </div>
           {/* Participation */}
           <div className={`rounded-xl border p-4 ${participationRate >= 70 ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20' : participationRate >= 40 ? 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20' : 'border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/20'}`}>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">{lang === 'en' ? 'Ever Active' : 'Jugaron alguna vez'}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">{usingAttemptData ? (lang === 'en' ? 'Active in period' : 'Activos en período') : (lang === 'en' ? 'Ever Active' : 'Jugaron alguna vez')}</p>
             <p className={`text-2xl font-bold tabular-nums ${participationRate >= 70 ? 'text-emerald-600' : participationRate >= 40 ? 'text-amber-600' : 'text-rose-600'}`}>{participationRate}%</p>
             <p className="text-[10px] text-slate-500 mt-1">{activeMembers}/{memberCount} {lang === 'en' ? 'have played' : 'han jugado'}</p>
             <div className="mt-2 h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
@@ -2160,7 +2277,7 @@ RESPONSE RULES:
           </div>
           {/* Avg approval rate */}
           <div className={`rounded-xl border p-4 ${avgApproval >= 70 ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20' : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'}`}>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">{lang === 'en' ? 'Pass rate' : 'Tasa de aprobacion'}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">{lang === 'en' ? 'Pass rate' : 'Tasa de aprobación'}</p>
             <p className={`text-2xl font-bold tabular-nums ${avgApproval >= 70 ? 'text-emerald-600' : avgApproval >= 50 ? 'text-amber-600' : 'text-slate-700 dark:text-slate-200'}`}>{avgApproval}%</p>
             <p className="text-[10px] text-slate-500 mt-1">{consistentMembers} {lang === 'en' ? `member${consistentMembers !== 1 ? 's' : ''} ≥70%` : `miembro${consistentMembers !== 1 ? 's' : ''} ≥70%`}</p>
           </div>
@@ -2188,7 +2305,7 @@ RESPONSE RULES:
                     ? (lang === 'en' ? '→ Review' : '→ Revisar')
                     : null
                 return (
-                  <div className="flex items-start gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                  <div key={i} className="flex items-start gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                     <span className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${dotColor}`} />
                     <div className="flex-1 min-w-0">
                       <p className={`text-xs font-semibold leading-snug ${titleColor}`}>{ins.title}</p>
@@ -2235,7 +2352,7 @@ RESPONSE RULES:
                     <th className="text-left px-4 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400 w-44">{lang === 'en' ? 'Member' : 'Miembro'}</th>
                     <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">ELO</th>
                     <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{lang === 'en' ? 'Avg score' : 'Score'}</th>
-                    <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{lang === 'en' ? 'Pass rate' : 'Aprobacion'}</th>
+                    <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{lang === 'en' ? 'Pass rate' : 'Aprobación'}</th>
                     <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{lang === 'en' ? 'Attempts' : 'Intentos'}</th>
                     <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{lang === 'en' ? 'Streak' : 'Racha'}</th>
                     <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{lang === 'en' ? 'Trend' : 'Tendencia'}</th>
@@ -2440,7 +2557,8 @@ RESPONSE RULES:
                         const name = u.company_display_name||u.nombre_display||u.nombre||u.email
                         const profileHref = u.username?`/user/${u.username}`:`/perfil?id=${u.id_usuario}`
                         const trend = memberTrends.find(t=>t.name===name)
-                        const gap = 70-(u.promedio_score||0)
+                        const displayScore = u._filteredScore ?? u.promedio_score ?? 0
+                        const gap = 70 - displayScore
                         return (
                           <a key={u.id_usuario} href={profileHref} className="flex items-center gap-3 px-4 py-2.5 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors group">
                             <div className="h-7 w-7 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 shrink-0 flex items-center justify-center">
@@ -2451,11 +2569,11 @@ RESPONSE RULES:
                               <p className="text-[10px] text-rose-400">{gap}pts {lang==='en'?'to reach target':'para llegar al objetivo'}</p>
                             </div>
                             <div className="text-right shrink-0">
-                              <p className="text-xs font-bold text-rose-500">{u.promedio_score??0}%</p>
+                              <p className="text-xs font-bold text-rose-500">{displayScore}%</p>
                               <div className="flex items-center gap-1 mt-1">
                                 {trend&&trend.delta!==0&&<span className={`text-[9px] font-bold ${trend.delta>0?'text-emerald-500':'text-rose-500'}`}>{trend.delta>0?`+${trend.delta}`:trend.delta}</span>}
                                 <button
-                                  onClick={() => sendReviewMessage(name, `Low performance: ${u.promedio_score??0}% average score`)}
+                                  onClick={() => sendReviewMessage(name, `Low performance: ${u._filteredScore ?? u.promedio_score ?? 0}% average score`)}
                                   className="text-[9px] text-violet-600 hover:text-violet-700 font-medium ml-1"
                                 >
                                   {lang === 'en' ? 'Ask' : 'IA'}
@@ -2468,7 +2586,7 @@ RESPONSE RULES:
                       {inactiveMembers>0&&(
                         <div className="px-4 py-2.5 flex items-center gap-2">
                           <svg className="h-4 w-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-                          <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">{inactiveMembers} {lang==='en'?`member${inactiveMembers>1?'s':''} never attempted`:`miembro${inactiveMembers>1?'s':''} sin intentos`}</p>
+                          <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">{inactiveMembers} {usingAttemptData ? (lang==='en'?`member${inactiveMembers>1?'s':''} no activity in period`:`miembro${inactiveMembers>1?'s':''} sin actividad en el período`) : (lang==='en'?`member${inactiveMembers>1?'s':''} never attempted`:`miembro${inactiveMembers>1?'s':''} sin intentos`)}</p>
                           <button onClick={()=>setActiveTab('requests')} className="ml-auto text-[10px] text-amber-600 font-semibold hover:underline">{lang==='en'?'Invite →':'Invitar →'}</button>
                         </div>
                       )}
@@ -2528,7 +2646,7 @@ RESPONSE RULES:
                   {challengeParticipation.slice(0,5).map(ch=>{
                     const pct=memberCount>0?Math.round(ch.participants/memberCount*100):0
                     return(
-                      <div key={ch.name}>
+                      <div key={ch.id || ch.name}>
                         <div className="flex items-center justify-between mb-0.5">
                           <span className="text-[10px] text-slate-600 dark:text-slate-400 truncate max-w-[100px]">{ch.name}</span>
                           <span className="text-[10px] font-semibold text-violet-600 shrink-0">{ch.participants}/{memberCount}</span>
@@ -2827,7 +2945,7 @@ RESPONSE RULES:
       { id: 'score',    label: lang === 'en' ? 'Avg Score' : 'Score Prom.', get: u => u.promedio_score || 0, fmt: v => `${v}%` },
       { id: 'attempts', label: lang === 'en' ? 'Attempts' : 'Intentos',    get: u => u.total_intentos || 0, fmt: v => v },
       { id: 'streak',   label: lang === 'en' ? 'Streak' : 'Racha',         get: u => u.racha_actual || 0,   fmt: v => `${v}d` },
-      { id: 'approval', label: lang === 'en' ? 'Approval' : 'Aprobacion',  get: u => u.porcentaje_aprobacion || 0, fmt: v => `${v}%` },
+      { id: 'approval', label: lang === 'en' ? 'Approval' : 'Aprobación',  get: u => u.porcentaje_aprobacion || 0, fmt: v => `${v}%` },
     ]
     const current = sortOptions.find(s => s.id === lbSort) || sortOptions[0]
     const sorted = [...teamUsers].sort((a, b) => current.get(b) - current.get(a))
@@ -4490,7 +4608,7 @@ RESPONSE RULES:
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-300 dark:border-slate-600 border-t-violet-600 mx-auto" />
-          <p className="mt-4 text-slate-600">Loading...</p>
+          <p className="mt-4 text-slate-600">{lang === 'en' ? 'Loading...' : 'Cargando...'}</p>
         </div>
       </div>
     )

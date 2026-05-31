@@ -1,5 +1,21 @@
 import crypto from 'crypto'
 
+// Rate limit verify attempts per token prefix (prevent brute-force of 6-digit code)
+const verifyRateMap = new Map()
+function checkVerifyRateLimit(tokenPrefix) {
+  const now = Date.now()
+  const entry = verifyRateMap.get(tokenPrefix)
+  const WINDOW = 10 * 60 * 1000 // 10 min (matches OTP expiry)
+  const MAX = 8 // 8 attempts per token before lockout
+  if (!entry || now > entry.resetAt) {
+    verifyRateMap.set(tokenPrefix, { count: 1, resetAt: now + WINDOW })
+    return true
+  }
+  if (entry.count >= MAX) return false
+  entry.count++
+  return true
+}
+
 const ALLOWED_ORIGINS = [
   'https://promptool.app',
   'https://www.promptool.app',
@@ -25,11 +41,18 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end()
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
-  const OTP_SECRET = process.env.OTP_SECRET || 'promptool-otp-default-secret-change-in-prod'
+  const OTP_SECRET = process.env.OTP_SECRET
+  if (!OTP_SECRET) return res.status(500).json({ error: 'OTP service not configured' })
   const { token, code, email } = req.body || {}
 
   if (!token || !code || !email) {
     return res.status(400).json({ error: 'Missing fields' })
+  }
+
+  // Rate limit by token prefix to prevent brute-force of 6-digit codes
+  const tokenPrefix = token.slice(0, 20)
+  if (!checkVerifyRateLimit(tokenPrefix)) {
+    return res.status(429).json({ error: 'Too many attempts. Please request a new code.' })
   }
 
   try {

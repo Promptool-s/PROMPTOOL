@@ -498,7 +498,7 @@ const ChallengeCreatorModal = ({
             <button
               type="button"
               onClick={handleGenerateWithAI}
-              disabled={generatingWithAI || !aiPrompt.trim()}
+              disabled={generatingWithAI || !aiPrompt.trim() || (contentType === 'image' && !challengeImageFile)}
               className="w-full rounded-xl bg-violet-600 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-40 transition"
             >
               {generatingWithAI

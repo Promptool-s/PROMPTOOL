@@ -9,9 +9,7 @@ import { proxyImg } from './utils/imgProxy'
 async function checkIsAdmin(userId) {
   if (!userId) return false
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user?.user_metadata?.adminstate === true) return true
-    if (user?.user_metadata?.devstate === true) return true
+    // Always verify from DB only — never trust user_metadata (can be modified by user)
     const { data } = await supabase.from('usuarios').select('adminstate, devstate').eq('id_usuario', userId).maybeSingle()
     return data?.adminstate === true || data?.devstate === true
   } catch { return false }
