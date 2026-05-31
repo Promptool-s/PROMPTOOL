@@ -281,6 +281,77 @@ html.dark header .border-slate-200 {
   border-color: rgb(var(--color-border-2)) !important;
 }
 
+/* Header nav — indicador activo coherente con el modo visual */
+header .header-nav-link {
+  position: relative;
+  transition: color 0.15s ease;
+}
+
+header .header-nav-link[aria-current='page'] {
+  font-weight: 600;
+  color: rgb(var(--color-accent));
+}
+
+header .header-nav-link[aria-current='page']::after {
+  content: '';
+  position: absolute;
+  left: 0.25rem;
+  right: 0.25rem;
+  bottom: -2px;
+  height: 1px;
+  border-radius: 9999px;
+  background-color: rgb(var(--color-accent));
+  opacity: 0.8;
+}
+
+header .header-nav-link--mobile[aria-current='page']::after {
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 0.35rem;
+}
+
+html.dark header .header-nav-link[aria-current='page'] {
+  color: rgb(var(--color-accent)) !important;
+}
+
+html.mode-sakura header .header-nav-link[aria-current='page'] {
+  color: rgb(var(--color-accent)) !important;
+}
+
+html.mode-retro header .header-nav-link[aria-current='page'] {
+  color: rgb(var(--color-accent)) !important;
+}
+
+html.mode-hacker header .header-nav-link[aria-current='page'] {
+  color: rgb(var(--color-accent)) !important;
+}
+
+/* Subrayado nav activo — color por modo visual (usa span.header-nav-underline) */
+header .header-nav-underline {
+  background-color: rgb(var(--color-accent));
+  opacity: 0.75;
+}
+
+html.dark:not(.mode-sakura):not(.mode-retro):not(.mode-hacker) header .header-nav-underline {
+  background-color: rgb(34 211 238);
+  opacity: 0.8;
+}
+
+html.mode-sakura header .header-nav-underline {
+  background-color: rgb(236 72 153);
+  opacity: 0.85;
+}
+
+html.mode-retro header .header-nav-underline {
+  background-color: #eab308;
+  opacity: 0.9;
+}
+
+html.mode-hacker header .header-nav-underline {
+  background-color: #00ff41;
+  opacity: 0.85;
+}
+
 /* Shadows — deeper in dark */
 html.dark .shadow-2xl { box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.7) !important; }
 html.dark .shadow-xl  { box-shadow: 0 20px 25px -5px  rgb(0 0 0 / 0.5) !important; }

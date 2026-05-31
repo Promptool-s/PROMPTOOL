@@ -436,6 +436,47 @@ const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
     </svg>
   )
 
+  const [currentPath, setCurrentPath] = useState(() => window.location.pathname)
+
+  useEffect(() => {
+    const syncPath = () => setCurrentPath(window.location.pathname)
+    window.addEventListener('popstate', syncPath)
+    return () => window.removeEventListener('popstate', syncPath)
+  }, [])
+
+  const isNavActive = (href) => {
+    if (href === '/') return currentPath === '/' || currentPath === ''
+    return currentPath === href || currentPath.startsWith(`${href}/`)
+  }
+
+  const NavLink = ({ href, label, className: cls = '', mobile = false }) => {
+    const active = isNavActive(href)
+    return (
+      <a
+        href={href}
+        aria-current={active ? 'page' : undefined}
+        onClick={mobile ? () => setMobileMenuOpen(false) : undefined}
+        className={[
+          'relative text-sm transition-colors',
+          mobile ? 'flex w-full items-center px-3 py-2' : 'px-2 py-1',
+          active
+            ? 'font-semibold text-slate-900'
+            : `font-normal text-slate-500 hover:text-slate-800 ${cls || ''}`,
+        ].join(' ')}
+      >
+        {label}
+        {active && (
+          <span
+            aria-hidden="true"
+            className={`header-nav-underline pointer-events-none absolute h-px rounded-full ${
+              mobile ? 'left-3 right-3 bottom-1' : 'left-1 right-1 -bottom-0.5'
+            }`}
+          />
+        )}
+      </a>
+    )
+  }
+
   const navLinks = [
     { href: '/guides', label: t('guides') },
     { href: '/leaderboard', label: t('leaderboard') },
@@ -521,12 +562,9 @@ const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
           </div>
 
           {/* Nav links */}
-          <nav className="hidden items-center gap-1 text-sm text-slate-600 md:flex">
+          <nav className="hidden items-center gap-2 md:flex">
             {navLinks.map(({ href, label, className: cls }) => (
-              <a key={href} href={href}
-                className={`rounded-lg px-3 py-1.5 transition-all hover:bg-slate-100 hover:text-slate-900 ${cls || ''}`}>
-                {label}
-              </a>
+              <NavLink key={href} href={href} label={label} className={cls} />
             ))}
           </nav>
 
@@ -827,13 +865,9 @@ const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
 
       {/* Mobile menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-slate-200 bg-white/95 backdrop-blur-xl px-4 py-3 space-y-1">
+        <div className="md:hidden border-t border-slate-200 bg-white/95 backdrop-blur-xl px-4 py-3 space-y-0.5">
           {navLinks.map(({ href, label, className: cls }) => (
-            <a key={href} href={href}
-              onClick={() => setMobileMenuOpen(false)}
-              className={`flex items-center rounded-xl px-3 py-2.5 text-sm transition hover:bg-slate-50 hover:text-slate-900 ${cls || 'text-slate-700'}`}>
-              {label}
-            </a>
+            <NavLink key={href} href={href} label={label} className={cls} mobile />
           ))}
           {!user && (
             <button
