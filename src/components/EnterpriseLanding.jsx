@@ -634,7 +634,7 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
         <section style={sectionStyle(true)} className="flex flex-col justify-center px-4 py-8 sm:py-10 sm:px-6 lg:px-8">
           <div className="mx-auto w-full max-w-6xl">
             <Reveal>
-              <div className="text-center mb-4 sm:mb-6">
+              <div className="text-center mb-3 sm:mb-4">
                 <div className="flex justify-center mb-3 sm:mb-4">
                   <div className={`inline-flex items-center gap-2 rounded-full border px-3 sm:px-4 py-1.5 text-[11px] sm:text-xs font-semibold text-center max-w-full ${
                     dark ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400' : 'border-emerald-200 bg-emerald-50 text-emerald-700'
@@ -651,10 +651,10 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
               </div>
             </Reveal>
 
-            <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3 pt-1 sm:pt-2">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 pt-1">
               {PLANS.map((plan, i) => (
                 <Reveal key={plan.name} delay={i * 80}>
-                  <div className={`relative rounded-2xl border p-4 sm:p-5 flex flex-col h-full ${card} ${plan.popular ? 'ring-2 ring-violet-500' : ''} ${plan.popular ? 'mt-4 sm:mt-0' : ''}`}>
+                  <div className={`relative rounded-2xl border p-3 sm:p-4 flex flex-col h-full ${card} ${plan.popular ? 'ring-2 ring-violet-500' : ''} ${plan.popular ? 'mt-4 sm:mt-0' : ''}`}>
                     {plan.popular && (
                       <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
                         <span className="bg-violet-500 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap shadow-sm">
@@ -663,32 +663,24 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
                       </div>
                     )}
 
-                    <div className="mb-3">
-                      <h3 className="text-lg font-bold mb-1">{plan.name}</h3>
-                      <p className={`text-xs leading-relaxed mb-2 ${muted}`}>{plan.desc}</p>
+                    <div className="mb-2">
+                      <h3 className="text-base font-bold mb-1">{plan.name}</h3>
+                      <p className={`text-xs leading-relaxed mb-1.5 ${muted}`}>{plan.desc}</p>
                       <span className={`text-xs font-semibold ${accentText}`}>{plan.limit}</span>
                     </div>
 
-                    <div className={`rounded-xl border p-3 text-center mb-3 ${dark ? 'border-slate-700 bg-slate-900' : 'border-slate-100 bg-slate-50'}`}>
-                      <p className="text-xl font-black">Beta</p>
-                      <p className={`text-xs mt-0.5 ${subtle}`}>Gratis hasta el 20 jun 2026</p>
+                    <div className={`rounded-xl border p-2.5 text-center mb-2 ${dark ? 'border-slate-700 bg-slate-900' : 'border-slate-100 bg-slate-50'}`}>
+                      <p className="text-base font-black">Beta</p>
+                      <p className={`text-[10px] mt-0.5 ${subtle}`}>Gratis hasta el 20 jun 2026</p>
                     </div>
 
-                    <ul className="space-y-1.5 mb-3 flex-1">
+                    <ul className="space-y-1 mb-2 flex-1">
                       {plan.features.map(f => (
-                        <li key={f} className="flex items-start gap-2 text-sm">
-                          <svg className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <li key={f} className="flex items-start gap-1.5">
+                          <svg className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                           </svg>
-                          <span className={dark ? 'text-slate-300' : 'text-slate-700'}>{f}</span>
-                        </li>
-                      ))}
-                      {plan.excluded.map(f => (
-                        <li key={f} className="flex items-start gap-2 text-sm">
-                          <svg className="h-4 w-4 shrink-0 mt-0.5 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                          <span className={subtle}>{f}</span>
+                          <span className={`text-xs ${dark ? 'text-slate-300' : 'text-slate-700'}`}>{f}</span>
                         </li>
                       ))}
                     </ul>
@@ -714,10 +706,10 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
         </section>
 
         {/* ── CUSTOM PLAN BUILDER ── */}
-        <section style={sectionStyle(true)} className="flex flex-col justify-center px-4 py-8 sm:py-10 sm:px-6 lg:px-8">
+        <section style={sectionStyle(true)} className="flex flex-col justify-center px-4 py-6 sm:py-8 sm:px-6 lg:px-8">
           <div className="mx-auto w-full max-w-4xl">
             <Reveal>
-              <div className="text-center mb-6">
+              <div className="text-center mb-4">
                 <p className={`text-xs font-semibold uppercase tracking-widest mb-2 ${accentText}`}>Plan a medida</p>
                 <h2 className="text-2xl sm:text-3xl font-bold mb-2">¿Ningún plan te convence?</h2>
                 <p className={`text-sm sm:text-base ${muted}`}>
@@ -727,10 +719,10 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
             </Reveal>
 
             <Reveal delay={80}>
-              <div className={`rounded-2xl border p-5 sm:p-6 ${card}`}>
+              <div className={`rounded-2xl border p-4 sm:p-5 ${card}`}>
                 {/* Members slider */}
-                <div className="mb-5">
-                  <div className="flex items-center justify-between mb-3">
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-2">
                     <label className="font-semibold text-sm sm:text-base">Miembros del equipo</label>
                     <span className="text-2xl font-black text-violet-500">{members}</span>
                   </div>
@@ -749,8 +741,8 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
                 </div>
 
                 {/* Feature toggles */}
-                <div className="mb-5">
-                  <p className="font-semibold mb-3 text-sm">Funciones</p>
+                <div className="mb-4">
+                  <p className="font-semibold mb-2 text-sm">Funciones</p>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {CUSTOM_FEATURES.map(({ key, label }) => (
                       <label
@@ -774,12 +766,12 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
                 </div>
 
                 {/* Result card */}
-                <div className={`rounded-xl border p-5 sm:p-6 ${dark ? 'border-violet-500/30 bg-violet-500/5' : 'border-violet-200 bg-violet-50'}`}>
+                <div className={`rounded-xl border p-4 ${dark ? 'border-violet-500/30 bg-violet-500/5' : 'border-violet-200 bg-violet-50'}`}>
                   <p className={`text-xs font-semibold uppercase tracking-widest mb-2 ${accentText}`}>Tu plan estimado</p>
                   <p className="text-xl sm:text-2xl font-black mb-1">{getCustomPlanLabel()}</p>
                   <p className={`text-sm ${muted}`}>{members} miembros · {activeFeatureCount} función{activeFeatureCount !== 1 ? 'es' : ''} activa{activeFeatureCount !== 1 ? 's' : ''}</p>
 
-                  <div className="mt-4 mb-1">
+                  <div className="mt-3 mb-1">
                     <div className={`h-2 rounded-full overflow-hidden ${dark ? 'bg-slate-700' : 'bg-violet-200'}`}>
                       <div
                         className="h-full bg-violet-500 rounded-full transition-all duration-500"
@@ -787,9 +779,9 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
                       />
                     </div>
                   </div>
-                  <p className={`text-xs mb-4 ${subtle}`}>Complejidad del plan: {complexityPct}%</p>
+                  <p className={`text-xs mb-3 ${subtle}`}>Complejidad del plan: {complexityPct}%</p>
 
-                  <div className={`rounded-lg border p-3 text-center mb-4 ${dark ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-emerald-200 bg-emerald-50'}`}>
+                  <div className={`rounded-lg border p-2.5 text-center mb-3 ${dark ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-emerald-200 bg-emerald-50'}`}>
                     <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">Gratis</p>
                     <p className={`text-xs mt-0.5 ${subtle}`}>Hasta el 20 de junio de 2026 — Beta</p>
                   </div>

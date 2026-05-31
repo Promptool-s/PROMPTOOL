@@ -545,7 +545,8 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
+      <div className="flex items-center justify-between gap-2 text-xs font-medium">
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
         {onModeChange ? (
           <div className="relative group">
             <button
@@ -745,7 +746,8 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 ml-auto">
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
         {onToggleRanked && (
           <div className="relative group">
             <button
