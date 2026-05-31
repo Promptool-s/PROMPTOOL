@@ -1,5 +1,28 @@
 import { useEffect, useRef, useState } from 'react'
 
+function useSecureImage(url) {
+  const [blobUrl, setBlobUrl] = useState(null)
+  useEffect(() => {
+    if (!url) { setBlobUrl(null); return }
+    let objectUrl = null
+    let cancelled = false
+    fetch(url)
+      .then(r => r.blob())
+      .then(blob => {
+        if (cancelled) return
+        objectUrl = URL.createObjectURL(blob)
+        setBlobUrl(objectUrl)
+      })
+      .catch(() => { if (!cancelled) setBlobUrl(null) })
+    return () => {
+      cancelled = true
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+      setBlobUrl(null)
+    }
+  }, [url])
+  return blobUrl
+}
+
 // ── File type detection ──────────────────────────────────────────────────────
 const CODE_EXTS = new Set(['js','jsx','ts','tsx','py','cs','java','cpp','c','h','hpp','css','scss','html','xml','json','sql','sh','bash','rb','go','rs','php','swift','kt','vue','yaml','yml','toml','r','lua','dart','scala'])
 const DOC_EXTS  = new Set(['txt','md','csv','log'])
@@ -172,6 +195,7 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
     setTimeout(() => setImgLoaded(true), 50)
   }
   const imageUrl = data?.url_image || ''
+  const secureUrl = useSecureImage(imageUrl)
 
   // Detectar aspect ratio cuando la imagen ya cargó en el <img> — sin doble request
   const handleLoad = (e) => {
@@ -288,8 +312,8 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
         )}
         
         <img
-          key={imageUrl} // Force re-render when URL changes
-          src={imageUrl}
+          key={imageUrl}
+          src={secureUrl || ''}
           alt="Imagen de referencia"
           className={`h-full w-full object-cover pointer-events-none transition-opacity duration-300 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
           draggable={false}
@@ -390,7 +414,7 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
         >
           <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
             <img
-              src={imageUrl}
+              src={secureUrl || ''}
               alt="Imagen de referencia ampliada"
               className="max-h-[90vh] max-w-[92vw] rounded-xl object-contain select-none pointer-events-none"
               draggable={false}

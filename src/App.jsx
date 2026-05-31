@@ -49,7 +49,7 @@ const normalizeImageData = (row) => {
   return {
     ...row,
     id_imagen: row.id_imagen ?? null,
-    url_image: row.url_image ? proxyImg(row.url_image) : null,
+    url_image: row.id_imagen ? `/api/img-proxy?id=${row.id_imagen}` : (row.url_image ? proxyImg(row.url_image) : null),
     // prompt_original NO se guarda en estado — se fetcha al momento del submit
     seed: row.seed ?? null,
     fecha: row.fecha ?? null,
