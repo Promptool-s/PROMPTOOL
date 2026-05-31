@@ -216,12 +216,29 @@ function App() {
   const anticheatTimerRef = useRef(null)
   const guestToastTimerRef = useRef(null)
   const [guestFeatureToast, setGuestFeatureToast] = useState('')
+  const [focusWarningOpen, setFocusWarningOpen] = useState(false)
+  const imageChangedByFocusRef = useRef(false)
+  const [adBlockDetected, setAdBlockDetected] = useState(false)
+  const [adBlockDismissed, setAdBlockDismissed] = useState(false)
 
   const showGuestFeatureToast = (message) => {
     setGuestFeatureToast(message)
     if (guestToastTimerRef.current) clearTimeout(guestToastTimerRef.current)
     guestToastTimerRef.current = setTimeout(() => setGuestFeatureToast(''), 4000)
   }
+
+  // AdBlocker detection
+  useEffect(() => {
+    const testEl = document.createElement('div')
+    testEl.className = 'adsbygoogle'
+    testEl.style.cssText = 'position:fixed;top:-2px;left:-2px;width:1px;height:1px;pointer-events:none;opacity:0;'
+    document.body.appendChild(testEl)
+    requestAnimationFrame(() => {
+      const blocked = testEl.offsetHeight === 0 || !testEl.offsetParent
+      if (document.body.contains(testEl)) document.body.removeChild(testEl)
+      if (blocked) setAdBlockDetected(true)
+    })
+  }, [])
 
   // Limpiar timers al desmontar
   useEffect(() => () => {
@@ -738,18 +755,27 @@ function App() {
         if (!document.hasFocus()) {
           flashAnticheatWarning(9000)
           handleForcedImageChange('blur')
+          imageChangedByFocusRef.current = true
         }
       }, 400)
     }
 
     const handleFocus = () => {
       if (blurTimer) { clearTimeout(blurTimer); blurTimer = null }
+      if (imageChangedByFocusRef.current) {
+        imageChangedByFocusRef.current = false
+        setFocusWarningOpen(true)
+      }
     }
 
     const handleVisibility = () => {
       if (document.hidden) {
         flashAnticheatWarning(9000)
         handleForcedImageChange('visibility')
+        imageChangedByFocusRef.current = true
+      } else if (imageChangedByFocusRef.current) {
+        imageChangedByFocusRef.current = false
+        setFocusWarningOpen(true)
       }
     }
 
@@ -2043,6 +2069,78 @@ function App() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
                 {lang === 'en' ? 'Keep trying (recommended)' : 'Seguir intentando (recomendado)'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Focus warning modal — shown when user returns after image was force-changed */}
+      {focusWarningOpen && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}>
+          <div className="relative w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+            {/* Red accent bar */}
+            <div className="h-1 w-full bg-gradient-to-r from-rose-500 to-orange-400" />
+            <div className="px-6 py-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-900/40">
+                  <svg className="h-5 w-5 text-rose-600 dark:text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 leading-snug">
+                    {lang === 'en' ? 'Image changed' : 'Se cambió la imagen'}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    {lang === 'en' ? 'Anti-cheat system' : 'Sistema anti-trampa'}
+                  </p>
+                </div>
+              </div>
+              <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed mb-5">
+                {lang === 'en'
+                  ? 'You left the page, so a new image was loaded. Don\'t leave again if you don\'t want to lose your progress.'
+                  : 'Saliste de la página, así que se cargó una nueva imagen. No vuelvas a salir si no querés perder tu progreso.'}
+              </p>
+              <button
+                type="button"
+                onClick={() => setFocusWarningOpen(false)}
+                className="w-full rounded-xl bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 font-semibold py-3 text-sm transition"
+              >
+                {lang === 'en' ? 'Got it' : 'Aceptar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AdBlocker soft banner */}
+      {adBlockDetected && !adBlockDismissed && (
+        <div className="fixed bottom-0 left-0 right-0 z-[250] px-4 pb-4 pointer-events-none">
+          <div className="mx-auto max-w-2xl pointer-events-auto">
+            <div className="flex items-start gap-3 rounded-2xl border border-amber-200 dark:border-amber-700/50 bg-amber-50 dark:bg-amber-950/60 px-4 py-3.5 shadow-xl backdrop-blur-sm">
+              <svg className="h-5 w-5 shrink-0 text-amber-500 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-amber-900 dark:text-amber-200 leading-snug">
+                  {lang === 'en' ? 'We noticed you\'re using an ad blocker' : 'Notamos que estás usando un bloqueador de anuncios'}
+                </p>
+                <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5 leading-relaxed">
+                  {lang === 'en'
+                    ? 'PrompTool is free and supported by ads. You can still play without disabling it, but consider allowing ads to keep the project going.'
+                    : 'PrompTool es gratis y se mantiene con publicidad. Podés seguir jugando sin desactivarlo, pero considerá permitir los anuncios para mantener el proyecto.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAdBlockDismissed(true)}
+                className="shrink-0 flex h-6 w-6 items-center justify-center rounded-full text-amber-500 hover:bg-amber-200 dark:hover:bg-amber-800/50 transition"
+                aria-label="Dismiss"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
           </div>

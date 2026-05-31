@@ -7,7 +7,6 @@ import { useLang } from '../contexts/LangContext'
 import { supabase } from '../supabaseClient'
 import AuthModal from './AuthModal'
 import CompanyPanel from './CompanyPanel'
-import SettingsModal from './SettingsModal'
 import { proxyImg } from '../utils/imgProxy'
 
 const BrandedAvatar = ({ className = 'h-full w-full' }) => (
@@ -53,7 +52,6 @@ const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
   const [notificationActionLoading, setNotificationActionLoading] = useState(null)
   const [companyData, setCompanyData] = useState(null)   // empresa a la que pertenece el usuario
   const [companyPanelOpen, setCompanyPanelOpen] = useState(false)
-  const [settingsOpen, setSettingsOpen] = useState(false)
   const [dbAvatarUrl, setDbAvatarUrl] = useState(null)
   const notificationRef = useRef(null)
   const closeTimer = useRef(null)
@@ -822,7 +820,7 @@ const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
                             <Icon d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                             {t('viewProfile')}
                           </a>
-                          <button onClick={() => { setSettingsOpen(true); setUserMenuOpen(false) }}
+                          <button onClick={() => { onOpenSettings?.(); setUserMenuOpen(false) }}
                             className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50">
                             <span className="flex items-center gap-3">
                               <Icon d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -897,12 +895,6 @@ const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
         />
       )}
 
-      <SettingsModal
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        user={user}
-        signOut={signOut}
-      />
     </>
   )
 }

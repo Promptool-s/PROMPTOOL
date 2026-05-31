@@ -6,6 +6,28 @@ import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
 import EnterpriseGuideContent from './EnterpriseGuideContent'
 
+// ── Localize a guide for display in the selected language ─────────────────
+const localizeGuide = (guide, lang) => {
+  if (!guide || lang !== 'en' || !guide.en) return guide
+  const t = guide.en
+  return {
+    ...guide,
+    title: t.title ?? guide.title,
+    summary: t.summary ?? guide.summary,
+    lesson: (guide.lesson && t.lesson) ? {
+      ...guide.lesson,
+      title: t.lesson.title ?? guide.lesson.title,
+      blocks: t.lesson.blocks ?? guide.lesson.blocks,
+      takeaway: t.lesson.takeaway ?? guide.lesson.takeaway,
+      quiz: t.lesson.quiz ?? guide.lesson.quiz,
+    } : guide.lesson,
+    steps: t.steps ?? guide.steps,
+    drills: t.drills ?? guide.drills,
+    // checkpointsDisplay is for rendering only; original checkpoints stay as storage keys
+    checkpointsDisplay: t.checkpoints ?? guide.checkpoints,
+  }
+}
+
 const ACCENTS = {
   indigo: { soft: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-700', pill: 'bg-indigo-100 text-indigo-800' },
   cyan: { soft: 'bg-cyan-50', border: 'border-cyan-200', text: 'text-cyan-700', pill: 'bg-cyan-100 text-cyan-800' },
@@ -684,6 +706,8 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
   const selectedGuide = activeSection === 'library'
     ? (GUIDE_LIBRARY.find((g) => g.id === selectedId) || GUIDE_LIBRARY[0])
     : enterpriseGuides.find((g) => g.id === selectedId) || (enterpriseGuides.length > 0 ? enterpriseGuides[0] : GUIDE_LIBRARY[0])
+  // displayGuide has localized text for rendering; selectedGuide is used for IDs/storage
+  const displayGuide = localizeGuide(selectedGuide, lang)
   const accent = ACCENTS[selectedGuide?.accent] || ACCENTS.slate
   const selectedProgress = guideProgress[selectedGuide?.id] ?? 0
   const hasLesson = Boolean(selectedGuide?.lesson?.blocks?.length || selectedGuide?.content?.lesson?.blocks?.length)
@@ -872,6 +896,7 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
                   const a = ACCENTS[guide.accent] || ACCENTS.slate
                   const pct = guideProgress[guide.id] ?? 0
                   const isDone = pct >= 100
+                  const localTitle = (lang === 'en' && guide.en?.title) ? guide.en.title : guide.title
                   return (
                     <a
                       key={guide.id}
@@ -896,7 +921,7 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
                         </span>
                       </div>
                       <span className="min-w-0 flex-1">
-                        <span className={`block truncate text-xs font-bold ${isActive ? 'text-slate-900' : 'text-slate-700'}`}>{guide.title}</span>
+                        <span className={`block truncate text-xs font-bold ${isActive ? 'text-slate-900' : 'text-slate-700'}`}>{localTitle}</span>
                         {(isRecommended || isCompanyAssigned) && (
                           <span className={`mt-0.5 inline-block text-[9px] font-bold uppercase tracking-wide ${isRecommended ? a.text : 'text-violet-600'}`}>
                             {isRecommended ? ui.recommended : (lang === 'en' ? 'Company' : 'Empresa')}
@@ -1004,8 +1029,8 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
                 <span className={`inline-block rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest ${accent.pill} mb-2`}>
                   {activeSection === 'enterprise' ? (lang === 'en' ? 'Company guide' : 'Guía de empresa') : (lang === 'en' ? 'Guide' : 'Guía')}
                 </span>
-                <h3 className="text-xl font-extrabold text-slate-900 leading-snug">{selectedGuide.title}</h3>
-                <p className="mt-1 text-sm text-slate-600 leading-relaxed">{selectedGuide.summary}</p>
+                <h3 className="text-xl font-extrabold text-slate-900 leading-snug">{displayGuide.title}</h3>
+                <p className="mt-1 text-sm text-slate-600 leading-relaxed">{displayGuide.summary}</p>
                 {activeSection === 'enterprise' && selectedGuide.notes && (
                   <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
                     <p className="text-xs font-bold text-amber-700">
@@ -1090,7 +1115,7 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
                     </span>
                     <div>
                       <p className={`text-[10px] font-bold uppercase tracking-widest ${accent.text}`}>{lang === 'en' ? 'Step 1 — Read first' : 'Paso 1 — Leé primero'}</p>
-                      <h4 className="text-sm font-extrabold text-slate-900 leading-snug">{selectedGuide.lesson.title}</h4>
+                      <h4 className="text-sm font-extrabold text-slate-900 leading-snug">{displayGuide.lesson?.title || selectedGuide.lesson?.title}</h4>
                     </div>
                   </div>
                   <label className={`flex cursor-pointer items-center gap-2 rounded-full border-2 px-3 py-1.5 text-xs font-bold transition-all ${
@@ -1114,7 +1139,7 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
                 </div>
 
                 <div className="p-4 grid gap-2">
-                  {selectedGuide.lesson.blocks.map((block, idx) => {
+                  {(displayGuide.lesson?.blocks || selectedGuide.lesson?.blocks || []).map((block, idx) => {
                     const key = `${selectedGuide.id}::${block.heading}`
                     const isOpen = openLessonBlock === key
                     return (
@@ -1157,11 +1182,11 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
                   })}
                 </div>
 
-                {selectedGuide.lesson.takeaway && (
+                {(displayGuide.lesson?.takeaway || selectedGuide.lesson?.takeaway) && (
                   <div className={`mx-4 mb-4 rounded-xl border-2 ${accent.border} ${accent.soft} px-4 py-3 flex items-start gap-3`}>
                     <div>
                       <p className={`text-[10px] font-extrabold uppercase tracking-widest ${accent.text}`}>{ui.keyIdea}</p>
-                      <p className="mt-0.5 text-sm font-semibold text-slate-800 leading-snug">{selectedGuide.lesson.takeaway}</p>
+                      <p className="mt-0.5 text-sm font-semibold text-slate-800 leading-snug">{displayGuide.lesson?.takeaway || selectedGuide.lesson?.takeaway}</p>
                     </div>
                   </div>
                 )}
@@ -1174,10 +1199,10 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
               </div>
             )}
 
-            {selectedGuide.lesson?.quiz && (
+            {(displayGuide.lesson?.quiz || selectedGuide.lesson?.quiz) && (
               <div className="mt-4">
                 <MiniQuiz
-                  quiz={selectedGuide.lesson.quiz}
+                  quiz={displayGuide.lesson?.quiz || selectedGuide.lesson.quiz}
                   accent={selectedGuide.accent}
                   storageKey={`promptool_quiz_${selectedGuide.id}`}
                   onCorrect={() => markDone(selectedGuide.id, 'quiz')}
@@ -1217,7 +1242,7 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
                   <p className="text-xs font-extrabold uppercase tracking-widest text-slate-700">{lang === 'en' ? 'How to practice' : 'Cómo practicar'}</p>
                 </div>
                 <ol className="p-3 space-y-2">
-                  {(selectedGuide.steps || []).map((step, i) => (
+                  {(displayGuide.steps || selectedGuide.steps || []).map((step, i) => (
                     <li key={step} className="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
                       <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-extrabold ${accent.pill}`}>{i + 1}</span>
                       <span className="leading-snug">{step}</span>
@@ -1232,7 +1257,7 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
                   <p className="text-xs font-extrabold uppercase tracking-widest text-slate-700">{lang === 'en' ? 'Practice exercises' : 'Ejercicios de práctica'}</p>
                 </div>
                 <ul className="p-3 space-y-2">
-                  {(selectedGuide.drills || []).map((drill, i) => (
+                  {(displayGuide.drills || selectedGuide.drills || []).map((drill, i) => (
                     <li key={drill} className="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
                       <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-extrabold ${accent.pill}`}>{i + 1}</span>
                       <span className="leading-snug">{drill}</span>
@@ -1244,6 +1269,7 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
 
             {(() => {
               const checkpoints = selectedGuide.checkpoints || []
+              const checkpointsDisplay = displayGuide.checkpointsDisplay || checkpoints
               const doneCount = checkpoints.filter(cp => !!doneMap[`${selectedGuide.id}::${cp}`]).length
               const allDone = checkpoints.length > 0 && doneCount === checkpoints.length
               return (
@@ -1261,9 +1287,10 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
                     </span>
                   </div>
                   <div className="p-3 flex flex-wrap gap-2">
-                    {checkpoints.map((checkpoint) => {
+                    {checkpoints.map((checkpoint, idx) => {
                       const key = `${selectedGuide.id}::${checkpoint}`
                       const isDone = !!doneMap[key]
+                      const displayText = checkpointsDisplay[idx] ?? checkpoint
                       return (
                         <button
                           type="button"
@@ -1278,7 +1305,7 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
                           <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] font-extrabold transition-all ${
                             isDone ? 'border-emerald-400 bg-emerald-400 text-white' : 'border-slate-300 bg-white text-transparent'
                           }`}>✓</span>
-                          {checkpoint}
+                          {displayText}
                         </button>
                       )
                     })}

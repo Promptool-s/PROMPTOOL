@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useLang } from '../contexts/LangContext'
 
 function useSecureImage(url) {
   const [blobUrl, setBlobUrl] = useState(null)
@@ -150,15 +151,13 @@ const applyInvisibleWatermark = (canvas, userId) => {
   }
 }
 
-const ZOOM_HINT_KEY = 'pt_zoom_hint_seen'
-
 const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = null, userId = null }) => {
+  const { lang } = useLang()
   const [aspectRatio, setAspectRatio] = useState('4 / 3')
   const [previewOpen, setPreviewOpen] = useState(false)
   const [imgLoaded, setImgLoaded] = useState(false)
-  const [zoomHintSeen, setZoomHintSeen] = useState(() => {
-    try { return !!localStorage.getItem(ZOOM_HINT_KEY) } catch { return false }
-  })
+  // Hint resets on every new image — no localStorage persistence
+  const [zoomHintSeen, setZoomHintSeen] = useState(false)
   const canvasRef = useRef(null)
   const watermarkedRef = useRef(false)
   const [fileContent, setFileContent] = useState('')
@@ -183,7 +182,6 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
   const handleFirstHover = () => {
     if (zoomHintSeen) return
     setZoomHintSeen(true)
-    try { localStorage.setItem(ZOOM_HINT_KEY, '1') } catch { /* silencioso */ }
   }
 
   const openPreview = () => { setPreviewOpen(true); onPreviewChange?.(true) }
@@ -220,6 +218,7 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
   useEffect(() => {
     if (!imageUrl) return
     setImgLoaded(false)
+    setZoomHintSeen(false) // reset hint on every new image
     watermarkedRef.current = false
     const timer = setTimeout(() => setImgLoaded(true), 10)
     return () => clearTimeout(timer)
@@ -373,7 +372,7 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
               <svg className="h-3.5 w-3.5 text-cyan-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
               </svg>
-              <span className="text-[11px] font-semibold text-white">Tocá para ampliar</span>
+              <span className="text-[11px] font-semibold text-white">{lang === 'en' ? 'Tap to zoom' : 'Tocá para ampliar'}</span>
             </div>
           </div>
         )}
@@ -390,7 +389,7 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
               <svg className="h-4 w-4 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
               </svg>
-              <span className="text-sm font-medium text-slate-700">Ver imagen</span>
+              <span className="text-sm font-medium text-slate-700">{lang === 'en' ? 'View image' : 'Ver imagen'}</span>
             </div>
           </div>
         )}

@@ -575,9 +575,9 @@ const InteractiveDemo = ({ dark, lang }) => {
   
   return (
     <div ref={demoRef} className={`rounded-2xl border p-6 lg:p-8 ${card} relative overflow-hidden`}>
-      <div className="grid lg:grid-cols-2 gap-6 lg:gap-8">
-        
-        {/* Left: Image - altura fija para evitar estiramiento */}
+      <div className="grid lg:grid-cols-[42%_58%] gap-6 lg:gap-10">
+
+        {/* Left: Image - fills column width */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <span className={`text-xs font-semibold ${muted}`}>
@@ -587,7 +587,7 @@ const InteractiveDemo = ({ dark, lang }) => {
               {lang === 'en' ? 'Daily' : 'Diario'}
             </span>
           </div>
-          <div className="relative aspect-[3/4] rounded-xl overflow-hidden border border-slate-200 bg-gradient-to-br from-slate-800 to-slate-900 max-h-72 lg:max-h-80 mx-auto">
+          <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-gradient-to-br from-slate-800 to-slate-900 w-full h-72 lg:h-96">
             <img
               src={demoImage}
               alt=""

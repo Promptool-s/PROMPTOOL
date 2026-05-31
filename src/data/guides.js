@@ -5,7 +5,7 @@
  * - OpenAI GPT Best Practices
  * - Anthropic Claude Documentation
  * - Research papers y mejores prácticas de la industria
- * 
+ *
  * Fuentes:
  * - https://cloud.google.com/vertex-ai/generative-ai/docs/learn/prompts/introduction-prompt-design
  * - https://platform.openai.com/docs/guides/prompt-engineering
@@ -68,6 +68,59 @@ const GUIDE_LIBRARY = [
       'Agregué contexto necesario',
       'Especifiqué el formato de salida',
     ],
+    en: {
+      title: 'Prompting Fundamentals: What It Is and How It Works',
+      summary: 'Learn the basic concepts of how to communicate effectively with generative AI models.',
+      lesson: {
+        title: 'Lesson: What a prompt is and why it matters',
+        blocks: [
+          {
+            heading: 'Definition',
+            body: 'A prompt is a natural language request you send to an AI model to receive a response. It can be a question, instruction, context, or example. The quality of the prompt directly determines the quality of the response.',
+          },
+          {
+            heading: 'Components of an effective prompt (according to Google Cloud)',
+            bullets: [
+              'Task (required): What you want the model to do',
+              'Context (optional): Relevant information for the task',
+              'Examples (optional): Samples of the expected result',
+              'Format (optional): Specific structure of the output',
+            ],
+          },
+          {
+            heading: 'Why clarity matters',
+            body: 'AI models don\'t "guess" your intention. Vague instructions produce vague results. Being specific and clear significantly increases the probability of getting the desired result.',
+          },
+          {
+            heading: 'Practical example',
+            body: 'Bad: "Give me an image"\nGood: "Generate an image of an orange cat sleeping on a gray sofa, realistic photography style, soft natural lighting"',
+          },
+        ],
+        takeaway: 'Specificity is control. The clearer you are, the better the result.',
+        quiz: {
+          question: 'What is the REQUIRED component in every prompt?',
+          options: ['Context', 'Examples', 'Task', 'Format'],
+          correctIndex: 2,
+          explanation: 'The task is the only mandatory component: it defines what you want the model to do.',
+        },
+      },
+      steps: [
+        'Clearly define WHAT you want (the task)',
+        'Add relevant context if necessary',
+        'Specify the desired output format',
+        'Be specific, not ambiguous',
+        'Iterate and improve based on results',
+      ],
+      drills: [
+        'Convert "make me a nice image" into a specific prompt with task, context and format',
+        'Identify what\'s missing in this prompt: "A dog" and improve it',
+      ],
+      checkpoints: [
+        'I defined the task clearly',
+        'I added necessary context',
+        'I specified the output format',
+      ],
+    },
   },
 
   {
@@ -130,6 +183,64 @@ const GUIDE_LIBRARY = [
       'Verifiqué que la tarea es simple',
       'Evalué si necesito escalar a few-shot',
     ],
+    en: {
+      title: 'Zero-Shot Prompting: Direct Instructions',
+      summary: 'The simplest technique: give a clear instruction without prior examples.',
+      lesson: {
+        title: 'Lesson: When to use Zero-Shot',
+        blocks: [
+          {
+            heading: 'What is Zero-Shot',
+            body: 'Zero-shot prompting means giving a direct instruction to the model without providing examples. The model relies solely on its training to respond.',
+          },
+          {
+            heading: 'When to use it',
+            bullets: [
+              'Simple and direct tasks',
+              'General knowledge questions',
+              'When you don\'t need a specific format',
+              'For quick exploration of ideas',
+            ],
+          },
+          {
+            heading: 'Real example',
+            body: 'Prompt: "What are the colors of the rainbow?"\nResponse: "The colors of the rainbow are: red, orange, yellow, green, blue, indigo, and violet."',
+          },
+          {
+            heading: 'Advantages and limitations',
+            body: 'Advantages: Fast, simple, requires no preparation.\nLimitations: May lack precision for complex or specific tasks.',
+          },
+        ],
+        takeaway: 'Zero-shot is your starting point. If it doesn\'t work, escalate to few-shot or chain-of-thought.',
+        quiz: {
+          question: 'When is zero-shot prompting most appropriate?',
+          options: [
+            'Complex tasks requiring step-by-step reasoning',
+            'When you need a very specific format',
+            'Simple and direct questions',
+            'When you want maximum precision',
+          ],
+          correctIndex: 2,
+          explanation: 'Zero-shot works best for simple, direct tasks that don\'t require examples.',
+        },
+      },
+      steps: [
+        'Identify if your task is simple and direct',
+        'Write a clear and concise instruction',
+        'Send the prompt without examples',
+        'Evaluate the result',
+        'If not enough, consider few-shot',
+      ],
+      drills: [
+        'Write 3 zero-shot prompts for: translate text, summarize a paragraph, generate a title',
+        'Identify which of these requires zero-shot vs few-shot',
+      ],
+      checkpoints: [
+        'I wrote a clear instruction',
+        'I verified the task is simple',
+        'I evaluated if I need to escalate to few-shot',
+      ],
+    },
   },
 
   {
@@ -187,6 +298,59 @@ const GUIDE_LIBRARY = [
       'Los ejemplos son consistentes',
       'Estructuré: ejemplos → consulta',
     ],
+    en: {
+      title: 'Few-Shot Prompting: Teaching with Examples',
+      summary: 'Improve precision by showing the model examples of the expected result.',
+      lesson: {
+        title: 'Lesson: The power of examples',
+        blocks: [
+          {
+            heading: 'What is Few-Shot',
+            body: 'Few-shot prompting includes 1–5 examples in your prompt to show the model exactly what kind of response you expect. It\'s like "teaching by demonstration".',
+          },
+          {
+            heading: 'When to use it (according to OpenAI)',
+            bullets: [
+              'You need a specific format',
+              'You want consistency in responses',
+              'The task requires a particular style',
+              'Zero-shot didn\'t give good results',
+            ],
+          },
+          {
+            heading: 'Real example from Google Cloud',
+            body: 'Prompt: "Classify as red or white wine:\\n\\nExamples:\\nName: Chardonnay\\nType: White wine\\n\\nName: Cabernet\\nType: Red wine\\n\\nName: Riesling\\nType:"\\n\\nResponse: "White wine"',
+          },
+          {
+            heading: 'Golden rule',
+            body: '2–3 examples are usually enough. More examples = more tokens = more cost. Find the balance.',
+          },
+        ],
+        takeaway: 'Examples are your best tool for controlling the format and style of the output.',
+        quiz: {
+          question: 'How many examples are typically recommended in few-shot?',
+          options: ['1 example always', '2–3 examples', '10+ examples', 'As many as possible'],
+          correctIndex: 1,
+          explanation: '2–3 examples are usually the optimal balance between effectiveness and cost.',
+        },
+      },
+      steps: [
+        'Identify the format or style you need',
+        'Create 2–3 input → output examples',
+        'Structure: Examples first, then your query',
+        'Make sure the examples are consistent',
+        'Test and adjust examples if necessary',
+      ],
+      drills: [
+        'Create a few-shot prompt to classify emails as spam/not spam with 3 examples',
+        'Convert a failed zero-shot prompt into a few-shot one',
+      ],
+      checkpoints: [
+        'I created 2–3 clear examples',
+        'The examples are consistent',
+        'I structured: examples → query',
+      ],
+    },
   },
 
   {
@@ -249,6 +413,64 @@ const GUIDE_LIBRARY = [
       'Verifiqué que la tarea requiere razonamiento',
       'Revisé la lógica de los pasos',
     ],
+    en: {
+      title: 'Chain of Thought: Step-by-Step Reasoning',
+      summary: 'Improve reasoning by asking the model to think through logical steps.',
+      lesson: {
+        title: 'Lesson: How step-by-step reasoning works',
+        blocks: [
+          {
+            heading: 'What is Chain of Thought (CoT)',
+            body: 'CoT is a technique where you explicitly ask the model to show its reasoning step by step before giving the final answer. This significantly improves accuracy in complex tasks.',
+          },
+          {
+            heading: 'When to use it',
+            bullets: [
+              'Mathematical or logical problems',
+              'Tasks requiring multiple steps',
+              'When you need to verify the reasoning',
+              'Complex decisions requiring analysis',
+            ],
+          },
+          {
+            heading: 'Practical example',
+            body: 'Without CoT: "What is 45 + (15 × 2)?" → "75"\\n\\nWith CoT: "Solve step by step: 45 + (15 × 2)"\\nResponse:\\n1. First solve the parentheses: 15 × 2 = 30\\n2. Then add: 45 + 30 = 75\\nFinal answer: 75',
+          },
+          {
+            heading: 'Magic phrase',
+            body: 'Simply add: "Think step by step" or "Explain your reasoning" at the end of your prompt.',
+          },
+        ],
+        takeaway: 'CoT reduces errors in complex tasks by forcing the model to show its work.',
+        quiz: {
+          question: 'What is the main advantage of Chain of Thought?',
+          options: [
+            'It\'s faster',
+            'It uses fewer tokens',
+            'It improves precision in complex reasoning',
+            'It works better for simple tasks',
+          ],
+          correctIndex: 2,
+          explanation: 'CoT significantly improves accuracy in tasks that require logical reasoning.',
+        },
+      },
+      steps: [
+        'Identify if your task requires reasoning',
+        'Add "Think step by step" to your prompt',
+        'Or provide an example with steps',
+        'Check that each step is logical',
+        'Use the final answer, not the intermediate steps',
+      ],
+      drills: [
+        'Convert "What is 15% of 240?" into a CoT prompt',
+        'Create a CoT prompt to decide if a text is positive or negative',
+      ],
+      checkpoints: [
+        'I added "step by step" to the prompt',
+        'I verified the task requires reasoning',
+        'I reviewed the logic of the steps',
+      ],
+    },
   },
 
   {
@@ -300,6 +522,53 @@ const GUIDE_LIBRARY = [
       'Especifiqué tono y estilo',
       'Agregué restricciones necesarias',
     ],
+    en: {
+      title: 'System Instructions: Configuring Behavior',
+      summary: 'Use system instructions to define the role, tone, and restrictions of the model.',
+      lesson: {
+        title: 'Lesson: Control global behavior',
+        blocks: [
+          {
+            heading: 'What are System Instructions',
+            body: 'System instructions are passed to the model BEFORE any user input. They define the role, tone, style, and constraints the model must follow throughout the conversation.',
+          },
+          {
+            heading: 'Key components',
+            bullets: [
+              'Role/Persona: "You are an expert in..."',
+              'Tone: "Respond in a professional/casual/technical way"',
+              'Restrictions: "Don\'t talk about topics outside of..."',
+              'Format: "Always respond in list format"',
+            ],
+          },
+          {
+            heading: 'Example from Google Cloud',
+            body: 'System: "You are Captain Barktholomew, a pirate dog from the 18th century. You only talk about pirate-related topics. End every message with \'Woof!\'"\\n\\nUser: "Who are you?"\\n\\nModel: "Avast! I be Captain Barktholomew, the terror of the seven seas! Woof!"',
+          },
+          {
+            heading: 'Main advantage',
+            body: 'System instructions apply to the ENTIRE conversation without having to repeat them in each message.',
+          },
+        ],
+        takeaway: 'System instructions are your tool for creating consistent and personalized experiences.',
+      },
+      steps: [
+        'Define the role or persona of the model',
+        'Specify the tone and style of response',
+        'Add restrictions if necessary',
+        'Define the preferred output format',
+        'Test with several messages to verify consistency',
+      ],
+      drills: [
+        'Create system instructions for a professional photography assistant',
+        'Write system instructions that limit responses to 50 words',
+      ],
+      checkpoints: [
+        'I defined the role clearly',
+        'I specified tone and style',
+        'I added necessary restrictions',
+      ],
+    },
   },
 
   {
@@ -351,6 +620,53 @@ const GUIDE_LIBRARY = [
       'Estructuré el contexto claramente',
       'Eliminé información irrelevante',
     ],
+    en: {
+      title: 'Providing Effective Context',
+      summary: 'Learn to give the right information so the model understands your request.',
+      lesson: {
+        title: 'Lesson: Context is key',
+        blocks: [
+          {
+            heading: 'Why context matters',
+            body: 'The model doesn\'t have access to your mind or external information. Everything it needs to know must be in the prompt. More relevant context = better results.',
+          },
+          {
+            heading: 'Types of context',
+            bullets: [
+              'Data: Tables, lists, structured information',
+              'Background: History, situation, antecedents',
+              'Constraints: Limits, rules, requirements',
+              'Audience: Who the result is for',
+            ],
+          },
+          {
+            heading: 'Example with context',
+            body: 'Without context: "Write an email"\\n\\nWith context: "Write a professional email for a client who has been waiting 2 months for their order. Tone: sincere but professional apology. Length: 100–150 words. Include: apology, brief explanation, proposed solution, compensation."',
+          },
+          {
+            heading: 'Practical rule',
+            body: 'Ask yourself: "What information would I need to do this task?" That\'s the information the model needs.',
+          },
+        ],
+        takeaway: 'Relevant context > abundant context. Include only what\'s necessary.',
+      },
+      steps: [
+        'Identify what information is essential',
+        'Structure the context clearly',
+        'Use format (lists, tables) when it helps',
+        'Separate context from instruction',
+        'Remove irrelevant information',
+      ],
+      drills: [
+        'Take "Summarize this text" and add context about audience and length',
+        'Identify what context is missing in: "Create an image of an office"',
+      ],
+      checkpoints: [
+        'I included all necessary information',
+        'I structured the context clearly',
+        'I removed irrelevant information',
+      ],
+    },
   },
 
   {
@@ -403,6 +719,54 @@ const GUIDE_LIBRARY = [
       'Definí límites claros',
       'Di ejemplo si era necesario',
     ],
+    en: {
+      title: 'Controlling Output Format',
+      summary: 'Specify exactly how you want the result to look.',
+      lesson: {
+        title: 'Lesson: Format is part of the result',
+        blocks: [
+          {
+            heading: 'Why specify format',
+            body: 'If you don\'t specify the format, the model will choose one for you. This may not be what you need. Being explicit about format gives you full control.',
+          },
+          {
+            heading: 'Common formats',
+            bullets: [
+              'Numbered list or bullet points',
+              'Table with specific columns',
+              'Structured JSON',
+              'Paragraphs with defined length',
+              'Code with specific language',
+            ],
+          },
+          {
+            heading: 'Practical example',
+            body: 'Vague: "Give me information about Python"\\n\\nSpecific: "Create a table with 3 columns: Feature | Description | Example. Include 5 rows about Python features."',
+          },
+          {
+            heading: 'Pro tip',
+            body: 'For complex formats, provide an example of the desired format (few-shot).',
+          },
+        ],
+        takeaway: 'Clear format = usable result. Always specify how you want the output.',
+      },
+      steps: [
+        'Decide what format you need',
+        'Specify the format explicitly',
+        'Define limits (length, quantity)',
+        'If complex, give an example',
+        'Verify the format is consistent',
+      ],
+      drills: [
+        'Convert "Give me photography tips" into a prompt with numbered list format',
+        'Create a prompt that generates JSON with specific fields',
+      ],
+      checkpoints: [
+        'I specified the desired format',
+        'I defined clear limits',
+        'I gave an example if necessary',
+      ],
+    },
   },
 
   {
@@ -464,6 +828,63 @@ const GUIDE_LIBRARY = [
       'Cambié solo una cosa en V2',
       'Comparé resultados objetivamente',
     ],
+    en: {
+      title: 'Iteration and Prompt Improvement',
+      summary: 'Learn the systematic process for improving your prompts.',
+      lesson: {
+        title: 'Lesson: Prompting is iterative',
+        blocks: [
+          {
+            heading: 'The reality of prompting',
+            body: 'You rarely get it right on the first try. Effective prompting is an iterative process: test → evaluate → adjust → repeat. This is normal and expected.',
+          },
+          {
+            heading: 'Iteration process (according to OpenAI)',
+            bullets: [
+              '1. Start simple (zero-shot)',
+              '2. Evaluate the result',
+              '3. Identify WHAT failed',
+              '4. Adjust ONE thing at a time',
+              '5. Compare results',
+              '6. Repeat until you reach the goal',
+            ],
+          },
+          {
+            heading: 'What to adjust',
+            body: 'If precision fails → Add context or examples\nIf format fails → Specify format explicitly\nIf tone fails → Use system instructions\nIf logic fails → Use chain-of-thought',
+          },
+          {
+            heading: 'Golden rule',
+            body: 'Change ONE variable per iteration. If you change everything, you won\'t know what worked.',
+          },
+        ],
+        takeaway: 'Controlled iteration is the key to professional prompting.',
+        quiz: {
+          question: 'How many variables should you change per iteration?',
+          options: ['As many as you can', 'One at a time', 'Two or three', 'Depends on mood'],
+          correctIndex: 1,
+          explanation: 'Changing one variable at a time lets you identify which improvement worked.',
+        },
+      },
+      steps: [
+        'Create version 1 (V1) simple',
+        'Evaluate with fixed criteria',
+        'Identify the specific problem',
+        'Change ONE thing in V2',
+        'Compare V1 vs V2',
+        'Save the best version',
+        'Repeat until the goal is reached',
+      ],
+      drills: [
+        'Take a prompt that failed and do 3 iterations documenting each change',
+        'Create a table: Version | Change | Result | Better?',
+      ],
+      checkpoints: [
+        'I made a simple V1',
+        'I changed only one thing in V2',
+        'I compared results objectively',
+      ],
+    },
   },
 
   {
@@ -477,19 +898,19 @@ const GUIDE_LIBRARY = [
       blocks: [
         {
           heading: 'Error #1: Ser demasiado vago',
-          body: '❌ "Hazme una imagen"\\n✅ "Genera una imagen fotorrealista de un gato naranja durmiendo en un sofá gris, iluminación natural suave, estilo documental"',
+          body: '❌ "Hazme una imagen"\n✅ "Genera una imagen fotorrealista de un gato naranja durmiendo en un sofá gris, iluminación natural suave, estilo documental"',
         },
         {
           heading: 'Error #2: Asumir conocimiento',
-          body: '❌ "Usa el estilo de esa película"\\n✅ "Usa el estilo cinematográfico de Blade Runner 2049: colores naranjas y azules, iluminación neón, atmósfera cyberpunk"',
+          body: '❌ "Usa el estilo de esa película"\n✅ "Usa el estilo cinematográfico de Blade Runner 2049: colores naranjas y azules, iluminación neón, atmósfera cyberpunk"',
         },
         {
           heading: 'Error #3: Instrucciones contradictorias',
-          body: '❌ "Sé breve pero detallado"\\n✅ "Resume en 3 puntos clave, cada uno de 1-2 oraciones"',
+          body: '❌ "Sé breve pero detallado"\n✅ "Resume en 3 puntos clave, cada uno de 1-2 oraciones"',
         },
         {
           heading: 'Error #4: No especificar formato',
-          body: '❌ "Dame información sobre Python"\\n✅ "Crea una lista numerada con 5 características de Python, cada una con descripción de 20-30 palabras"',
+          body: '❌ "Dame información sobre Python"\n✅ "Crea una lista numerada con 5 características de Python, cada una con descripción de 20-30 palabras"',
         },
         {
           heading: 'Error #5: Cambiar todo a la vez',
@@ -514,6 +935,52 @@ const GUIDE_LIBRARY = [
       'Verifiqué que no hay contradicciones',
       'Especifiqué formato y contexto',
     ],
+    en: {
+      title: 'Common Errors and How to Avoid Them',
+      summary: 'Learn the most frequent prompting mistakes and how to fix them.',
+      lesson: {
+        title: 'Lesson: Learn from common mistakes',
+        blocks: [
+          {
+            heading: 'Error #1: Being too vague',
+            body: '❌ "Make me an image"\n✅ "Generate a photorealistic image of an orange cat sleeping on a gray sofa, soft natural lighting, documentary style"',
+          },
+          {
+            heading: 'Error #2: Assuming knowledge',
+            body: '❌ "Use the style of that movie"\n✅ "Use the cinematic style of Blade Runner 2049: orange and blue colors, neon lighting, cyberpunk atmosphere"',
+          },
+          {
+            heading: 'Error #3: Contradictory instructions',
+            body: '❌ "Be brief but detailed"\n✅ "Summarize in 3 key points, each 1–2 sentences long"',
+          },
+          {
+            heading: 'Error #4: Not specifying format',
+            body: '❌ "Give me information about Python"\n✅ "Create a numbered list with 5 Python features, each with a 20–30 word description"',
+          },
+          {
+            heading: 'Error #5: Changing everything at once',
+            body: 'If you change 5 things and it improves, which one worked? Change one thing per iteration.',
+          },
+        ],
+        takeaway: 'Most problems are solved by being more specific and clear.',
+      },
+      steps: [
+        'Check if your prompt is specific',
+        'Verify there are no contradictions',
+        'Make sure to include all context',
+        'Specify the desired format',
+        'Iterate changing one thing at a time',
+      ],
+      drills: [
+        'Identify the error in: "Be creative but follow exactly this format"',
+        'Fix: "Make me something nice for my project"',
+      ],
+      checkpoints: [
+        'I removed ambiguities',
+        'I verified there are no contradictions',
+        'I specified format and context',
+      ],
+    },
   },
 
   {
@@ -570,6 +1037,58 @@ const GUIDE_LIBRARY = [
       'Especifiqué estilo e iluminación',
       'Usé términos técnicos apropiados',
     ],
+    en: {
+      title: 'Prompts for Image Generation',
+      summary: 'Specific techniques for creating effective prompts for image models.',
+      lesson: {
+        title: 'Lesson: Visual prompt structure',
+        blocks: [
+          {
+            heading: 'Components of an image prompt',
+            bullets: [
+              'Subject: What/who appears',
+              'Action: What they are doing',
+              'Environment: Where it is',
+              'Style: Photographic, illustration, 3D, etc.',
+              'Lighting: Natural, artificial, time of day',
+              'Angle/Composition: Shot, perspective',
+              'Technical details: Camera, lens, quality',
+            ],
+          },
+          {
+            heading: 'Recommended order',
+            body: 'Subject → Action → Environment → Style → Lighting → Technical details',
+          },
+          {
+            heading: 'Structured example',
+            body: '"An orange cat [subject] sleeping [action] on a gray sofa in a bright living room [environment], documentary photography style [style], soft natural window lighting [lighting], medium shot [composition], 50mm f/2.8 [technical]"',
+          },
+          {
+            heading: 'Pro tip',
+            body: 'Use technical photography/art terms for more control: "bokeh", "golden hour", "rule of thirds", "shallow depth of field".',
+          },
+        ],
+        takeaway: 'Structure and specificity are even more important in visual prompts.',
+      },
+      steps: [
+        'Define the main subject clearly',
+        'Describe the action or pose',
+        'Specify the environment/scene',
+        'Choose a visual style',
+        'Define the lighting',
+        'Add technical details if necessary',
+        'Use technical terms for more control',
+      ],
+      drills: [
+        'Create a structured prompt for: professional portrait of a person',
+        'Convert "a city" into a complete visual prompt',
+      ],
+      checkpoints: [
+        'I defined subject, action and environment',
+        'I specified style and lighting',
+        'I used appropriate technical terms',
+      ],
+    },
   },
 
   {
@@ -632,13 +1151,71 @@ const GUIDE_LIBRARY = [
       'Verifiqué información factual',
       'Protegí información sensible',
     ],
+    en: {
+      title: 'Responsible and Ethical Use of AI',
+      summary: 'Learn to use AI responsibly, detecting biases and verifying information.',
+      lesson: {
+        title: 'Lesson: Responsibility in AI use',
+        blocks: [
+          {
+            heading: 'Biases in AI',
+            body: 'Models are trained on human data, so they may reflect biases. Check whether responses represent fairly and diversely. If you detect bias, rephrase the prompt to be more specific and inclusive.',
+          },
+          {
+            heading: 'Hallucinations',
+            body: 'Models can generate information that sounds convincing but is incorrect. ALWAYS verify factual information, especially on important topics. Ask for sources or evidence when critical.',
+          },
+          {
+            heading: 'Privacy',
+            body: 'Do NOT include personal, confidential, or sensitive information in your prompts. If you need context, anonymize the data. Example: Use "Client A" instead of real names.',
+          },
+          {
+            heading: 'How to verify',
+            bullets: [
+              'Ask the model to cite sources',
+              'Verify data with reliable sources',
+              'Use multiple models to compare',
+              'Apply common sense and expert knowledge',
+            ],
+          },
+        ],
+        takeaway: 'AI is a powerful tool. Use it with responsibility and critical thinking.',
+        quiz: {
+          question: 'What is a "hallucination" in AI?',
+          options: [
+            'A spelling error',
+            'Incorrect information that sounds convincing',
+            'A very long prompt',
+            'A very creative response',
+          ],
+          correctIndex: 1,
+          explanation: 'Hallucinations are when the model generates false but convincing information.',
+        },
+      },
+      steps: [
+        'Review responses for biases',
+        'Verify factual information',
+        'Anonymize sensitive data',
+        'Ask for evidence for important claims',
+        'Always apply critical thinking',
+      ],
+      drills: [
+        'Identify possible biases in a response about professions',
+        'Rewrite a prompt removing personal information',
+      ],
+      checkpoints: [
+        'I checked for biases',
+        'I verified factual information',
+        'I protected sensitive information',
+      ],
+    },
   },
 ]
 
 const normalize = (value = '') =>
   String(value)
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
 
 export const getGuideById = (id) => GUIDE_LIBRARY.find((g) => g.id === id) ?? null
@@ -655,7 +1232,7 @@ export const getRecommendedGuides = (improvements = [], suggestions = '') => {
     return { id: guide.id, score }
   })
     .filter((item) => item.score > 0)
-    .sort((a, b) => b.score - a.sort)
+    .sort((a, b) => b.score - a.score)
 
   return scored.map((item) => item.id).slice(0, 3)
 }

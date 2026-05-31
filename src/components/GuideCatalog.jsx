@@ -34,15 +34,17 @@ const GuideCatalog = () => {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {GUIDE_LIBRARY.map((guide) => {
           const accent = ACCENT_RING[guide.accent] || ACCENT_RING.slate
+          const title = (lang === 'en' && guide.en?.title) ? guide.en.title : guide.title
+          const summary = (lang === 'en' && guide.en?.summary) ? guide.en.summary : guide.summary
           return (
             <a
               key={guide.id}
               href={guideArticlePath(guide.id)}
               className={`block rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 transition hover:border-slate-300 hover:shadow-md ${accent} ring-1 ring-inset`}
             >
-              <h3 className="text-sm font-bold text-slate-900 leading-snug">{guide.title}</h3>
+              <h3 className="text-sm font-bold text-slate-900 leading-snug">{title}</h3>
               <p className="mt-2 text-xs sm:text-sm text-slate-600 leading-relaxed line-clamp-3">
-                {guide.summary}
+                {summary}
               </p>
               <span className="mt-3 inline-flex text-xs font-semibold text-violet-600">
                 {lang === 'en' ? 'Read guide →' : 'Leer guía →'}

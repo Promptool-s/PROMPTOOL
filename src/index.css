@@ -709,3 +709,34 @@ html.dark .settings-toggle-on {
 html.dark .settings-toggle-off {
   background-color: #334155 !important; /* slate-700 */
 }
+
+/* ════════════════════════════════════════════
+   Compact Mode — reduces spacing & font sizes
+   ════════════════════════════════════════════ */
+html.mode-compact {
+  font-size: 0.93em;
+}
+html.mode-compact .py-4 { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
+html.mode-compact .py-5 { padding-top: 0.75rem !important; padding-bottom: 0.75rem !important; }
+html.mode-compact .py-6 { padding-top: 1rem !important; padding-bottom: 1rem !important; }
+html.mode-compact .p-4  { padding: 0.625rem !important; }
+html.mode-compact .p-5  { padding: 0.875rem !important; }
+html.mode-compact .p-6  { padding: 1rem !important; }
+html.mode-compact .gap-4 { gap: 0.5rem !important; }
+html.mode-compact .gap-6 { gap: 0.875rem !important; }
+html.mode-compact .mb-4  { margin-bottom: 0.5rem !important; }
+html.mode-compact .mb-6  { margin-bottom: 0.875rem !important; }
+html.mode-compact .mt-4  { margin-top: 0.5rem !important; }
+html.mode-compact .mt-6  { margin-top: 0.875rem !important; }
+
+/* ════════════════════════════════════════════
+   Reduce Motion — disables all CSS animations/transitions
+   ════════════════════════════════════════════ */
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
