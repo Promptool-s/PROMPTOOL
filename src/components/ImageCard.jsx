@@ -214,13 +214,15 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
   const [fileContent, setFileContent] = useState('')
   const [fileLoading, setFileLoading] = useState(false)
 
-  const urlCategory = getUrlCategory(data?.url_image)
-  const isCodeFile   = urlCategory === 'code'
-  const isDocFile    = urlCategory === 'document'
-  const isPdfFile    = urlCategory === 'pdf'
-  const isOfficeFile = urlCategory === 'office'
-  const isTextBased  = isCodeFile || isDocFile
-  const isNonImage   = isTextBased || isPdfFile || isOfficeFile
+  const urlCategory    = getUrlCategory(data?.url_image)
+  // Also treat scenario content type (stored in challenge_description, no URL) as non-image
+  const isScenarioChallenge = data?.challenge_content_type === 'scenario'
+  const isCodeFile     = urlCategory === 'code'
+  const isDocFile      = urlCategory === 'document'
+  const isPdfFile      = urlCategory === 'pdf'
+  const isOfficeFile   = urlCategory === 'office'
+  const isTextBased    = isCodeFile || isDocFile
+  const isNonImage     = isTextBased || isPdfFile || isOfficeFile || isScenarioChallenge
 
   // Fetch text content only for code/doc challenges (not PDF/Office)
   useEffect(() => {
@@ -308,6 +310,12 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
             {isDocFile   && <DocView content={fileContent} />}
             {isPdfFile   && <PdfView url={data.url_image} />}
             {isOfficeFile && <OfficeView url={data.url_image} ext={ext} />}
+            {isScenarioChallenge && (
+              <div className="h-full overflow-auto rounded-xl bg-indigo-50 border border-indigo-100 p-5">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 mb-3">Enunciado</p>
+                <p className="text-sm text-indigo-900 leading-relaxed whitespace-pre-wrap">{data?.challenge_description || '—'}</p>
+              </div>
+            )}
           </div>
           {revealedPrompt && (
             <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3">

@@ -320,7 +320,7 @@ function App() {
       try {
         const { data, error } = await supabase
           .from('imagenes_ia')
-          .select('id_imagen, url_image, seed, fecha, image_diff, image_theme, company_id, challenge_eval_instructions, challenge_content_type')
+          .select('id_imagen, url_image, seed, fecha, image_diff, image_theme, company_id, challenge_eval_instructions, challenge_content_type, challenge_description')
           .eq('id_imagen', challengeId)
           .maybeSingle()
         if (error || !data) { setImageStatus('error'); return }

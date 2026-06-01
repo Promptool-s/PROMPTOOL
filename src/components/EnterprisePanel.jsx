@@ -901,6 +901,14 @@ const EnterprisePanel = ({ user }) => {
     setSavingSettings(true)
     setSettingsStatus(null)
     try {
+      // Merge training_config carefully: preserve guide_assignments (and other runtime data)
+      // Only update the settings-specific flags, not guide data
+      const existingTrainingConfig = companyData?.training_config || {}
+      const settingsOnlyKeys = ['enableProgressTracking','enablePeerReview','enableManagerApproval','defaultFeedbackLevel','enableCertificates','enableLeaderboards','leaderboardScope']
+      const mergedTrainingConfig = {
+        ...existingTrainingConfig,
+        ...Object.fromEntries(settingsOnlyKeys.filter(k => k in settingsForm.training_config).map(k => [k, settingsForm.training_config[k]]))
+      }
       const updates = {
         company_name: settingsForm.company_name.trim(),
         bio: settingsForm.bio.trim(),
@@ -911,7 +919,7 @@ const EnterprisePanel = ({ user }) => {
         default_challenge_type: settingsForm.default_challenge_type,
         default_challenge_mode: settingsForm.default_challenge_mode,
         performance_metrics: settingsForm.performance_metrics,
-        training_config: settingsForm.training_config,
+        training_config: mergedTrainingConfig,
       }
       const { error } = await supabase.from('usuarios').update(updates).eq('id_usuario', user.id)
       if (error) throw error
@@ -1046,6 +1054,27 @@ const EnterprisePanel = ({ user }) => {
     setChallengeModalOpen(false)
   }
 
+  const deleteChallenge = async (challenge) => {
+    if (!window.confirm(lang === 'en'
+      ? `Delete challenge "${challenge.image_theme || 'this challenge'}"? This cannot be undone.`
+      : `¿Eliminar el desafío "${challenge.image_theme || 'este desafío'}"? Esta acción no se puede deshacer.`
+    )) return
+    try {
+      const { error } = await supabase.from('imagenes_ia').delete().eq('id_imagen', challenge.id_imagen)
+      if (error) throw error
+      // Also remove from storage if it's a regular URL (not data: or null)
+      if (challenge.url_image && !challenge.url_image.startsWith('data:')) {
+        const path = challenge.url_image.split('/enterprise-challenges/').pop()
+        if (path) await supabase.storage.from('enterprise-challenges').remove([path])
+      }
+      fetchChallenges()
+      setChallengeStatus(lang === 'en' ? 'Challenge deleted.' : 'Desafío eliminado.')
+      setTimeout(() => setChallengeStatus(null), 2000)
+    } catch (err) {
+      setChallengeStatus(err?.message || (lang === 'en' ? 'Could not delete.' : 'No se pudo eliminar.'))
+    }
+  }
+
   const handleChallengeImageChange = (event) => {
     const file = event.target.files?.[0]
     if (!file) return
@@ -1061,34 +1090,53 @@ const EnterprisePanel = ({ user }) => {
       return updateChallenge(event)
     }
     
-    if (!challengeImageFile || !challengeForm.prompt.trim() || !challengeForm.theme.trim()) {
+    const isScenarioType = challengeForm.contentType === 'scenario'
+
+    if (!isScenarioType && !challengeImageFile) {
+      setChallengeStatus(lang === 'en' ? 'Upload a file first.' : 'Subí un archivo primero.')
+      return
+    }
+    if (isScenarioType && !challengeForm.description.trim()) {
+      setChallengeStatus(lang === 'en' ? 'Write the scenario text.' : 'Escribí el enunciado.')
+      return
+    }
+    if (!challengeForm.prompt.trim() || !challengeForm.theme.trim()) {
       setChallengeStatus(lang === 'en'
-        ? 'Complete content, prompt and theme.'
-        : 'Completa el contenido, prompt y temática.')
+        ? 'Complete the answer key and theme.'
+        : 'Completá la respuesta esperada y la temática.')
       return
     }
 
     setCreatingChallenge(true)
-    const uploadLabel = challengeForm.contentType === 'image'
-      ? (lang === 'en' ? 'Uploading image...' : 'Subiendo imagen...')
-      : (lang === 'en' ? 'Uploading file...' : 'Subiendo archivo...')
-    setChallengeStatus(uploadLabel)
-    try {
-      const ext = (challengeImageFile.name.split('.').pop() || 'jpg').toLowerCase()
-      const path = `${user.id}/${Date.now()}-challenge.${ext}`
+    setChallengeStatus(lang === 'en' ? 'Saving challenge...' : 'Guardando desafío...')
 
-      const { error: uploadError } = await supabase.storage
-        .from('enterprise-challenges')
-        .upload(path, challengeImageFile, { upsert: false })
-      if (uploadError) throw new Error(`Storage: ${uploadError.message}`)
+    let imageUrl = null
 
-      const { data: publicData } = supabase.storage
-        .from('enterprise-challenges')
-        .getPublicUrl(path)
-      const imageUrl = publicData.publicUrl
-
+    if (!isScenarioType) {
+      const uploadLabel = challengeForm.contentType === 'image'
+        ? (lang === 'en' ? 'Uploading image...' : 'Subiendo imagen...')
+        : (lang === 'en' ? 'Uploading file...' : 'Subiendo archivo...')
+      setChallengeStatus(uploadLabel)
+      try {
+        const ext = (challengeImageFile.name.split('.').pop() || 'jpg').toLowerCase()
+        const path = `${user.id}/${Date.now()}-challenge.${ext}`
+        const { error: uploadError } = await supabase.storage
+          .from('enterprise-challenges')
+          .upload(path, challengeImageFile, { upsert: false })
+        if (uploadError) throw new Error(`Storage: ${uploadError.message}`)
+        const { data: publicData } = supabase.storage
+          .from('enterprise-challenges')
+          .getPublicUrl(path)
+        imageUrl = publicData.publicUrl
+      } catch (uploadErr) {
+        setChallengeStatus(uploadErr?.message || (lang === 'en' ? 'Upload failed.' : 'Error al subir.'))
+        setCreatingChallenge(false)
+        return
+      }
       setChallengeStatus(lang === 'en' ? 'Saving challenge...' : 'Guardando desafío...')
+    }
 
+    try {
       const payload = {
         url_image: imageUrl,
         prompt_original: challengeForm.prompt.trim(),
@@ -1096,8 +1144,10 @@ const EnterprisePanel = ({ user }) => {
         image_theme: challengeForm.theme.trim(),
         fecha: nowAR(),
         company_id: companyData?.id_usuario || user.id,
-        // Nuevos campos de personalización
-        challenge_description: challengeForm.description.trim() || null,
+        // For scenario type, store the scenario text in challenge_description
+        challenge_description: isScenarioType
+          ? challengeForm.description.trim()
+          : (challengeForm.description.trim() || null),
         challenge_time_limit: challengeForm.timeLimit,
         challenge_max_attempts: challengeForm.maxAttempts || null,
         challenge_min_words: challengeForm.minWords,
@@ -4160,6 +4210,12 @@ RESPONSE RULES:
                     if (ct === 'document') return cardIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />, 'Documento', 'bg-amber-50 dark:bg-amber-950/20', 'text-amber-500')
                     if (ct === 'pdf')      return cardIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />, 'PDF', 'bg-rose-50 dark:bg-rose-950/20', 'text-rose-500')
                     if (ct === 'office')   return cardIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75.125v-1.5A1.125 1.125 0 013.375 16.5m0 0h17.25m0 0a1.125 1.125 0 011.125 1.125v1.5a1.125 1.125 0 01-1.125 1.125M20.625 16.5h-1.5c-.621 0-1.125.504-1.125 1.125m-15 0V6.375c0-.621.504-1.125 1.125-1.125h13.5c.621 0 1.125.504 1.125 1.125V16.5" />, 'Office', 'bg-emerald-50 dark:bg-emerald-950/20', 'text-emerald-500')
+                    if (ct === 'scenario') return (
+                      <div className="h-full w-full flex flex-col bg-indigo-50 dark:bg-indigo-950/20 p-3 overflow-hidden">
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-indigo-400 mb-1">Enunciado</span>
+                        <p className="text-xs text-indigo-700 dark:text-indigo-300 leading-relaxed line-clamp-6">{ch.challenge_description || '—'}</p>
+                      </div>
+                    )
                     return ch.url_image
                       ? <img src={ch.url_image} alt="challenge" className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
                       : <div className="h-full w-full flex items-center justify-center"><svg className="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg></div>
@@ -4173,6 +4229,11 @@ RESPONSE RULES:
                     className="absolute top-2 right-12 h-8 w-8 flex items-center justify-center rounded-lg bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm text-slate-600 dark:text-slate-400 hover:bg-blue-100 hover:text-blue-600 dark:hover:bg-blue-900/70 dark:hover:text-blue-400 transition shadow-sm border border-slate-200/50 dark:border-slate-700/50"
                     title={lang === 'en' ? 'Stats' : 'Estadísticas'}>
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                  </button>
+                  <button onClick={() => deleteChallenge(ch)}
+                    className="absolute top-2 right-[88px] h-8 w-8 flex items-center justify-center rounded-lg bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm text-slate-400 hover:bg-rose-100 hover:text-rose-600 dark:hover:bg-rose-900/70 dark:hover:text-rose-400 transition shadow-sm border border-slate-200/50 dark:border-slate-700/50"
+                    title={lang === 'en' ? 'Delete' : 'Eliminar'}>
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                   </button>
                 </div>
                 <div className="p-4">

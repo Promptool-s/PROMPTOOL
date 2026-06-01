@@ -3,8 +3,9 @@ import { useState, useRef, useCallback } from 'react'
 
 const CODE_EXTS   = new Set(['js','jsx','ts','tsx','py','cs','java','cpp','c','cc','h','hpp','css','scss','html','xml','json','sql','sh','bash','rb','go','rs','php','swift','kt','vue','yaml','yml','toml','r','lua','dart','scala'])
 const DOC_EXTS    = new Set(['txt','md','csv','log'])
-const PDF_EXTS    = new Set(['pdf'])
-const OFFICE_EXTS = new Set(['pptx','ppt','xlsx','xls','docx','doc'])
+const PDF_EXTS      = new Set(['pdf'])
+const OFFICE_EXTS   = new Set(['pptx','ppt','xlsx','xls','docx','doc'])
+const SCENARIO_TYPE = 'scenario'
 
 function getExt(name = '') { return name.split('.').pop()?.toLowerCase() || '' }
 function fileCategory(name) {
@@ -213,6 +214,20 @@ const TYPE_OPTIONS = [
     bg: 'bg-emerald-50', border: 'border-emerald-300', icon_bg: 'bg-emerald-100', icon_text: 'text-emerald-600',
     active_border: 'border-emerald-500', active_bg: 'bg-emerald-50',
   },
+  {
+    id: 'scenario',
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" />
+      </svg>
+    ),
+    label: { es: 'Enunciado', en: 'Scenario' },
+    desc: { es: 'Escribí un caso o enunciado directamente. Sin archivo. Ideal para RRHH, ventas, soporte y cualquier industria.', en: 'Write a scenario or case directly. No file needed. Perfect for HR, sales, support, any industry.' },
+    accept: '',
+    hint: { es: 'Sin archivo — escribís el texto vos', en: 'No file — you type the text directly' },
+    bg: 'bg-indigo-50', border: 'border-indigo-300', icon_bg: 'bg-indigo-100', icon_text: 'text-indigo-600',
+    active_border: 'border-indigo-500', active_bg: 'bg-indigo-50',
+  },
 ]
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -282,12 +297,14 @@ const ChallengeCreatorModal = ({
     setCodeContent('')
   }
 
-  const hasFile  = !!challengeImageFile
-  const isCode   = contentType === 'code'
-  const isDoc    = contentType === 'document'
-  const isPdf    = contentType === 'pdf'
-  const isOffice = contentType === 'office'
-  const isTextBased = isCode || isDoc
+  const hasFile      = !!challengeImageFile
+  const isCode       = contentType === 'code'
+  const isDoc        = contentType === 'document'
+  const isPdf        = contentType === 'pdf'
+  const isOffice     = contentType === 'office'
+  const isScenario   = contentType === 'scenario'
+  const isTextBased  = isCode || isDoc
+  const needsNoFile  = isScenario
 
   const inp = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-violet-400 focus:bg-white'
   const label = 'block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5'
@@ -384,16 +401,31 @@ const ChallengeCreatorModal = ({
             <div className="flex items-center gap-2 mb-3">
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-600 text-[10px] font-bold text-white">2</span>
               <p className={label + ' mb-0'}>
-                {isCode   ? (lang === 'en' ? 'Upload code file'   : 'Subí el archivo de código')
-                : isDoc   ? (lang === 'en' ? 'Upload text file'   : 'Subí el archivo de texto')
-                : isPdf   ? (lang === 'en' ? 'Upload PDF'         : 'Subí el PDF')
-                : isOffice? (lang === 'en' ? 'Upload Office file' : 'Subí el archivo Office')
-                :            (lang === 'en' ? 'Upload image'       : 'Subí la imagen')}
+                {isCode     ? (lang === 'en' ? 'Upload code file'   : 'Subí el archivo de código')
+                : isDoc     ? (lang === 'en' ? 'Upload text file'   : 'Subí el archivo de texto')
+                : isPdf     ? (lang === 'en' ? 'Upload PDF'         : 'Subí el PDF')
+                : isOffice  ? (lang === 'en' ? 'Upload Office file' : 'Subí el archivo Office')
+                : isScenario? (lang === 'en' ? 'Write the scenario' : 'Escribí el enunciado')
+                :              (lang === 'en' ? 'Upload image'       : 'Subí la imagen')}
                 {' '}<span className="text-rose-400 normal-case font-normal">*</span>
               </p>
             </div>
 
-            <div
+            {/* Scenario: text area instead of file upload */}
+            {isScenario && (
+              <textarea
+                rows={6}
+                value={challengeForm.description}
+                onChange={e => set('description', e.target.value)}
+                placeholder={lang === 'en'
+                  ? 'Write the scenario, case or situation that participants will read. E.g.: "You are a customer service agent. A client writes: I want to cancel my subscription because..."'
+                  : 'Escribí el enunciado, caso o situación que leerán los participantes. Ej: "Sos agente de atención al cliente. Un cliente escribe: Quiero cancelar mi suscripción porque..."'}
+                className="w-full rounded-2xl border-2 border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-indigo-400 resize-none leading-relaxed"
+                required
+              />
+            )}
+
+            {!isScenario && <div
               className={`relative rounded-2xl border-2 border-dashed transition cursor-pointer ${
                 dragging ? 'border-violet-400 bg-violet-50' :
                 hasFile ? 'border-slate-200 bg-slate-50' :
@@ -497,7 +529,7 @@ const ChallengeCreatorModal = ({
                 onChange={e => handleFile(e.target.files?.[0])}
                 className="hidden"
               />
-            </div>
+            </div>}
           </div>
 
           {/* ── Step 3: Challenge details ── */}
