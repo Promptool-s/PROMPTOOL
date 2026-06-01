@@ -139,6 +139,11 @@ const EnterprisePanel = ({ user }) => {
   const [guideStatus, setGuideStatus] = useState(null) // null | 'ok' | 'error'
   const [guideModalOpen, setGuideModalOpen] = useState(false)
   const [memberProgress, setMemberProgress] = useState({}) // { user_id: { guide_id: { lesson_ack, quiz_passed, checkpoints } } }
+  const [ownGuideModalOpen, setOwnGuideModalOpen] = useState(false)
+  const [ownGuideForm, setOwnGuideForm] = useState({ title: '', summary: '', accent: 'violet', keywords: '' })
+  const [ownGuideSaving, setOwnGuideSaving] = useState(false)
+  const [ownGuideStatus, setOwnGuideStatus] = useState(null)
+  const [editingOwnGuide, setEditingOwnGuide] = useState(null)
 
   // Filtros del dashboard
   const [dashboardFilters, setDashboardFilters] = useState({
@@ -1256,31 +1261,87 @@ const EnterprisePanel = ({ user }) => {
 
   const createGuide = async (event) => {
     event.preventDefault()
-    
     if (!guideForm.title.trim()) {
       setGuideStatus(lang === 'en' ? 'Title is required.' : 'El título es requerido.')
       return
     }
-
     try {
       setGuideStatus(lang === 'en' ? 'Creating guide...' : 'Creando guía...')
-      
-      const { data, error } = await supabase.rpc('create_enterprise_guide', {
+      const { error } = await supabase.from('enterprise_guides').insert([{
+        company_id: companyData?.id_usuario || user.id,
         title: guideForm.title.trim(),
         summary: guideForm.summary.trim() || null,
         content: guideForm.content,
         accent: guideForm.accent,
-        keywords: guideForm.keywords.filter(k => k.trim())
-      })
-
+        keywords: guideForm.keywords.filter(k => k.trim()),
+      }])
       if (error) throw error
-
       setGuideStatus(lang === 'en' ? 'Guide created successfully.' : 'Guía creada correctamente.')
       fetchEnterpriseGuides()
       setTimeout(() => closeGuideModal(), 1000)
     } catch (error) {
-      console.error('Error creating guide:', error)
       setGuideStatus(error.message || (lang === 'en' ? 'Could not create guide.' : 'No se pudo crear la guía.'))
+    }
+  }
+
+  const openOwnGuideModal = (guide = null) => {
+    if (guide) {
+      setOwnGuideForm({ title: guide.title || '', summary: guide.summary || '', accent: guide.accent || 'violet', keywords: (guide.keywords || []).join(', ') })
+      setEditingOwnGuide(guide)
+    } else {
+      setOwnGuideForm({ title: '', summary: '', accent: 'violet', keywords: '' })
+      setEditingOwnGuide(null)
+    }
+    setOwnGuideStatus(null)
+    setOwnGuideModalOpen(true)
+  }
+
+  const closeOwnGuideModal = () => {
+    setOwnGuideModalOpen(false)
+    setEditingOwnGuide(null)
+    setOwnGuideStatus(null)
+  }
+
+  const saveOwnGuide = async (e) => {
+    e.preventDefault()
+    if (!ownGuideForm.title.trim()) {
+      setOwnGuideStatus(lang === 'en' ? 'Title is required.' : 'El título es requerido.')
+      return
+    }
+    setOwnGuideSaving(true)
+    setOwnGuideStatus(null)
+    const payload = {
+      title: ownGuideForm.title.trim(),
+      summary: ownGuideForm.summary.trim() || null,
+      accent: ownGuideForm.accent,
+      keywords: ownGuideForm.keywords.split(',').map(k => k.trim()).filter(Boolean),
+    }
+    try {
+      if (editingOwnGuide) {
+        const { error } = await supabase.from('enterprise_guides').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', editingOwnGuide.id)
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('enterprise_guides').insert([{ ...payload, company_id: companyData?.id_usuario || user.id }])
+        if (error) throw error
+      }
+      setOwnGuideStatus('ok')
+      fetchEnterpriseGuides()
+      setTimeout(() => closeOwnGuideModal(), 900)
+    } catch (err) {
+      setOwnGuideStatus(err.message || (lang === 'en' ? 'Could not save guide.' : 'No se pudo guardar la guía.'))
+    } finally {
+      setOwnGuideSaving(false)
+    }
+  }
+
+  const deleteOwnGuide = async (id) => {
+    if (!window.confirm(lang === 'en' ? 'Delete this guide?' : '¿Eliminar esta guía?')) return
+    try {
+      const { error } = await supabase.from('enterprise_guides').delete().eq('id', id)
+      if (error) throw error
+      fetchEnterpriseGuides()
+    } catch (err) {
+      console.error('deleteOwnGuide:', err)
     }
   }
 
@@ -3211,23 +3272,90 @@ RESPONSE RULES:
       return { done, total, pct: Math.round((done / total) * 100) }
     }
 
+    const ACCENT_DOT = { violet:'bg-violet-500', indigo:'bg-indigo-500', cyan:'bg-cyan-500', emerald:'bg-emerald-500', amber:'bg-amber-500', rose:'bg-rose-500', orange:'bg-orange-500', fuchsia:'bg-fuchsia-500', blue:'bg-blue-500', teal:'bg-teal-500' }
+
     return (
-      <div className="space-y-6">
+      <div className="space-y-8">
+        {/* ── Mis guías guardadas ── */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                {lang === 'en' ? 'My Guides' : 'Mis guías'}
+              </h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                {lang === 'en' ? 'Create guides for your team. Assign them whenever you want.' : 'Creá guías para tu equipo. Asignáselas cuando quieras.'}
+              </p>
+            </div>
+            <button
+              onClick={() => openOwnGuideModal()}
+              className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 transition"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              {lang === 'en' ? 'Create guide' : 'Crear guía'}
+            </button>
+          </div>
+
+          {loadingGuides ? (
+            <div className="py-8 text-center"><div className="h-5 w-5 animate-spin rounded-full border-4 border-slate-200 border-t-violet-600 mx-auto" /></div>
+          ) : enterpriseGuides.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 p-8 text-center">
+              <svg className="h-8 w-8 text-slate-300 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0118 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+              </svg>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{lang === 'en' ? 'No guides yet. Create your first one.' : 'Todavía no tenés guías. Creá la primera.'}</p>
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {enterpriseGuides.map(g => (
+                <div key={g.id} className="relative rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 flex flex-col gap-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${ACCENT_DOT[g.accent] || ACCENT_DOT.violet}`} />
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{g.title}</p>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <button onClick={() => openOwnGuideModal(g)} className="text-slate-400 hover:text-violet-500 transition" title={lang === 'en' ? 'Edit' : 'Editar'}>
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                      </button>
+                      <button onClick={() => deleteOwnGuide(g.id)} className="text-slate-300 hover:text-rose-500 transition" title={lang === 'en' ? 'Delete' : 'Eliminar'}>
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    </div>
+                  </div>
+                  {g.summary && <p className="text-xs text-slate-400 dark:text-slate-500 line-clamp-2">{g.summary}</p>}
+                  {g.keywords?.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {g.keywords.slice(0, 4).map(k => (
+                        <span key={k} className="rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] text-slate-500 dark:text-slate-400">{k}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── Asignaciones ── */}
+        <div>
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-              {lang === 'en' ? 'Guide Assignments' : 'Asignación de Guías'}
+              {lang === 'en' ? 'Assignments' : 'Asignaciones'}
             </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
               {lang === 'en'
-                ? 'Assign learning guides from the catalog or create custom ones for your team.'
-                : 'Asigná guías del catálogo o creá guías personalizadas para tu equipo.'}
+                ? 'Assign guides from the catalog or your own to team members.'
+                : 'Asigná guías del catálogo o tuyas al equipo.'}
             </p>
           </div>
           <button
-            onClick={() => { setGuideForm({ type: 'catalog', guide_id: '', custom_title: '', custom_body: '', custom_url: '', target: 'all', note: '', due_date: '' }); setGuideStatus(null); setGuideModalOpen(true) }}
-            className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 transition"
+            onClick={() => { setGuideForm({ ...EMPTY_GUIDE_FORM }); setGuideStatus(null); setGuideModalOpen(true) }}
+            className="flex items-center gap-2 rounded-xl border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950/30 px-4 py-2 text-sm font-semibold text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -3404,6 +3532,83 @@ RESPONSE RULES:
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        </div>{/* end assignments section */}
+
+        {/* Modal crear/editar guía propia */}
+        {ownGuideModalOpen && (
+          <div className="fixed inset-0 z-[230] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={closeOwnGuideModal}>
+            <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-slate-800">
+                <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                  {editingOwnGuide ? (lang === 'en' ? 'Edit guide' : 'Editar guía') : (lang === 'en' ? 'Create guide' : 'Crear guía')}
+                </h3>
+                <button onClick={closeOwnGuideModal} className="text-slate-400 hover:text-slate-600 transition">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <form onSubmit={saveOwnGuide} className="p-5 space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 uppercase tracking-wide">{lang === 'en' ? 'Title *' : 'Título *'}</label>
+                  <input
+                    type="text"
+                    value={ownGuideForm.title}
+                    onChange={e => setOwnGuideForm(f => ({ ...f, title: e.target.value }))}
+                    placeholder={lang === 'en' ? 'e.g. How to write prompts for marketing' : 'Ej: Cómo escribir prompts para marketing'}
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm outline-none focus:border-violet-400 dark:text-slate-100"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 uppercase tracking-wide">{lang === 'en' ? 'Summary' : 'Resumen'}</label>
+                  <textarea
+                    rows={2}
+                    value={ownGuideForm.summary}
+                    onChange={e => setOwnGuideForm(f => ({ ...f, summary: e.target.value }))}
+                    placeholder={lang === 'en' ? 'Brief description shown to team members' : 'Descripción breve visible para el equipo'}
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm outline-none focus:border-violet-400 resize-none dark:text-slate-100"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-wide">{lang === 'en' ? 'Color' : 'Color'}</label>
+                  <div className="flex flex-wrap gap-2">
+                    {['violet','indigo','cyan','emerald','amber','rose','orange','fuchsia','blue','teal'].map(c => {
+                      const cls = { violet:'bg-violet-500', indigo:'bg-indigo-500', cyan:'bg-cyan-500', emerald:'bg-emerald-500', amber:'bg-amber-500', rose:'bg-rose-500', orange:'bg-orange-500', fuchsia:'bg-fuchsia-500', blue:'bg-blue-500', teal:'bg-teal-500' }
+                      return (
+                        <button key={c} type="button" onClick={() => setOwnGuideForm(f => ({ ...f, accent: c }))}
+                          className={`h-7 w-7 rounded-full ${cls[c]} transition ring-offset-2 ${ownGuideForm.accent === c ? 'ring-2 ring-slate-700 dark:ring-white' : 'opacity-50 hover:opacity-90'}`} />
+                      )
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 uppercase tracking-wide">{lang === 'en' ? 'Keywords (comma separated)' : 'Palabras clave (separadas por coma)'}</label>
+                  <input
+                    type="text"
+                    value={ownGuideForm.keywords}
+                    onChange={e => setOwnGuideForm(f => ({ ...f, keywords: e.target.value }))}
+                    placeholder={lang === 'en' ? 'e.g. marketing, copywriting, prompting' : 'Ej: marketing, copywriting, prompting'}
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm outline-none focus:border-violet-400 dark:text-slate-100"
+                  />
+                </div>
+                {ownGuideStatus && ownGuideStatus !== 'ok' && (
+                  <p className="text-sm text-rose-500">{ownGuideStatus}</p>
+                )}
+                {ownGuideStatus === 'ok' && (
+                  <p className="text-sm text-emerald-600 font-medium">{lang === 'en' ? 'Saved!' : '¡Guardado!'}</p>
+                )}
+                <div className="flex gap-3 pt-1">
+                  <button type="button" onClick={closeOwnGuideModal} className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+                    {lang === 'en' ? 'Cancel' : 'Cancelar'}
+                  </button>
+                  <button type="submit" disabled={ownGuideSaving} className="flex-1 rounded-xl bg-violet-600 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-40 transition">
+                    {ownGuideSaving ? (lang === 'en' ? 'Saving...' : 'Guardando...') : (lang === 'en' ? 'Save guide' : 'Guardar guía')}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
 
