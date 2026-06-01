@@ -4142,7 +4142,14 @@ RESPONSE RULES:
               <div key={ch.id_imagen} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden hover:border-violet-300 hover:shadow-md transition group">
                 <div className="h-40 bg-slate-100 dark:bg-slate-800 overflow-hidden relative">
                   {(() => {
-                    const ct = ch.challenge_content_type || 'image'
+                    // Fallback: infer type from URL extension when challenge_content_type is not set
+                    const _urlExt = (ch.url_image || '').split('.').pop()?.toLowerCase().split('?')[0] || ''
+                    const _CODE = new Set(['js','jsx','ts','tsx','py','cs','java','cpp','c','h','css','html','xml','json','sql','sh','rb','go','rs','php','swift','kt','vue','yaml','yml','toml','r','lua','dart','scala'])
+                    const _DOC  = new Set(['txt','md','csv','log'])
+                    const _PDF  = new Set(['pdf'])
+                    const _OFF  = new Set(['pptx','ppt','xlsx','xls','docx','doc'])
+                    const _inferredType = _CODE.has(_urlExt) ? 'code' : _DOC.has(_urlExt) ? 'document' : _PDF.has(_urlExt) ? 'pdf' : _OFF.has(_urlExt) ? 'office' : null
+                    const ct = _inferredType || ch.challenge_content_type || 'image'
                     const cardIcon = (icon, label, bgCls, iconCls) => (
                       <div className={`h-full w-full flex flex-col items-center justify-center gap-1.5 ${bgCls}`}>
                         <svg className={`h-8 w-8 ${iconCls}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>{icon}</svg>
