@@ -141,7 +141,7 @@ function SupportApp() {
           </a>
           <p className="mt-4 text-xs text-slate-500">
             {lang === 'en' ? 'Or email us: ' : 'O escribinos a: '}
-            <a href="mailto:hola@promptool.ai" className="font-medium text-slate-700 hover:underline">hola@promptool.ai</a>
+            <a href="mailto:promptool.app@gmail.com" className="font-medium text-slate-700 hover:underline">promptool.app@gmail.com</a>
           </p>
         </div>
       </main>

@@ -4163,12 +4163,17 @@ RESPONSE RULES:
               ? 'Billing will begin after June 20, 2026. Your plan will be determined automatically based on your team size. We\'ll notify you before any charges.'
               : 'La facturación comenzará después del 20 de junio de 2026. Tu plan se determinará automáticamente según el tamaño de tu equipo. Te avisaremos antes de cualquier cobro.'}
           </p>
-          <a
-            href="mailto:soporte@promptool.app"
-            className="mt-3 inline-flex items-center text-sm font-semibold text-violet-600 dark:text-violet-400 hover:underline"
-          >
-            {lang === 'en' ? 'Contact us about pricing →' : 'Contactarnos sobre precios →'}
-          </a>
+          <div className="mt-3 flex flex-col gap-1">
+            <span className="text-sm text-slate-500 dark:text-slate-400">
+              {lang === 'en' ? 'Write us at:' : 'Escribinos a:'}
+            </span>
+            <a
+              href="mailto:promptool.app@gmail.com"
+              className="inline-flex items-center text-sm font-semibold text-violet-600 dark:text-violet-400 hover:underline"
+            >
+              promptool.app@gmail.com →
+            </a>
+          </div>
         </div>
       </div>
     )
