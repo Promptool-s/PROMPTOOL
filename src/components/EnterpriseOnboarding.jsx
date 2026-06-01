@@ -71,8 +71,9 @@ const EnterpriseOnboarding = ({ user, onDone }) => {
     }])
 
     const companyName = user.user_metadata?.nombre_display || user.user_metadata?.nombre || user.email
+    // Always use ?invite= — App.jsx handles it for both logged-in (auto-join) and new users (signup)
     const joinUrl = existingUser?.id_usuario
-      ? `https://promptool.app/?join=${user.id}`
+      ? `https://promptool.app/?invite=${user.id}`
       : `https://promptool.app/?invite=${user.id}&email=${encodeURIComponent(email)}`
 
     try {

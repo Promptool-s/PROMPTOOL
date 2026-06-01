@@ -795,8 +795,9 @@ const EnterprisePanel = ({ user }) => {
       if (error) throw error
 
       const companyName = companyData?.company_name || user.user_metadata?.nombre_display || user.email
+      // Always use ?invite= — App.jsx handles it for both logged-in (auto-join) and new users (signup)
       const joinUrl = existingUser?.id_usuario
-        ? `https://promptool.app/?join=${user.id}`
+        ? `https://promptool.app/?invite=${user.id}`
         : `https://promptool.app/?invite=${user.id}&email=${encodeURIComponent(inviteEmail.trim())}`
 
       try {
