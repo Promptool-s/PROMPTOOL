@@ -1034,7 +1034,7 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
                 {activeSection === 'enterprise' && selectedGuide.notes && (
                   <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
                     <p className="text-xs font-bold text-amber-700">
-                      💬 {lang === 'en' ? 'Note:' : 'Nota:'} {selectedGuide.notes}
+                      {lang === 'en' ? 'Note:' : 'Nota:'} {selectedGuide.notes}
                     </p>
                   </div>
                 )}

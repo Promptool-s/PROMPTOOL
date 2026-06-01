@@ -898,19 +898,19 @@ const GUIDE_LIBRARY = [
       blocks: [
         {
           heading: 'Error #1: Ser demasiado vago',
-          body: '❌ "Hazme una imagen"\n✅ "Genera una imagen fotorrealista de un gato naranja durmiendo en un sofá gris, iluminación natural suave, estilo documental"',
+          body: 'No: "Hazme una imagen"\nSi: "Genera una imagen fotorrealista de un gato naranja durmiendo en un sofá gris, iluminación natural suave, estilo documental"',
         },
         {
           heading: 'Error #2: Asumir conocimiento',
-          body: '❌ "Usa el estilo de esa película"\n✅ "Usa el estilo cinematográfico de Blade Runner 2049: colores naranjas y azules, iluminación neón, atmósfera cyberpunk"',
+          body: 'No: "Usa el estilo de esa película"\nSi: "Usa el estilo cinematográfico de Blade Runner 2049: colores naranjas y azules, iluminación neón, atmósfera cyberpunk"',
         },
         {
           heading: 'Error #3: Instrucciones contradictorias',
-          body: '❌ "Sé breve pero detallado"\n✅ "Resume en 3 puntos clave, cada uno de 1-2 oraciones"',
+          body: 'No: "Sé breve pero detallado"\nSi: "Resume en 3 puntos clave, cada uno de 1-2 oraciones"',
         },
         {
           heading: 'Error #4: No especificar formato',
-          body: '❌ "Dame información sobre Python"\n✅ "Crea una lista numerada con 5 características de Python, cada una con descripción de 20-30 palabras"',
+          body: 'No: "Dame información sobre Python"\nSi: "Crea una lista numerada con 5 características de Python, cada una con descripción de 20-30 palabras"',
         },
         {
           heading: 'Error #5: Cambiar todo a la vez',
@@ -943,19 +943,19 @@ const GUIDE_LIBRARY = [
         blocks: [
           {
             heading: 'Error #1: Being too vague',
-            body: '❌ "Make me an image"\n✅ "Generate a photorealistic image of an orange cat sleeping on a gray sofa, soft natural lighting, documentary style"',
+            body: 'No: "Make me an image"\nSi: "Generate a photorealistic image of an orange cat sleeping on a gray sofa, soft natural lighting, documentary style"',
           },
           {
             heading: 'Error #2: Assuming knowledge',
-            body: '❌ "Use the style of that movie"\n✅ "Use the cinematic style of Blade Runner 2049: orange and blue colors, neon lighting, cyberpunk atmosphere"',
+            body: 'No: "Use the style of that movie"\nSi: "Use the cinematic style of Blade Runner 2049: orange and blue colors, neon lighting, cyberpunk atmosphere"',
           },
           {
             heading: 'Error #3: Contradictory instructions',
-            body: '❌ "Be brief but detailed"\n✅ "Summarize in 3 key points, each 1–2 sentences long"',
+            body: 'No: "Be brief but detailed"\nSi: "Summarize in 3 key points, each 1–2 sentences long"',
           },
           {
             heading: 'Error #4: Not specifying format',
-            body: '❌ "Give me information about Python"\n✅ "Create a numbered list with 5 Python features, each with a 20–30 word description"',
+            body: 'No: "Give me information about Python"\nSi: "Create a numbered list with 5 Python features, each with a 20–30 word description"',
           },
           {
             heading: 'Error #5: Changing everything at once',

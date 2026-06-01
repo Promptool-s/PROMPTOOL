@@ -560,14 +560,14 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
                 {/* Challenge types */}
                 <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-6">
                   {[
-                    { icon: '🖼️', label: 'Imágenes', desc: 'Describí con precisión una imagen generada por IA' },
-                    { icon: '💻', label: 'Código', desc: 'Generá funciones o scripts desde cero con un prompt' },
-                    { icon: '📄', label: 'Documentos', desc: 'Redactá reportes, emails o specs con IA' },
-                    { icon: '✏️', label: 'Texto libre', desc: 'Cualquier tarea de prompting personalizada' },
-                  ].map(({ icon, label, desc }) => (
+                    { tag: 'IMG', label: 'Imágenes', desc: 'Describí con precisión una imagen generada por IA' },
+                    { tag: 'COD', label: 'Código', desc: 'Generá funciones o scripts desde cero con un prompt' },
+                    { tag: 'DOC', label: 'Documentos', desc: 'Redactá reportes, emails o specs con IA' },
+                    { tag: 'TXT', label: 'Enunciado', desc: 'Cualquier caso o tarea de prompting personalizada' },
+                  ].map(({ tag, label, desc }) => (
                     <div key={label} className={`rounded-xl border p-3 sm:p-4 ${card}`}>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-lg">{icon}</span>
+                        <span className={`text-[10px] font-bold rounded px-1.5 py-0.5 ${dark ? 'bg-violet-500/20 text-violet-400' : 'bg-violet-100 text-violet-600'}`}>{tag}</span>
                         <span className="text-sm font-semibold">{label}</span>
                       </div>
                       <p className={`text-xs leading-5 ${muted}`}>{desc}</p>
