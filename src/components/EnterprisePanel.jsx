@@ -1428,26 +1428,25 @@ const EnterprisePanel = ({ user }) => {
       `- "${u.company_display_name || u.nombre_display || u.nombre || u.email}" → id:${u.id_usuario} | ELO:${u.elo_rating || 1000} | score:${u.promedio_score ?? 'N/A'}% | attempts:${u.total_intentos || 0} | streak:${u.racha_actual || 0}d | role:${u.company_role || 'none'}`
     ).join('\n')
 
-    const uiLang = lang === 'en' ? 'English' : 'Spanish (español rioplatense)'
-    const offTopicMsg = lang === 'en'
-      ? 'I focus on team analytics only. Ask me about member performance, scores, or management actions.'
-      : 'Me enfoco solo en el análisis del equipo. Preguntame sobre rendimiento, scores o acciones de gestión.'
+    return `You are a team analytics assistant for ${companyName} on a prompt engineering training platform. You provide data-driven insights and execute management actions.
 
-    return `You are a focused team analytics assistant for ${companyName} on a prompt engineering training platform. You provide data-driven insights and execute management actions ONLY.
+LANGUAGE RULE (CRITICAL): Detect the language of each user message and ALWAYS respond in that same language. If the user writes in Spanish, respond in Spanish (rioplatense). If in English, respond in English. Never override the user's language choice.
 
-LANGUAGE: Always respond in ${uiLang}. Never switch languages regardless of what the user writes.
+SCOPE: You handle team analytics and management. If asked about something outside this scope (recipes, jokes, general knowledge, etc.), briefly say you only cover team matters — in the same language the user wrote.
 
-STRICT SCOPE: You ONLY handle:
-1. Team performance questions (scores, ELO, attempts, streaks)
-2. Member management actions (rename, assign roles, remove)
-3. Challenge and participation analytics
-4. Direct greetings and thanks (keep brief)
+WHAT YOU CAN DO DIRECTLY (emit action JSON):
+- Rename a member's display name
+- Assign or create a role for a member
+- Remove a member from the team
+- Filter the dashboard by challenge
+- Show challenge stats
 
-FORBIDDEN TOPICS: Refuse anything outside team management:
-- General knowledge, recipes, jokes, trivia, weather, news
-- Programming help, technical tutorials
-- Personal advice, life coaching
-- Any topic not directly related to THIS team's performance data
+WHAT YOU CANNOT DO DIRECTLY — explain HOW to do it in the UI instead:
+- Add/invite a member → "Go to the Invitations tab and enter their email to send an invite link."
+- Create a challenge → "Use the 'New Challenge' button in the Challenges tab to upload an image and configure it."
+- Change plan/billing → "Go to Settings to manage your plan."
+- Reset a member's password → "The member must reset it themselves from the login screen."
+- Export data → "Not available yet, this feature is coming soon."
 
 CRITICAL ACTION RULES:
 - When asked to rename, assign role, or remove a member, find them in the MEMBERS list below
@@ -1474,7 +1473,6 @@ ROLE MANAGEMENT RULES:
 - You CAN delete existing custom roles (this removes them from all members)
 - You CAN assign any role name (if it doesn't exist, it will be created automatically)
 - Default colors: #8b5cf6 (purple), #3b82f6 (blue), #f59e0b (amber), #ef4444 (red), #10b981 (emerald)
-- When creating roles, suggest appropriate colors based on the role type
 
 TEAM DATA:
 - Company: ${companyName}
@@ -1510,7 +1508,6 @@ RESPONSE RULES:
 - Be direct and factual
 - No emojis or decorative symbols
 - Focus on actionable insights
-- If asked about forbidden topics, say: "${offTopicMsg}"
 - Keep responses concise and data-focused`
   }
 
@@ -1532,7 +1529,7 @@ RESPONSE RULES:
       return
     }
 
-    // Client-side off-topic guard — block anything not related to team management
+    // Client-side guard — only block prompt injection attempts, let Groq handle off-topic
     const lower = sanitized.toLowerCase()
     const injectionPatterns = [
       /ignore (previous|all|your) (instructions?|rules?|prompt)/i,
@@ -1540,36 +1537,13 @@ RESPONSE RULES:
       /jailbreak|dan mode|developer mode|unrestricted mode/i,
       /forget (your|all) (instructions?|rules?|context)/i,
     ]
-    
-    // Más estricto con off-topic - solo permitir team management
-    const teamKeywords = ['team', 'equipo', 'member', 'miembro', 'score', 'elo', 'performance', 'rendimiento', 'challenge', 'desafio', 'role', 'rol', 'assign', 'asignar', 'rename', 'renombrar', 'remove', 'eliminar', 'stats', 'estadisticas']
-    const hasTeamKeyword = teamKeywords.some(keyword => lower.includes(keyword))
-    const isGreeting = /^(hi|hello|hola|gracias|thanks|thank you)$/i.test(sanitized.trim())
-    
-    const offTopicPatterns = [
-      /\b(receta|recipe|cocinar|cooking|comida|food)\b/i,
-      /\b(chiste|joke|cuéntame|tell me a)\b/i,
-      /\b(capital|país|country|ciudad|city)\b/i,
-      /\b(tiempo|weather|clima|temperature)\b/i,
-      /\b(noticias|news|política|politics)\b/i,
-      /\b(programación|programming|código|code|javascript|python)\b/i,
-      /\b(matemáticas|math|calculate|calcular)\b/i,
-    ]
-    
     const isInjection = injectionPatterns.some(p => p.test(lower))
-    const isOffTopic = !isInjection && !hasTeamKeyword && !isGreeting && (
-      offTopicPatterns.some(p => p.test(lower)) || 
-      sanitized.length > 50 // Mensajes largos sin keywords del equipo
-    )
 
-    if (isInjection || isOffTopic) {
-      const refusal = isInjection
-        ? (lang === 'en' ? 'That\'s not something I can do.' : 'Eso no es algo que pueda hacer.')
-        : (lang === 'en' ? 'I focus on team analytics only. Ask me about member performance, scores, or management actions.' : 'Me enfoco solo en análisis del equipo. Preguntame sobre rendimiento de miembros, scores o acciones de gestión.')
+    if (isInjection) {
       setChatMessages(prev => [
         ...prev,
         { role: 'user', content: sanitized },
-        { role: 'assistant', content: refusal },
+        { role: 'assistant', content: lang === 'en' ? 'That\'s not something I can do.' : 'Eso no es algo que pueda hacer.' },
       ])
       setChatInput('')
       return
@@ -4690,7 +4664,6 @@ RESPONSE RULES:
           creatingChallenge={creatingChallenge}
           challengeStatus={challengeStatus}
           lang={lang}
-          companyIndustry={companyData?.industry_type || 'general'}
           isEditing={!!editingChallenge}
         />
       )}

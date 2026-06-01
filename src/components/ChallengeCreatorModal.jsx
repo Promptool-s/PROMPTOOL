@@ -1,6 +1,4 @@
 import { useState, useRef, useCallback } from 'react'
-import { generateChallengeConfig } from '../services/aiChallengeService'
-
 // ── File type helpers ────────────────────────────────────────────────────────
 
 const CODE_EXTS = new Set(['js','jsx','ts','tsx','py','cs','java','cpp','c','cc','h','hpp','css','scss','html','xml','json','sql','sh','bash','rb','go','rs','php','swift','kt','vue','yaml','yml','toml','r','lua','dart','scala'])
@@ -200,13 +198,8 @@ const ChallengeCreatorModal = ({
   creatingChallenge,
   challengeStatus,
   lang,
-  companyIndustry = 'marketing',
   isEditing = false,
 }) => {
-  const [aiPrompt, setAiPrompt] = useState('')
-  const [generatingWithAI, setGeneratingWithAI] = useState(false)
-  const [aiError, setAiError] = useState(null)
-  const [aiSuccess, setAiSuccess] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [codeContent, setCodeContent] = useState('')
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -245,32 +238,6 @@ const ChallengeCreatorModal = ({
     }
   }
 
-  const handleGenerateWithAI = async () => {
-    if (!aiPrompt.trim()) {
-      setAiError(lang === 'en' ? 'Describe the challenge first.' : 'Describí el objetivo del desafío primero.')
-      return
-    }
-    if (contentType === 'image' && !challengeImageFile) {
-      setAiError(lang === 'en' ? 'Upload an image first.' : 'Primero subí una imagen.')
-      return
-    }
-    setGeneratingWithAI(true)
-    setAiError(null)
-    setAiSuccess(false)
-    try {
-      const config = await generateChallengeConfig({
-        userPrompt: aiPrompt,
-        imageFile: contentType === 'image' ? challengeImageFile : null,
-        companyIndustry,
-      })
-      setChallengeForm(prev => ({ ...prev, ...config }))
-      setAiSuccess(true)
-    } catch (err) {
-      setAiError(err.message || (lang === 'en' ? 'Could not generate config.' : 'No se pudo generar la configuración.'))
-    } finally {
-      setGeneratingWithAI(false)
-    }
-  }
 
   const clearFile = (e) => {
     e.stopPropagation()
@@ -473,38 +440,6 @@ const ChallengeCreatorModal = ({
                 className="hidden"
               />
             </div>
-          </div>
-
-          {/* ── AI assistant ── */}
-          <div className="rounded-2xl border border-violet-200 bg-violet-50/60 p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-600 text-white text-xs font-bold">✦</span>
-              <p className="text-sm font-semibold text-violet-900">
-                {lang === 'en' ? 'Fill with AI' : 'Completar con IA'}
-              </p>
-              <span className="ml-auto text-xs text-violet-500">{lang === 'en' ? 'Optional' : 'Opcional'}</span>
-            </div>
-            <textarea
-              value={aiPrompt}
-              onChange={e => setAiPrompt(e.target.value)}
-              placeholder={lang === 'en'
-                ? 'Describe the challenge goal. e.g. "Hard challenge — employees must identify the exact function parameters and return type, not just what the code does visually."'
-                : 'Describí el objetivo del desafío. Ej: "Desafío difícil — los empleados deben identificar los parámetros exactos de la función y el tipo de retorno, no solo qué hace visualmente."'}
-              className="w-full resize-none rounded-xl border border-violet-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-violet-400 placeholder:text-slate-400"
-              rows={3}
-            />
-            {aiError && <p className="text-xs text-rose-600">{aiError}</p>}
-            {aiSuccess && <p className="text-xs text-emerald-600 font-medium">{lang === 'en' ? 'Form filled — review below.' : 'Formulario completado — revisá abajo.'}</p>}
-            <button
-              type="button"
-              onClick={handleGenerateWithAI}
-              disabled={generatingWithAI || !aiPrompt.trim() || (contentType === 'image' && !challengeImageFile)}
-              className="w-full rounded-xl bg-violet-600 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-40 transition"
-            >
-              {generatingWithAI
-                ? (lang === 'en' ? 'Generating...' : 'Generando...')
-                : (lang === 'en' ? 'Generate with AI →' : 'Generar con IA →')}
-            </button>
           </div>
 
           {/* ── Step 3: Challenge details ── */}
