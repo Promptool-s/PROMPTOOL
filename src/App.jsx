@@ -953,7 +953,7 @@ function App() {
       const timePenalty = getTimePenalty(timingData, imageData?.image_diff ?? difficulty, mode)
 
       const [result, clipCheck] = await Promise.all([
-        comparePrompts(submittedPrompt, promptReferencia, imageData?.image_diff ?? difficulty, lang, imageData?.challenge_eval_instructions || null),
+        comparePrompts(submittedPrompt, promptReferencia, imageData?.image_diff ?? difficulty, lang, imageData?.challenge_eval_instructions || null, imageData?.challenge_content_type || 'image'),
         // Clipboard check corre en paralelo con el LLM — falla silencioso
         (imageData?.url_image
           ? checkClipboardForGameImage(imageData.url_image).catch(() => ({ hasImage: false, similarToGame: false, similarity: 0 }))
