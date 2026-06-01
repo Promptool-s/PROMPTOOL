@@ -25,9 +25,11 @@ function useSecureImage(url) {
 }
 
 // ── File type detection ──────────────────────────────────────────────────────
-const CODE_EXTS = new Set(['js','jsx','ts','tsx','py','cs','java','cpp','c','h','hpp','css','scss','html','xml','json','sql','sh','bash','rb','go','rs','php','swift','kt','vue','yaml','yml','toml','r','lua','dart','scala'])
-const DOC_EXTS  = new Set(['txt','md','csv','log'])
-const IMG_EXTS  = new Set(['jpg','jpeg','png','gif','webp','svg','bmp','ico','avif'])
+const CODE_EXTS   = new Set(['js','jsx','ts','tsx','py','cs','java','cpp','c','h','hpp','css','scss','html','xml','json','sql','sh','bash','rb','go','rs','php','swift','kt','vue','yaml','yml','toml','r','lua','dart','scala'])
+const DOC_EXTS    = new Set(['txt','md','csv','log'])
+const PDF_EXTS    = new Set(['pdf'])
+const OFFICE_EXTS = new Set(['pptx','ppt','xlsx','xls','docx','doc'])
+const IMG_EXTS    = new Set(['jpg','jpeg','png','gif','webp','svg','bmp','ico','avif'])
 
 const LANG_MAP = {
   js:'JavaScript', jsx:'JavaScript', ts:'TypeScript', tsx:'TypeScript',
@@ -43,9 +45,58 @@ function getExt(url = '') { return url.split('.').pop()?.toLowerCase().split('?'
 function getUrlCategory(url) {
   if (!url) return 'image'
   const ext = getExt(url)
-  if (CODE_EXTS.has(ext)) return 'code'
-  if (DOC_EXTS.has(ext))  return 'document'
+  if (CODE_EXTS.has(ext))   return 'code'
+  if (DOC_EXTS.has(ext))    return 'document'
+  if (PDF_EXTS.has(ext))    return 'pdf'
+  if (OFFICE_EXTS.has(ext)) return 'office'
   return 'image'
+}
+
+const OFFICE_META = {
+  pptx: { label: 'PowerPoint', color: 'text-orange-500', bg: 'bg-orange-50', border: 'border-orange-200' },
+  ppt:  { label: 'PowerPoint', color: 'text-orange-500', bg: 'bg-orange-50', border: 'border-orange-200' },
+  xlsx: { label: 'Excel',      color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' },
+  xls:  { label: 'Excel',      color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' },
+  docx: { label: 'Word',       color: 'text-blue-600',   bg: 'bg-blue-50',   border: 'border-blue-200' },
+  doc:  { label: 'Word',       color: 'text-blue-600',   bg: 'bg-blue-50',   border: 'border-blue-200' },
+}
+
+const PdfView = ({ url }) => (
+  <div className="h-full w-full rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
+    <object data={url} type="application/pdf" className="w-full h-full" title="PDF">
+      <div className="h-full flex flex-col items-center justify-center gap-3 bg-rose-50 p-4">
+        <svg className="h-10 w-10 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+        </svg>
+        <p className="text-sm text-rose-600 font-medium text-center">Tu navegador no soporta la vista previa del PDF</p>
+        <a href={url} target="_blank" rel="noreferrer" className="rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-600 transition">
+          Abrir PDF →
+        </a>
+      </div>
+    </object>
+  </div>
+)
+
+const OfficeView = ({ url, ext }) => {
+  const meta = OFFICE_META[ext] || { label: 'Office', color: 'text-slate-500', bg: 'bg-slate-50', border: 'border-slate-200' }
+  const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`
+  return (
+    <div className="h-full w-full flex flex-col rounded-xl overflow-hidden border border-slate-200">
+      <iframe
+        src={officeViewerUrl}
+        className="flex-1 border-0 w-full"
+        title={`${meta.label} preview`}
+        sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+        onError={() => {}}
+      />
+      <div className={`shrink-0 flex items-center justify-between px-3 py-2 ${meta.bg} border-t ${meta.border}`}>
+        <span className={`text-xs font-semibold ${meta.color}`}>{meta.label}</span>
+        <a href={url} target="_blank" rel="noreferrer" className={`text-xs font-semibold underline ${meta.color} hover:opacity-80`}>
+          Abrir en nueva pestaña →
+        </a>
+      </div>
+    </div>
+  )
 }
 
 function tokenizeLine(line) {
@@ -164,13 +215,16 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
   const [fileLoading, setFileLoading] = useState(false)
 
   const urlCategory = getUrlCategory(data?.url_image)
-  const isCodeFile = urlCategory === 'code'
-  const isDocFile  = urlCategory === 'document'
-  const isNonImage = isCodeFile || isDocFile
+  const isCodeFile   = urlCategory === 'code'
+  const isDocFile    = urlCategory === 'document'
+  const isPdfFile    = urlCategory === 'pdf'
+  const isOfficeFile = urlCategory === 'office'
+  const isTextBased  = isCodeFile || isDocFile
+  const isNonImage   = isTextBased || isPdfFile || isOfficeFile
 
-  // Fetch text content for code/doc challenges
+  // Fetch text content only for code/doc challenges (not PDF/Office)
   useEffect(() => {
-    if (!isNonImage || !data?.url_image) { setFileContent(''); return }
+    if (!isTextBased || !data?.url_image) { setFileContent(''); return }
     setFileLoading(true)
     fetch(data.url_image)
       .then(r => r.text())
@@ -236,7 +290,7 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
   }, [previewOpen])
 
   const renderContent = () => {
-    // Code / document challenge
+    // Non-image challenge (code, doc, pdf, office)
     if (imageStatus === 'ok' && isNonImage) {
       if (fileLoading) {
         return (
@@ -248,14 +302,15 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
       const ext = getExt(data?.url_image)
       const language = LANG_MAP[ext] || 'Code'
       return (
-        <div className="h-full min-h-[300px] w-full">
-          {isCodeFile ? (
-            <CodeView code={fileContent} language={language} />
-          ) : (
-            <DocView content={fileContent} />
-          )}
+        <div className="h-full min-h-[300px] w-full flex flex-col gap-3">
+          <div className="flex-1 min-h-[300px]">
+            {isCodeFile  && <CodeView code={fileContent} language={language} />}
+            {isDocFile   && <DocView content={fileContent} />}
+            {isPdfFile   && <PdfView url={data.url_image} />}
+            {isOfficeFile && <OfficeView url={data.url_image} ext={ext} />}
+          </div>
           {revealedPrompt && (
-            <div className="mt-3 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3">
+            <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3">
               <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 mb-1">Respuesta esperada</p>
               <p className="text-sm text-emerald-900 leading-relaxed select-none" onCopy={e => e.preventDefault()}>
                 {revealedPrompt}

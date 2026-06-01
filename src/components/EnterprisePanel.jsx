@@ -4142,18 +4142,16 @@ RESPONSE RULES:
                 <div className="h-40 bg-slate-100 dark:bg-slate-800 overflow-hidden relative">
                   {(() => {
                     const ct = ch.challenge_content_type || 'image'
-                    if (ct === 'code') return (
-                      <div className="h-full w-full flex flex-col items-center justify-center bg-slate-900 gap-1.5">
-                        <svg className="h-8 w-8 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" /></svg>
-                        <span className="text-xs font-semibold text-slate-400">{lang === 'en' ? 'Code challenge' : 'Desafío de código'}</span>
+                    const cardIcon = (icon, label, bgCls, iconCls) => (
+                      <div className={`h-full w-full flex flex-col items-center justify-center gap-1.5 ${bgCls}`}>
+                        <svg className={`h-8 w-8 ${iconCls}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>{icon}</svg>
+                        <span className={`text-xs font-semibold ${iconCls}`}>{label}</span>
                       </div>
                     )
-                    if (ct === 'document') return (
-                      <div className="h-full w-full flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-800 gap-1.5">
-                        <svg className="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
-                        <span className="text-xs font-semibold text-slate-400">{lang === 'en' ? 'Document challenge' : 'Desafío de documento'}</span>
-                      </div>
-                    )
+                    if (ct === 'code')     return cardIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />, lang === 'en' ? 'Code' : 'Código', 'bg-slate-900', 'text-violet-400')
+                    if (ct === 'document') return cardIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />, 'Documento', 'bg-amber-50 dark:bg-amber-950/20', 'text-amber-500')
+                    if (ct === 'pdf')      return cardIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />, 'PDF', 'bg-rose-50 dark:bg-rose-950/20', 'text-rose-500')
+                    if (ct === 'office')   return cardIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75.125v-1.5A1.125 1.125 0 013.375 16.5m0 0h17.25m0 0a1.125 1.125 0 011.125 1.125v1.5a1.125 1.125 0 01-1.125 1.125M20.625 16.5h-1.5c-.621 0-1.125.504-1.125 1.125m-15 0V6.375c0-.621.504-1.125 1.125-1.125h13.5c.621 0 1.125.504 1.125 1.125V16.5" />, 'Office', 'bg-emerald-50 dark:bg-emerald-950/20', 'text-emerald-500')
                     return ch.url_image
                       ? <img src={ch.url_image} alt="challenge" className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
                       : <div className="h-full w-full flex items-center justify-center"><svg className="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg></div>

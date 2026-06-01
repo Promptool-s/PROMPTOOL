@@ -1,14 +1,18 @@
 import { useState, useRef, useCallback } from 'react'
 // ── File type helpers ────────────────────────────────────────────────────────
 
-const CODE_EXTS = new Set(['js','jsx','ts','tsx','py','cs','java','cpp','c','cc','h','hpp','css','scss','html','xml','json','sql','sh','bash','rb','go','rs','php','swift','kt','vue','yaml','yml','toml','r','lua','dart','scala'])
-const DOC_EXTS  = new Set(['txt','md','csv','log'])
+const CODE_EXTS   = new Set(['js','jsx','ts','tsx','py','cs','java','cpp','c','cc','h','hpp','css','scss','html','xml','json','sql','sh','bash','rb','go','rs','php','swift','kt','vue','yaml','yml','toml','r','lua','dart','scala'])
+const DOC_EXTS    = new Set(['txt','md','csv','log'])
+const PDF_EXTS    = new Set(['pdf'])
+const OFFICE_EXTS = new Set(['pptx','ppt','xlsx','xls','docx','doc'])
 
 function getExt(name = '') { return name.split('.').pop()?.toLowerCase() || '' }
 function fileCategory(name) {
   const ext = getExt(name)
-  if (CODE_EXTS.has(ext)) return 'code'
-  if (DOC_EXTS.has(ext))  return 'document'
+  if (CODE_EXTS.has(ext))   return 'code'
+  if (DOC_EXTS.has(ext))    return 'document'
+  if (PDF_EXTS.has(ext))    return 'pdf'
+  if (OFFICE_EXTS.has(ext)) return 'office'
   return 'image'
 }
 const LANG_MAP = {
@@ -181,6 +185,34 @@ const TYPE_OPTIONS = [
     bg: 'bg-amber-50', border: 'border-amber-300', icon_bg: 'bg-amber-100', icon_text: 'text-amber-600',
     active_border: 'border-amber-500', active_bg: 'bg-amber-50',
   },
+  {
+    id: 'pdf',
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+      </svg>
+    ),
+    label: { es: 'PDF', en: 'PDF' },
+    desc: { es: 'Subí un PDF. Los participantes lo leen inline y responden con un prompt de análisis.', en: 'Upload a PDF. Participants read it inline and respond with an analysis prompt.' },
+    accept: '.pdf',
+    hint: { es: '.pdf — se ve en el navegador', en: '.pdf — viewed in-browser' },
+    bg: 'bg-rose-50', border: 'border-rose-300', icon_bg: 'bg-rose-100', icon_text: 'text-rose-600',
+    active_border: 'border-rose-500', active_bg: 'bg-rose-50',
+  },
+  {
+    id: 'office',
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75.125v-1.5A1.125 1.125 0 013.375 16.5m0 0h17.25m0 0a1.125 1.125 0 011.125 1.125v1.5a1.125 1.125 0 01-1.125 1.125M20.625 16.5h-1.5c-.621 0-1.125.504-1.125 1.125m-15 0V6.375c0-.621.504-1.125 1.125-1.125h13.5c.621 0 1.125.504 1.125 1.125V16.5" />
+      </svg>
+    ),
+    label: { es: 'Office (PPT / Excel / Word)', en: 'Office (PPT / Excel / Word)' },
+    desc: { es: 'Subí una presentación, planilla o doc. Los participantes abren el archivo y escriben un prompt.', en: 'Upload a presentation, spreadsheet or doc. Participants open the file and write a prompt.' },
+    accept: '.pptx,.ppt,.xlsx,.xls,.docx,.doc',
+    hint: { es: '.pptx, .xlsx, .docx y más', en: '.pptx, .xlsx, .docx and more' },
+    bg: 'bg-emerald-50', border: 'border-emerald-300', icon_bg: 'bg-emerald-100', icon_text: 'text-emerald-600',
+    active_border: 'border-emerald-500', active_bg: 'bg-emerald-50',
+  },
 ]
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -229,6 +261,10 @@ const ChallengeCreatorModal = ({
     if (cat === 'image') {
       setChallengeImagePreview(URL.createObjectURL(file))
       setCodeContent('')
+    } else if (cat === 'pdf' || cat === 'office') {
+      // PDF and Office: store blob URL for preview, no text content needed
+      setChallengeImagePreview(URL.createObjectURL(file))
+      setCodeContent('')
     } else {
       // Read text content for code/doc files
       setChallengeImagePreview(null)
@@ -246,9 +282,12 @@ const ChallengeCreatorModal = ({
     setCodeContent('')
   }
 
-  const hasFile = !!challengeImageFile
-  const isCode = contentType === 'code'
-  const isDoc  = contentType === 'document'
+  const hasFile  = !!challengeImageFile
+  const isCode   = contentType === 'code'
+  const isDoc    = contentType === 'document'
+  const isPdf    = contentType === 'pdf'
+  const isOffice = contentType === 'office'
+  const isTextBased = isCode || isDoc
 
   const inp = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-violet-400 focus:bg-white'
   const label = 'block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5'
@@ -300,7 +339,7 @@ const ChallengeCreatorModal = ({
                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-600 text-[10px] font-bold text-white">1</span>
                 <p className={label + ' mb-0'}>{lang === 'en' ? 'What type of challenge?' : '¿Qué tipo de desafío?'}</p>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {TYPE_OPTIONS.map(opt => {
                   const isActive = contentType === opt.id
                   return (
@@ -345,11 +384,11 @@ const ChallengeCreatorModal = ({
             <div className="flex items-center gap-2 mb-3">
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-600 text-[10px] font-bold text-white">2</span>
               <p className={label + ' mb-0'}>
-                {isCode
-                  ? (lang === 'en' ? 'Upload code file' : 'Subí el archivo de código')
-                  : isDoc
-                    ? (lang === 'en' ? 'Upload text file' : 'Subí el archivo de texto')
-                    : (lang === 'en' ? 'Upload image' : 'Subí la imagen')}
+                {isCode   ? (lang === 'en' ? 'Upload code file'   : 'Subí el archivo de código')
+                : isDoc   ? (lang === 'en' ? 'Upload text file'   : 'Subí el archivo de texto')
+                : isPdf   ? (lang === 'en' ? 'Upload PDF'         : 'Subí el PDF')
+                : isOffice? (lang === 'en' ? 'Upload Office file' : 'Subí el archivo Office')
+                :            (lang === 'en' ? 'Upload image'       : 'Subí la imagen')}
                 {' '}<span className="text-rose-400 normal-case font-normal">*</span>
               </p>
             </div>
@@ -373,7 +412,7 @@ const ChallengeCreatorModal = ({
                     <img src={challengeImagePreview} alt="Preview" className="w-full max-h-56 rounded-2xl object-cover" />
                   )}
                   {/* Code preview */}
-                  {(isCode || isDoc) && codeContent && (
+                  {isTextBased && codeContent && (
                     <div style={{ height: 240 }}>
                       {isCode ? (
                         <CodeViewer
@@ -387,17 +426,36 @@ const ChallengeCreatorModal = ({
                       )}
                     </div>
                   )}
+                  {/* PDF preview */}
+                  {isPdf && challengeImagePreview && (
+                    <div style={{ height: 280 }} className="rounded-2xl overflow-hidden border border-slate-200">
+                      <object data={challengeImagePreview} type="application/pdf" className="w-full h-full">
+                        <div className="h-full flex flex-col items-center justify-center bg-rose-50 gap-2 p-4">
+                          <svg className="h-8 w-8 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
+                          <p className="text-sm text-rose-600 font-medium">{challengeImageFile?.name}</p>
+                        </div>
+                      </object>
+                    </div>
+                  )}
+                  {/* Office preview */}
+                  {isOffice && challengeImagePreview && (
+                    <div className="rounded-2xl overflow-hidden border border-slate-200 bg-emerald-50 flex flex-col items-center justify-center gap-2 p-6" style={{ minHeight: 120 }}>
+                      <svg className="h-10 w-10 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75.125v-1.5A1.125 1.125 0 013.375 16.5m0 0h17.25m0 0a1.125 1.125 0 011.125 1.125v1.5a1.125 1.125 0 01-1.125 1.125M20.625 16.5h-1.5c-.621 0-1.125.504-1.125 1.125m-15 0V6.375c0-.621.504-1.125 1.125-1.125h13.5c.621 0 1.125.504 1.125 1.125V16.5" /></svg>
+                      <p className="text-sm font-semibold text-emerald-700">{challengeImageFile?.name}</p>
+                      <p className="text-xs text-emerald-600">Los participantes abrirán el archivo en una nueva pestaña</p>
+                    </div>
+                  )}
                   {/* File info bar */}
-                  <div className={`flex items-center justify-between gap-3 px-3 py-2 ${(isCode || isDoc) ? 'rounded-b-2xl bg-slate-100 border-t border-slate-200' : 'absolute bottom-2 left-2 right-2 rounded-xl bg-black/50 backdrop-blur-sm'}`}>
+                  <div className={`flex items-center justify-between gap-3 px-3 py-2 ${(isTextBased || isPdf || isOffice) ? 'rounded-b-2xl bg-slate-100 border-t border-slate-200' : 'absolute bottom-2 left-2 right-2 rounded-xl bg-black/50 backdrop-blur-sm'}`}>
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className={`flex h-6 w-6 items-center justify-center rounded-lg shrink-0 ${isCode ? 'bg-cyan-100' : isDoc ? 'bg-amber-100' : 'bg-white/20'}`}>
+                      <div className={`flex h-6 w-6 items-center justify-center rounded-lg shrink-0 ${isCode ? 'bg-cyan-100' : isDoc ? 'bg-amber-100' : isPdf ? 'bg-rose-100' : isOffice ? 'bg-emerald-100' : 'bg-white/20'}`}>
                         {selectedType.icon && (
-                          <span className={`${isCode ? 'text-cyan-600' : isDoc ? 'text-amber-600' : 'text-white'}`} style={{ transform: 'scale(0.6)' }}>
+                          <span className={`${isCode ? 'text-cyan-600' : isDoc ? 'text-amber-600' : isPdf ? 'text-rose-600' : isOffice ? 'text-emerald-600' : 'text-white'}`} style={{ transform: 'scale(0.6)' }}>
                             {selectedType.icon}
                           </span>
                         )}
                       </div>
-                      <span className={`text-xs font-medium truncate ${(isCode || isDoc) ? 'text-slate-700' : 'text-white'}`}>
+                      <span className={`text-xs font-medium truncate ${(isTextBased || isPdf || isOffice) ? 'text-slate-700' : 'text-white'}`}>
                         {challengeImageFile?.name}
                       </span>
                     </div>
@@ -405,12 +463,12 @@ const ChallengeCreatorModal = ({
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${(isCode || isDoc) ? 'text-slate-600 hover:bg-slate-200' : 'text-white/90 hover:bg-white/20'}`}
+                        className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${(isTextBased || isPdf || isOffice) ? 'text-slate-600 hover:bg-slate-200' : 'text-white/90 hover:bg-white/20'}`}
                       >
                         {lang === 'en' ? 'Change' : 'Cambiar'}
                       </button>
                       <button type="button" onClick={clearFile}
-                        className={`flex h-6 w-6 items-center justify-center rounded-full transition ${(isCode || isDoc) ? 'bg-slate-200 text-slate-600 hover:bg-slate-300' : 'bg-black/50 text-white hover:bg-black/70'}`}
+                        className={`flex h-6 w-6 items-center justify-center rounded-full transition ${(isTextBased || isPdf || isOffice) ? 'bg-slate-200 text-slate-600 hover:bg-slate-300' : 'bg-black/50 text-white hover:bg-black/70'}`}
                       >
                         <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

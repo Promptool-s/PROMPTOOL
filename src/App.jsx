@@ -41,7 +41,7 @@ import('./components/ConfigModal').then(({ loadVisualMode, applyVisualMode }) =>
 // para todos — registrados y no registrados.
 const GUEST_MAX_ATTEMPTS = 4
 
-const _NON_IMG_EXTS = new Set(['js','jsx','ts','tsx','py','cs','java','cpp','c','h','hpp','css','scss','html','xml','json','sql','sh','bash','rb','go','rs','php','swift','kt','vue','yaml','yml','toml','r','lua','dart','scala','txt','md','csv','log'])
+const _NON_IMG_EXTS = new Set(['js','jsx','ts','tsx','py','cs','java','cpp','c','h','hpp','css','scss','html','xml','json','sql','sh','bash','rb','go','rs','php','swift','kt','vue','yaml','yml','toml','r','lua','dart','scala','txt','md','csv','log','pdf','pptx','ppt','xlsx','xls','docx','doc'])
 const _isNonImage = (url) => {
   if (!url) return false
   const ext = url.split('.').pop()?.toLowerCase().split('?')[0] || ''
@@ -170,6 +170,7 @@ function App() {
   const [showSplash, setShowSplash] = useState(true)
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const [authPreselect, setAuthPreselect] = useState(null)
+  const [authInviteEmail, setAuthInviteEmail] = useState(null)
   const [userType, setUserType] = useState(null)
   const [userTypeLoading, setUserTypeLoading] = useState(false)
   const [userStreak, setUserStreak] = useState(0)
@@ -210,6 +211,7 @@ function App() {
   const [challengeCompany, setChallengeCompany] = useState(null) // { company_name, avatar_url, verified }
   const challengeId = new URLSearchParams(window.location.search).get('challenge')
   const inviteCompanyId = new URLSearchParams(window.location.search).get('invite')
+  const inviteEmailParam = new URLSearchParams(window.location.search).get('email')
   const [inviteState, setInviteState] = useState(null)
   const [inviteCompany, setInviteCompany] = useState(null)
   const [imageAttempts, setImageAttempts] = useState(0)
@@ -378,8 +380,12 @@ function App() {
     loadInviteCompany()
 
     if (!user) {
-      // No logueado — mostrar banner + modal de login
       setInviteState('prompt_login')
+      // If the invite URL carries an email, pre-fill signup for new users
+      if (inviteEmailParam) {
+        setAuthInviteEmail(inviteEmailParam)
+        setAuthPreselect('individual')
+      }
       setAuthModalOpen(true)
       return
     }
@@ -1621,6 +1627,7 @@ function App() {
             onSignUpWithEmail={signUpWithEmail}
             inviteCompany={inviteState === 'prompt_login' ? inviteCompany : null}
             initialPlan={authPreselect}
+            initialEmail={authInviteEmail}
           />
         </Suspense>
       </div>
@@ -2245,6 +2252,7 @@ function App() {
           onSignUpWithEmail={signUpWithEmail}
           inviteCompany={inviteState === 'prompt_login' ? inviteCompany : null}
           initialPlan={authPreselect}
+          initialEmail={authInviteEmail}
         />
       </Suspense>
     </div>
