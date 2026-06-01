@@ -547,7 +547,9 @@ const ChallengeCreatorModal = ({
                     ? (lang === 'en' ? 'Answer key (what participants should write)' : 'Respuesta esperada (qué deben escribir)')
                     : isDoc
                       ? (lang === 'en' ? 'Answer key (ideal prompt about this document)' : 'Respuesta esperada (prompt ideal sobre el documento)')
-                      : (lang === 'en' ? 'Original prompt (exact)' : 'Prompt original (exacto)')}
+                    : isScenario
+                      ? (lang === 'en' ? 'Expected answer (ideal prompt for this scenario)' : 'Respuesta esperada (prompt ideal para este enunciado)')
+                    : (lang === 'en' ? 'Original prompt (exact)' : 'Prompt original (exacto)')}
                   {' '}<span className="text-rose-400 normal-case font-normal">*</span>
                 </label>
                 <textarea
@@ -578,9 +580,10 @@ const ChallengeCreatorModal = ({
                     value={challengeForm.theme}
                     onChange={e => set('theme', e.target.value)}
                     placeholder={
-                      isCode ? (lang === 'en' ? 'e.g. C# LINQ, Python Django' : 'Ej: C# LINQ, Python Django') :
-                      isDoc  ? (lang === 'en' ? 'e.g. Risk analysis, Sales report' : 'Ej: Análisis de riesgo, Informe de ventas') :
-                               (lang === 'en' ? 'e.g. Product photo, UI design' : 'Ej: Foto de producto, Diseño UI')
+                      isCode    ? (lang === 'en' ? 'e.g. C# LINQ, Python Django'   : 'Ej: C# LINQ, Python Django') :
+                      isDoc     ? (lang === 'en' ? 'e.g. Risk analysis, Sales report' : 'Ej: Análisis de riesgo, Informe de ventas') :
+                      isScenario? (lang === 'en' ? 'e.g. Customer service, HR case'   : 'Ej: Atención al cliente, Caso de RRHH') :
+                                  (lang === 'en' ? 'e.g. Product photo, UI design'    : 'Ej: Foto de producto, Diseño UI')
                     }
                     className={inp}
                     required
@@ -602,7 +605,8 @@ const ChallengeCreatorModal = ({
                 </div>
               </div>
 
-              <div>
+              {/* Instructions — hidden for scenario type since the scenario text IS the instruction */}
+              {!isScenario && <div>
                 <label className={label}>{lang === 'en' ? 'Instructions for participants' : 'Instrucciones para participantes'}</label>
                 <textarea
                   value={challengeForm.description}
@@ -621,7 +625,7 @@ const ChallengeCreatorModal = ({
                   className={`${inp} min-h-[60px] resize-none`}
                   rows={2}
                 />
-              </div>
+              </div>}
             </div>
           </div>
 
