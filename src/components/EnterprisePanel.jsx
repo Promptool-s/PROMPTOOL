@@ -1103,6 +1103,7 @@ const EnterprisePanel = ({ user }) => {
         challenge_hints: challengeForm.hints.filter(h => h.trim()),
         challenge_evaluation_mode: challengeForm.evaluationMode,
         challenge_eval_instructions: challengeForm.evalInstructions.trim() || null,
+        challenge_content_type: challengeForm.contentType || 'image',
       }
 
       const { error: insertError } = await supabase.from('imagenes_ia').insert([payload])
@@ -1165,6 +1166,7 @@ const EnterprisePanel = ({ user }) => {
         challenge_hints: challengeForm.hints.filter(h => h.trim()),
         challenge_evaluation_mode: challengeForm.evaluationMode,
         challenge_eval_instructions: challengeForm.evalInstructions.trim() || null,
+        challenge_content_type: challengeForm.contentType || 'image',
       }
 
       const { error: updateError } = await supabase
@@ -4574,7 +4576,6 @@ RESPONSE RULES:
           <button type="submit" className="rounded-full bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 transition">
             {lang === 'en' ? 'Send Invitation' : 'Enviar Invitación'}
           </button>
-          {enterpriseActionStatus && <p className="text-sm text-slate-600 dark:text-slate-400">{enterpriseActionStatus}</p>}
         </form>
       </div>
     </div>
