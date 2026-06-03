@@ -9,4 +9,3 @@ npm-debug.log
 .img-cache/
 supabase/migrations/
 .claude/
-scripts/

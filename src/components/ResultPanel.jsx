@@ -16,7 +16,7 @@ const ScoreCircle = ({ value }) => {
   }, [value])
 
   return (
-    <div className="relative inline-flex h-[120px] w-[120px] items-center justify-center group/score">
+    <div className="relative inline-flex h-[90px] w-[90px] sm:h-[120px] sm:w-[120px] items-center justify-center group/score">
       <svg className="h-full w-full" viewBox="0 0 120 120" aria-hidden="true">
         <circle cx="60" cy="60" r="44" className="fill-transparent stroke-slate-200 dark:stroke-slate-700" strokeWidth="12" />
         <circle cx="60" cy="60" r="44" className="fill-transparent" strokeWidth="12" strokeLinecap="round"
@@ -25,12 +25,12 @@ const ScoreCircle = ({ value }) => {
           transform="rotate(-90 60 60)" />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-        <span className="text-3xl font-semibold text-slate-900 dark:text-slate-100">{normalizedValue}%</span>
-        <span className="text-xs uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">Score</span>
+        <span className="text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-slate-100">{normalizedValue}%</span>
+        <span className="text-[10px] sm:text-xs uppercase tracking-[0.2em] sm:tracking-[0.3em] text-slate-500 dark:text-slate-400">Score</span>
       </div>
       
-      {/* Tooltip hover */}
-      <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/score:block z-[100] w-48">
+      {/* Tooltip hover — solo desktop */}
+      <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden sm:group-hover/score:block z-[100] w-48">
         <div className="rounded-lg bg-slate-800 dark:bg-slate-700 px-3 py-2 text-xs shadow-xl border border-slate-700 dark:border-slate-600">
           <p className="font-semibold text-slate-100 mb-1">Score de similitud</p>
           <p className="text-slate-300 dark:text-slate-400 leading-relaxed">
@@ -219,13 +219,13 @@ const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, stren
       )}
 
       {/* ── Score + análisis ── */}
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3">
-        <div className="flex items-start gap-3">
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 sm:p-4">
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3">
           <div className="shrink-0 flex flex-col items-center gap-2">
             <ScoreCircle value={safeScore} />
             {eloDelta !== null && (
               <div className="relative group/elo-stat">
-                <div className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${
+                <div className={`flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 ${
                   eloDelta >= 0 
                     ? 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800' 
                     : 'bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800'
@@ -251,8 +251,8 @@ const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, stren
                   </div>
                 </div>
                 
-                {/* Tooltip hover */}
-                <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/elo-stat:block z-[100] w-52">
+                {/* Tooltip hover — solo desktop */}
+                <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden sm:group-hover/elo-stat:block z-[100] w-52">
                   <div className="rounded-lg bg-slate-800 dark:bg-slate-700 px-3 py-2 text-xs shadow-xl border border-slate-700 dark:border-slate-600">
                     <p className="font-semibold text-slate-100 mb-1">Tu puntuación</p>
                     <p className="text-slate-300 dark:text-slate-400 leading-relaxed">
@@ -264,9 +264,9 @@ const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, stren
               </div>
             )}
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1">{t('aiAnalysis')}</p>
-            <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+          <div className="flex-1 min-w-0 w-full sm:w-auto">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1.5 text-center sm:text-left">{t('aiAnalysis')}</p>
+            <p className="text-xs sm:text-sm leading-relaxed text-slate-700 dark:text-slate-300 text-center sm:text-left">
               {explanation || t('analysisUnavailable')}
             </p>
           </div>
@@ -359,31 +359,26 @@ const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, stren
           </div>
         )}
 
-        {/* Banner upsell para guests — aparece en cualquier intento no final */}
+        {/* Banner upsell para guests — compacto en mobile */}
         {!user && !isGuestLastAttempt && (
-          <div className="rounded-2xl border border-violet-200 dark:border-violet-800/60 bg-gradient-to-br from-violet-50 to-indigo-50 dark:from-violet-950/40 dark:to-indigo-950/40 px-4 py-3.5">
-            <div className="flex items-start gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 dark:bg-violet-900/50">
+          <div className="rounded-2xl border border-violet-200 dark:border-violet-800/60 bg-gradient-to-br from-violet-50 to-indigo-50 dark:from-violet-950/40 dark:to-indigo-950/40 px-3 sm:px-4 py-2.5 sm:py-3.5">
+            <div className="flex items-start gap-2.5 sm:gap-3">
+              <div className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 dark:bg-violet-900/50">
                 <svg className="h-4.5 w-4.5 text-violet-600 dark:text-violet-400" fill="none" viewBox="-3 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-violet-800 dark:text-violet-200">
-                  {lang === 'en' ? 'Want to try another image?' : '¿Querés probar con otra imagen?'}
+                <p className="text-xs sm:text-sm font-bold text-violet-800 dark:text-violet-200 leading-tight">
+                  {lang === 'en' ? 'Create account for unlimited images' : 'Creá cuenta para imágenes ilimitadas'}
                 </p>
-                <p className="text-xs text-violet-600 dark:text-violet-400 mt-0.5 leading-relaxed">
-                  {lang === 'en'
-                    ? 'Create a free account to unlock unlimited images.'
-                    : 'Creá una cuenta gratis y desbloqueá imágenes ilimitadas.'}
-                </p>
-                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                <div className="mt-1.5 sm:mt-2 flex flex-wrap gap-x-2 sm:gap-x-3 gap-y-1">
                   {(lang === 'en'
-                    ? ['Unlimited images', 'Track progress', 'Compete on leaderboard']
-                    : ['Imágenes ilimitadas', 'Progreso y estadísticas', 'Ranking competitivo']
+                    ? ['Unlimited', 'Stats', 'Leaderboard']
+                    : ['Ilimitado', 'Estadísticas', 'Ranking']
                   ).map(f => (
-                    <span key={f} className="flex items-center gap-1 text-[11px] text-violet-700 dark:text-violet-300 font-medium">
-                      <svg className="h-3 w-3 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    <span key={f} className="flex items-center gap-0.5 sm:gap-1 text-[10px] sm:text-[11px] text-violet-700 dark:text-violet-300 font-medium">
+                      <svg className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                       {f}
                     </span>
                   ))}
@@ -393,7 +388,7 @@ const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, stren
           </div>
         )}
 
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           {isGuestLastAttempt ? (
             /* Guest en último intento: registrarse o ver prompt */
             <>
@@ -401,7 +396,7 @@ const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, stren
                 <button
                   type="button"
                   onClick={() => setShowDemoPrompt(true)}
-                  className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700"
+                  className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm font-medium text-slate-600 dark:text-slate-300 transition active:bg-slate-50 dark:active:bg-slate-700 min-h-[44px]"
                 >
                   {lang === 'en' ? 'See original prompt' : 'Ver prompt original'}
                 </button>
@@ -409,7 +404,7 @@ const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, stren
               <button
                 type="button"
                 onClick={onOpenAuth}
-                className="flex-1 rounded-xl px-3 py-2 text-sm font-semibold text-white transition"
+                className="flex-1 rounded-xl px-4 py-3 text-sm font-semibold text-white transition active:opacity-80 min-h-[44px]"
                 style={{ backgroundColor: 'rgb(var(--color-accent))' }}
                 onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgb(var(--color-accent-2))'}
                 onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgb(var(--color-accent))'}
@@ -422,14 +417,14 @@ const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, stren
             <>
               {onRetry && safeScore < 93 && (
                 <button type="button" onClick={onRetry}
-                  className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700">
+                  className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm font-medium text-slate-600 dark:text-slate-300 transition active:bg-slate-50 dark:active:bg-slate-700 min-h-[44px]">
                   {lang === 'en' ? 'Retry' : 'Reintentar'}
                 </button>
               )}
               <button
                 type="button"
                 onClick={onOpenAuth}
-                className="flex-1 rounded-xl px-3 py-2 text-sm font-semibold text-white transition"
+                className="flex-1 rounded-xl px-4 py-3 text-sm font-semibold text-white transition active:opacity-80 min-h-[44px]"
                 style={{ backgroundColor: 'rgb(var(--color-accent))' }}
                 onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgb(var(--color-accent-2))'}
                 onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgb(var(--color-accent))'}
@@ -444,7 +439,7 @@ const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, stren
                 <button
                   type="button"
                   onClick={onRevealPrompt}
-                  className="flex-1 rounded-xl border-2 border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400 transition hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                  className="flex-1 rounded-xl border-2 border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm font-semibold text-emerald-700 dark:text-emerald-400 transition active:bg-emerald-50 dark:active:bg-emerald-900/20 min-h-[44px]"
                 >
                   {lang === 'en' ? 'See original prompt' : 'Ver prompt original'}
                 </button>
@@ -453,7 +448,7 @@ const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, stren
                 <button
                   type="button"
                   onClick={onNewRandom || onReset}
-                  className="flex-1 rounded-xl px-3 py-2 text-sm font-semibold text-white transition"
+                  className="flex-1 rounded-xl px-4 py-3 text-sm font-semibold text-white transition active:opacity-80 min-h-[44px]"
                   style={{ backgroundColor: 'rgb(var(--color-accent))' }}
                   onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgb(var(--color-accent-2))'}
                   onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgb(var(--color-accent))'}
@@ -467,7 +462,7 @@ const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, stren
             <>
               {onRetry && safeScore < 93 && (
                 <button type="button" onClick={onRetry}
-                  className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700">
+                  className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm font-medium text-slate-600 dark:text-slate-300 transition active:bg-slate-50 dark:active:bg-slate-700 min-h-[44px]">
                   {lang === 'en' ? 'Retry' : 'Reintentar'}
                 </button>
               )}
@@ -475,7 +470,7 @@ const ResultPanel = ({ scorePercent, explanation, suggestions, difficulty, stren
                 <button
                   type="button"
                   onClick={onNewRandom || onReset}
-                  className="flex-1 rounded-xl px-3 py-2 text-sm font-semibold text-white transition"
+                  className="flex-1 rounded-xl px-4 py-3 text-sm font-semibold text-white transition active:opacity-80 min-h-[44px]"
                   style={{ backgroundColor: 'rgb(var(--color-accent))' }}
                   onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgb(var(--color-accent-2))'}
                   onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgb(var(--color-accent))'}

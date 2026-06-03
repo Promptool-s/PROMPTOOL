@@ -139,11 +139,6 @@ const EnterprisePanel = ({ user }) => {
   const [guideStatus, setGuideStatus] = useState(null) // null | 'ok' | 'error'
   const [guideModalOpen, setGuideModalOpen] = useState(false)
   const [memberProgress, setMemberProgress] = useState({}) // { user_id: { guide_id: { lesson_ack, quiz_passed, checkpoints } } }
-  const [ownGuideModalOpen, setOwnGuideModalOpen] = useState(false)
-  const [ownGuideForm, setOwnGuideForm] = useState({ title: '', summary: '', accent: 'violet', keywords: '' })
-  const [ownGuideSaving, setOwnGuideSaving] = useState(false)
-  const [ownGuideStatus, setOwnGuideStatus] = useState(null)
-  const [editingOwnGuide, setEditingOwnGuide] = useState(null)
 
   // Filtros del dashboard
   const [dashboardFilters, setDashboardFilters] = useState({
@@ -795,9 +790,8 @@ const EnterprisePanel = ({ user }) => {
       if (error) throw error
 
       const companyName = companyData?.company_name || user.user_metadata?.nombre_display || user.email
-      // Always use ?invite= — App.jsx handles it for both logged-in (auto-join) and new users (signup)
       const joinUrl = existingUser?.id_usuario
-        ? `https://promptool.app/?invite=${user.id}`
+        ? `https://promptool.app/?join=${user.id}`
         : `https://promptool.app/?invite=${user.id}&email=${encodeURIComponent(inviteEmail.trim())}`
 
       try {
@@ -901,14 +895,6 @@ const EnterprisePanel = ({ user }) => {
     setSavingSettings(true)
     setSettingsStatus(null)
     try {
-      // Merge training_config carefully: preserve guide_assignments (and other runtime data)
-      // Only update the settings-specific flags, not guide data
-      const existingTrainingConfig = companyData?.training_config || {}
-      const settingsOnlyKeys = ['enableProgressTracking','enablePeerReview','enableManagerApproval','defaultFeedbackLevel','enableCertificates','enableLeaderboards','leaderboardScope']
-      const mergedTrainingConfig = {
-        ...existingTrainingConfig,
-        ...Object.fromEntries(settingsOnlyKeys.filter(k => k in settingsForm.training_config).map(k => [k, settingsForm.training_config[k]]))
-      }
       const updates = {
         company_name: settingsForm.company_name.trim(),
         bio: settingsForm.bio.trim(),
@@ -919,7 +905,7 @@ const EnterprisePanel = ({ user }) => {
         default_challenge_type: settingsForm.default_challenge_type,
         default_challenge_mode: settingsForm.default_challenge_mode,
         performance_metrics: settingsForm.performance_metrics,
-        training_config: mergedTrainingConfig,
+        training_config: settingsForm.training_config,
       }
       const { error } = await supabase.from('usuarios').update(updates).eq('id_usuario', user.id)
       if (error) throw error
@@ -1054,27 +1040,6 @@ const EnterprisePanel = ({ user }) => {
     setChallengeModalOpen(false)
   }
 
-  const deleteChallenge = async (challenge) => {
-    if (!window.confirm(lang === 'en'
-      ? `Delete challenge "${challenge.image_theme || 'this challenge'}"? This cannot be undone.`
-      : `¿Eliminar el desafío "${challenge.image_theme || 'este desafío'}"? Esta acción no se puede deshacer.`
-    )) return
-    try {
-      const { error } = await supabase.from('imagenes_ia').delete().eq('id_imagen', challenge.id_imagen)
-      if (error) throw error
-      // Also remove from storage if it's a regular URL (not data: or null)
-      if (challenge.url_image && !challenge.url_image.startsWith('data:')) {
-        const path = challenge.url_image.split('/enterprise-challenges/').pop()
-        if (path) await supabase.storage.from('enterprise-challenges').remove([path])
-      }
-      fetchChallenges()
-      setChallengeStatus(lang === 'en' ? 'Challenge deleted.' : 'Desafío eliminado.')
-      setTimeout(() => setChallengeStatus(null), 2000)
-    } catch (err) {
-      setChallengeStatus(err?.message || (lang === 'en' ? 'Could not delete.' : 'No se pudo eliminar.'))
-    }
-  }
-
   const handleChallengeImageChange = (event) => {
     const file = event.target.files?.[0]
     if (!file) return
@@ -1090,53 +1055,34 @@ const EnterprisePanel = ({ user }) => {
       return updateChallenge(event)
     }
     
-    const isScenarioType = challengeForm.contentType === 'scenario'
-
-    if (!isScenarioType && !challengeImageFile) {
-      setChallengeStatus(lang === 'en' ? 'Upload a file first.' : 'Subí un archivo primero.')
-      return
-    }
-    if (isScenarioType && !challengeForm.description.trim()) {
-      setChallengeStatus(lang === 'en' ? 'Write the scenario text.' : 'Escribí el enunciado.')
-      return
-    }
-    if (!challengeForm.prompt.trim() || !challengeForm.theme.trim()) {
+    if (!challengeImageFile || !challengeForm.prompt.trim() || !challengeForm.theme.trim()) {
       setChallengeStatus(lang === 'en'
-        ? 'Complete the answer key and theme.'
-        : 'Completá la respuesta esperada y la temática.')
+        ? 'Complete content, prompt and theme.'
+        : 'Completa el contenido, prompt y temática.')
       return
     }
 
     setCreatingChallenge(true)
-    setChallengeStatus(lang === 'en' ? 'Saving challenge...' : 'Guardando desafío...')
-
-    let imageUrl = null
-
-    if (!isScenarioType) {
-      const uploadLabel = challengeForm.contentType === 'image'
-        ? (lang === 'en' ? 'Uploading image...' : 'Subiendo imagen...')
-        : (lang === 'en' ? 'Uploading file...' : 'Subiendo archivo...')
-      setChallengeStatus(uploadLabel)
-      try {
-        const ext = (challengeImageFile.name.split('.').pop() || 'jpg').toLowerCase()
-        const path = `${user.id}/${Date.now()}-challenge.${ext}`
-        const { error: uploadError } = await supabase.storage
-          .from('enterprise-challenges')
-          .upload(path, challengeImageFile, { upsert: false })
-        if (uploadError) throw new Error(`Storage: ${uploadError.message}`)
-        const { data: publicData } = supabase.storage
-          .from('enterprise-challenges')
-          .getPublicUrl(path)
-        imageUrl = publicData.publicUrl
-      } catch (uploadErr) {
-        setChallengeStatus(uploadErr?.message || (lang === 'en' ? 'Upload failed.' : 'Error al subir.'))
-        setCreatingChallenge(false)
-        return
-      }
-      setChallengeStatus(lang === 'en' ? 'Saving challenge...' : 'Guardando desafío...')
-    }
-
+    const uploadLabel = challengeForm.contentType === 'image'
+      ? (lang === 'en' ? 'Uploading image...' : 'Subiendo imagen...')
+      : (lang === 'en' ? 'Uploading file...' : 'Subiendo archivo...')
+    setChallengeStatus(uploadLabel)
     try {
+      const ext = (challengeImageFile.name.split('.').pop() || 'jpg').toLowerCase()
+      const path = `${user.id}/${Date.now()}-challenge.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('enterprise-challenges')
+        .upload(path, challengeImageFile, { upsert: false })
+      if (uploadError) throw new Error(`Storage: ${uploadError.message}`)
+
+      const { data: publicData } = supabase.storage
+        .from('enterprise-challenges')
+        .getPublicUrl(path)
+      const imageUrl = publicData.publicUrl
+
+      setChallengeStatus(lang === 'en' ? 'Saving challenge...' : 'Guardando desafío...')
+
       const payload = {
         url_image: imageUrl,
         prompt_original: challengeForm.prompt.trim(),
@@ -1144,10 +1090,8 @@ const EnterprisePanel = ({ user }) => {
         image_theme: challengeForm.theme.trim(),
         fecha: nowAR(),
         company_id: companyData?.id_usuario || user.id,
-        // For scenario type, store the scenario text in challenge_description
-        challenge_description: isScenarioType
-          ? challengeForm.description.trim()
-          : (challengeForm.description.trim() || null),
+        // Nuevos campos de personalización
+        challenge_description: challengeForm.description.trim() || null,
         challenge_time_limit: challengeForm.timeLimit,
         challenge_max_attempts: challengeForm.maxAttempts || null,
         challenge_min_words: challengeForm.minWords,
@@ -1159,7 +1103,6 @@ const EnterprisePanel = ({ user }) => {
         challenge_hints: challengeForm.hints.filter(h => h.trim()),
         challenge_evaluation_mode: challengeForm.evaluationMode,
         challenge_eval_instructions: challengeForm.evalInstructions.trim() || null,
-        challenge_content_type: challengeForm.contentType || 'image',
       }
 
       const { error: insertError } = await supabase.from('imagenes_ia').insert([payload])
@@ -1222,7 +1165,6 @@ const EnterprisePanel = ({ user }) => {
         challenge_hints: challengeForm.hints.filter(h => h.trim()),
         challenge_evaluation_mode: challengeForm.evaluationMode,
         challenge_eval_instructions: challengeForm.evalInstructions.trim() || null,
-        challenge_content_type: challengeForm.contentType || 'image',
       }
 
       const { error: updateError } = await supabase
@@ -1312,87 +1254,31 @@ const EnterprisePanel = ({ user }) => {
 
   const createGuide = async (event) => {
     event.preventDefault()
+    
     if (!guideForm.title.trim()) {
       setGuideStatus(lang === 'en' ? 'Title is required.' : 'El título es requerido.')
       return
     }
+
     try {
       setGuideStatus(lang === 'en' ? 'Creating guide...' : 'Creando guía...')
-      const { error } = await supabase.from('enterprise_guides').insert([{
-        company_id: companyData?.id_usuario || user.id,
+      
+      const { data, error } = await supabase.rpc('create_enterprise_guide', {
         title: guideForm.title.trim(),
         summary: guideForm.summary.trim() || null,
         content: guideForm.content,
         accent: guideForm.accent,
-        keywords: guideForm.keywords.filter(k => k.trim()),
-      }])
+        keywords: guideForm.keywords.filter(k => k.trim())
+      })
+
       if (error) throw error
+
       setGuideStatus(lang === 'en' ? 'Guide created successfully.' : 'Guía creada correctamente.')
       fetchEnterpriseGuides()
       setTimeout(() => closeGuideModal(), 1000)
     } catch (error) {
+      console.error('Error creating guide:', error)
       setGuideStatus(error.message || (lang === 'en' ? 'Could not create guide.' : 'No se pudo crear la guía.'))
-    }
-  }
-
-  const openOwnGuideModal = (guide = null) => {
-    if (guide) {
-      setOwnGuideForm({ title: guide.title || '', summary: guide.summary || '', accent: guide.accent || 'violet', keywords: (guide.keywords || []).join(', ') })
-      setEditingOwnGuide(guide)
-    } else {
-      setOwnGuideForm({ title: '', summary: '', accent: 'violet', keywords: '' })
-      setEditingOwnGuide(null)
-    }
-    setOwnGuideStatus(null)
-    setOwnGuideModalOpen(true)
-  }
-
-  const closeOwnGuideModal = () => {
-    setOwnGuideModalOpen(false)
-    setEditingOwnGuide(null)
-    setOwnGuideStatus(null)
-  }
-
-  const saveOwnGuide = async (e) => {
-    e.preventDefault()
-    if (!ownGuideForm.title.trim()) {
-      setOwnGuideStatus(lang === 'en' ? 'Title is required.' : 'El título es requerido.')
-      return
-    }
-    setOwnGuideSaving(true)
-    setOwnGuideStatus(null)
-    const payload = {
-      title: ownGuideForm.title.trim(),
-      summary: ownGuideForm.summary.trim() || null,
-      accent: ownGuideForm.accent,
-      keywords: ownGuideForm.keywords.split(',').map(k => k.trim()).filter(Boolean),
-    }
-    try {
-      if (editingOwnGuide) {
-        const { error } = await supabase.from('enterprise_guides').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', editingOwnGuide.id)
-        if (error) throw error
-      } else {
-        const { error } = await supabase.from('enterprise_guides').insert([{ ...payload, company_id: companyData?.id_usuario || user.id }])
-        if (error) throw error
-      }
-      setOwnGuideStatus('ok')
-      fetchEnterpriseGuides()
-      setTimeout(() => closeOwnGuideModal(), 900)
-    } catch (err) {
-      setOwnGuideStatus(err.message || (lang === 'en' ? 'Could not save guide.' : 'No se pudo guardar la guía.'))
-    } finally {
-      setOwnGuideSaving(false)
-    }
-  }
-
-  const deleteOwnGuide = async (id) => {
-    if (!window.confirm(lang === 'en' ? 'Delete this guide?' : '¿Eliminar esta guía?')) return
-    try {
-      const { error } = await supabase.from('enterprise_guides').delete().eq('id', id)
-      if (error) throw error
-      fetchEnterpriseGuides()
-    } catch (err) {
-      console.error('deleteOwnGuide:', err)
     }
   }
 
@@ -1542,25 +1428,26 @@ const EnterprisePanel = ({ user }) => {
       `- "${u.company_display_name || u.nombre_display || u.nombre || u.email}" → id:${u.id_usuario} | ELO:${u.elo_rating || 1000} | score:${u.promedio_score ?? 'N/A'}% | attempts:${u.total_intentos || 0} | streak:${u.racha_actual || 0}d | role:${u.company_role || 'none'}`
     ).join('\n')
 
-    return `You are a team analytics assistant for ${companyName} on a prompt engineering training platform. You provide data-driven insights and execute management actions.
+    const uiLang = lang === 'en' ? 'English' : 'Spanish (español rioplatense)'
+    const offTopicMsg = lang === 'en'
+      ? 'I focus on team analytics only. Ask me about member performance, scores, or management actions.'
+      : 'Me enfoco solo en el análisis del equipo. Preguntame sobre rendimiento, scores o acciones de gestión.'
 
-LANGUAGE RULE (CRITICAL): Detect the language of each user message and ALWAYS respond in that same language. If the user writes in Spanish, respond in Spanish (rioplatense). If in English, respond in English. Never override the user's language choice.
+    return `You are a focused team analytics assistant for ${companyName} on a prompt engineering training platform. You provide data-driven insights and execute management actions ONLY.
 
-SCOPE: You handle team analytics and management. If asked about something outside this scope (recipes, jokes, general knowledge, etc.), briefly say you only cover team matters — in the same language the user wrote.
+LANGUAGE: Always respond in ${uiLang}. Never switch languages regardless of what the user writes.
 
-WHAT YOU CAN DO DIRECTLY (emit action JSON):
-- Rename a member's display name
-- Assign or create a role for a member
-- Remove a member from the team
-- Filter the dashboard by challenge
-- Show challenge stats
+STRICT SCOPE: You ONLY handle:
+1. Team performance questions (scores, ELO, attempts, streaks)
+2. Member management actions (rename, assign roles, remove)
+3. Challenge and participation analytics
+4. Direct greetings and thanks (keep brief)
 
-WHAT YOU CANNOT DO DIRECTLY — explain HOW to do it in the UI instead:
-- Add/invite a member → "Go to the Invitations tab and enter their email to send an invite link."
-- Create a challenge → "Use the 'New Challenge' button in the Challenges tab to upload an image and configure it."
-- Change plan/billing → "Go to Settings to manage your plan."
-- Reset a member's password → "The member must reset it themselves from the login screen."
-- Export data → "Not available yet, this feature is coming soon."
+FORBIDDEN TOPICS: Refuse anything outside team management:
+- General knowledge, recipes, jokes, trivia, weather, news
+- Programming help, technical tutorials
+- Personal advice, life coaching
+- Any topic not directly related to THIS team's performance data
 
 CRITICAL ACTION RULES:
 - When asked to rename, assign role, or remove a member, find them in the MEMBERS list below
@@ -1587,6 +1474,7 @@ ROLE MANAGEMENT RULES:
 - You CAN delete existing custom roles (this removes them from all members)
 - You CAN assign any role name (if it doesn't exist, it will be created automatically)
 - Default colors: #8b5cf6 (purple), #3b82f6 (blue), #f59e0b (amber), #ef4444 (red), #10b981 (emerald)
+- When creating roles, suggest appropriate colors based on the role type
 
 TEAM DATA:
 - Company: ${companyName}
@@ -1622,6 +1510,7 @@ RESPONSE RULES:
 - Be direct and factual
 - No emojis or decorative symbols
 - Focus on actionable insights
+- If asked about forbidden topics, say: "${offTopicMsg}"
 - Keep responses concise and data-focused`
   }
 
@@ -1643,7 +1532,7 @@ RESPONSE RULES:
       return
     }
 
-    // Client-side guard — only block prompt injection attempts, let Groq handle off-topic
+    // Client-side off-topic guard — block anything not related to team management
     const lower = sanitized.toLowerCase()
     const injectionPatterns = [
       /ignore (previous|all|your) (instructions?|rules?|prompt)/i,
@@ -1651,13 +1540,36 @@ RESPONSE RULES:
       /jailbreak|dan mode|developer mode|unrestricted mode/i,
       /forget (your|all) (instructions?|rules?|context)/i,
     ]
+    
+    // Más estricto con off-topic - solo permitir team management
+    const teamKeywords = ['team', 'equipo', 'member', 'miembro', 'score', 'elo', 'performance', 'rendimiento', 'challenge', 'desafio', 'role', 'rol', 'assign', 'asignar', 'rename', 'renombrar', 'remove', 'eliminar', 'stats', 'estadisticas']
+    const hasTeamKeyword = teamKeywords.some(keyword => lower.includes(keyword))
+    const isGreeting = /^(hi|hello|hola|gracias|thanks|thank you)$/i.test(sanitized.trim())
+    
+    const offTopicPatterns = [
+      /\b(receta|recipe|cocinar|cooking|comida|food)\b/i,
+      /\b(chiste|joke|cuéntame|tell me a)\b/i,
+      /\b(capital|país|country|ciudad|city)\b/i,
+      /\b(tiempo|weather|clima|temperature)\b/i,
+      /\b(noticias|news|política|politics)\b/i,
+      /\b(programación|programming|código|code|javascript|python)\b/i,
+      /\b(matemáticas|math|calculate|calcular)\b/i,
+    ]
+    
     const isInjection = injectionPatterns.some(p => p.test(lower))
+    const isOffTopic = !isInjection && !hasTeamKeyword && !isGreeting && (
+      offTopicPatterns.some(p => p.test(lower)) || 
+      sanitized.length > 50 // Mensajes largos sin keywords del equipo
+    )
 
-    if (isInjection) {
+    if (isInjection || isOffTopic) {
+      const refusal = isInjection
+        ? (lang === 'en' ? 'That\'s not something I can do.' : 'Eso no es algo que pueda hacer.')
+        : (lang === 'en' ? 'I focus on team analytics only. Ask me about member performance, scores, or management actions.' : 'Me enfoco solo en análisis del equipo. Preguntame sobre rendimiento de miembros, scores o acciones de gestión.')
       setChatMessages(prev => [
         ...prev,
         { role: 'user', content: sanitized },
-        { role: 'assistant', content: lang === 'en' ? 'That\'s not something I can do.' : 'Eso no es algo que pueda hacer.' },
+        { role: 'assistant', content: refusal },
       ])
       setChatInput('')
       return
@@ -3323,90 +3235,23 @@ RESPONSE RULES:
       return { done, total, pct: Math.round((done / total) * 100) }
     }
 
-    const ACCENT_DOT = { violet:'bg-violet-500', indigo:'bg-indigo-500', cyan:'bg-cyan-500', emerald:'bg-emerald-500', amber:'bg-amber-500', rose:'bg-rose-500', orange:'bg-orange-500', fuchsia:'bg-fuchsia-500', blue:'bg-blue-500', teal:'bg-teal-500' }
-
     return (
-      <div className="space-y-8">
-        {/* ── Mis guías guardadas ── */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                {lang === 'en' ? 'My Guides' : 'Mis guías'}
-              </h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                {lang === 'en' ? 'Create guides for your team. Assign them whenever you want.' : 'Creá guías para tu equipo. Asignáselas cuando quieras.'}
-              </p>
-            </div>
-            <button
-              onClick={() => openOwnGuideModal()}
-              className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 transition"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              {lang === 'en' ? 'Create guide' : 'Crear guía'}
-            </button>
-          </div>
-
-          {loadingGuides ? (
-            <div className="py-8 text-center"><div className="h-5 w-5 animate-spin rounded-full border-4 border-slate-200 border-t-violet-600 mx-auto" /></div>
-          ) : enterpriseGuides.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 p-8 text-center">
-              <svg className="h-8 w-8 text-slate-300 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0118 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-              </svg>
-              <p className="text-sm text-slate-500 dark:text-slate-400">{lang === 'en' ? 'No guides yet. Create your first one.' : 'Todavía no tenés guías. Creá la primera.'}</p>
-            </div>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {enterpriseGuides.map(g => (
-                <div key={g.id} className="relative rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 flex flex-col gap-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${ACCENT_DOT[g.accent] || ACCENT_DOT.violet}`} />
-                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{g.title}</p>
-                    </div>
-                    <div className="flex gap-1 shrink-0">
-                      <button onClick={() => openOwnGuideModal(g)} className="text-slate-400 hover:text-violet-500 transition" title={lang === 'en' ? 'Edit' : 'Editar'}>
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                      </button>
-                      <button onClick={() => deleteOwnGuide(g.id)} className="text-slate-300 hover:text-rose-500 transition" title={lang === 'en' ? 'Delete' : 'Eliminar'}>
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                      </button>
-                    </div>
-                  </div>
-                  {g.summary && <p className="text-xs text-slate-400 dark:text-slate-500 line-clamp-2">{g.summary}</p>}
-                  {g.keywords?.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {g.keywords.slice(0, 4).map(k => (
-                        <span key={k} className="rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] text-slate-500 dark:text-slate-400">{k}</span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* ── Asignaciones ── */}
-        <div>
+      <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-              {lang === 'en' ? 'Assignments' : 'Asignaciones'}
+              {lang === 'en' ? 'Guide Assignments' : 'Asignación de Guías'}
             </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
               {lang === 'en'
-                ? 'Assign guides from the catalog or your own to team members.'
-                : 'Asigná guías del catálogo o tuyas al equipo.'}
+                ? 'Assign learning guides from the catalog or create custom ones for your team.'
+                : 'Asigná guías del catálogo o creá guías personalizadas para tu equipo.'}
             </p>
           </div>
           <button
-            onClick={() => { setGuideForm({ ...EMPTY_GUIDE_FORM }); setGuideStatus(null); setGuideModalOpen(true) }}
-            className="flex items-center gap-2 rounded-xl border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950/30 px-4 py-2 text-sm font-semibold text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition"
+            onClick={() => { setGuideForm({ type: 'catalog', guide_id: '', custom_title: '', custom_body: '', custom_url: '', target: 'all', note: '', due_date: '' }); setGuideStatus(null); setGuideModalOpen(true) }}
+            className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 transition"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -3583,83 +3428,6 @@ RESPONSE RULES:
                 </div>
               </div>
             )}
-          </div>
-        )}
-
-        </div>{/* end assignments section */}
-
-        {/* Modal crear/editar guía propia */}
-        {ownGuideModalOpen && (
-          <div className="fixed inset-0 z-[230] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={closeOwnGuideModal}>
-            <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-slate-800">
-                <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                  {editingOwnGuide ? (lang === 'en' ? 'Edit guide' : 'Editar guía') : (lang === 'en' ? 'Create guide' : 'Crear guía')}
-                </h3>
-                <button onClick={closeOwnGuideModal} className="text-slate-400 hover:text-slate-600 transition">
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-              </div>
-              <form onSubmit={saveOwnGuide} className="p-5 space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 uppercase tracking-wide">{lang === 'en' ? 'Title *' : 'Título *'}</label>
-                  <input
-                    type="text"
-                    value={ownGuideForm.title}
-                    onChange={e => setOwnGuideForm(f => ({ ...f, title: e.target.value }))}
-                    placeholder={lang === 'en' ? 'e.g. How to write prompts for marketing' : 'Ej: Cómo escribir prompts para marketing'}
-                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm outline-none focus:border-violet-400 dark:text-slate-100"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 uppercase tracking-wide">{lang === 'en' ? 'Summary' : 'Resumen'}</label>
-                  <textarea
-                    rows={2}
-                    value={ownGuideForm.summary}
-                    onChange={e => setOwnGuideForm(f => ({ ...f, summary: e.target.value }))}
-                    placeholder={lang === 'en' ? 'Brief description shown to team members' : 'Descripción breve visible para el equipo'}
-                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm outline-none focus:border-violet-400 resize-none dark:text-slate-100"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-wide">{lang === 'en' ? 'Color' : 'Color'}</label>
-                  <div className="flex flex-wrap gap-2">
-                    {['violet','indigo','cyan','emerald','amber','rose','orange','fuchsia','blue','teal'].map(c => {
-                      const cls = { violet:'bg-violet-500', indigo:'bg-indigo-500', cyan:'bg-cyan-500', emerald:'bg-emerald-500', amber:'bg-amber-500', rose:'bg-rose-500', orange:'bg-orange-500', fuchsia:'bg-fuchsia-500', blue:'bg-blue-500', teal:'bg-teal-500' }
-                      return (
-                        <button key={c} type="button" onClick={() => setOwnGuideForm(f => ({ ...f, accent: c }))}
-                          className={`h-7 w-7 rounded-full ${cls[c]} transition ring-offset-2 ${ownGuideForm.accent === c ? 'ring-2 ring-slate-700 dark:ring-white' : 'opacity-50 hover:opacity-90'}`} />
-                      )
-                    })}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 uppercase tracking-wide">{lang === 'en' ? 'Keywords (comma separated)' : 'Palabras clave (separadas por coma)'}</label>
-                  <input
-                    type="text"
-                    value={ownGuideForm.keywords}
-                    onChange={e => setOwnGuideForm(f => ({ ...f, keywords: e.target.value }))}
-                    placeholder={lang === 'en' ? 'e.g. marketing, copywriting, prompting' : 'Ej: marketing, copywriting, prompting'}
-                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm outline-none focus:border-violet-400 dark:text-slate-100"
-                  />
-                </div>
-                {ownGuideStatus && ownGuideStatus !== 'ok' && (
-                  <p className="text-sm text-rose-500">{ownGuideStatus}</p>
-                )}
-                {ownGuideStatus === 'ok' && (
-                  <p className="text-sm text-emerald-600 font-medium">{lang === 'en' ? 'Saved!' : '¡Guardado!'}</p>
-                )}
-                <div className="flex gap-3 pt-1">
-                  <button type="button" onClick={closeOwnGuideModal} className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
-                    {lang === 'en' ? 'Cancel' : 'Cancelar'}
-                  </button>
-                  <button type="submit" disabled={ownGuideSaving} className="flex-1 rounded-xl bg-violet-600 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-40 transition">
-                    {ownGuideSaving ? (lang === 'en' ? 'Saving...' : 'Guardando...') : (lang === 'en' ? 'Save guide' : 'Guardar guía')}
-                  </button>
-                </div>
-              </form>
-            </div>
           </div>
         )}
 
@@ -4191,78 +3959,43 @@ RESPONSE RULES:
             return (
               <div key={ch.id_imagen} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden hover:border-violet-300 hover:shadow-md transition group">
                 <div className="h-40 bg-slate-100 dark:bg-slate-800 overflow-hidden relative">
-                  {(() => {
-                    // Fallback: infer type from URL extension when challenge_content_type is not set
-                    const _urlExt = (ch.url_image || '').split('.').pop()?.toLowerCase().split('?')[0] || ''
-                    const _CODE = new Set(['js','jsx','ts','tsx','py','cs','java','cpp','c','h','css','html','xml','json','sql','sh','rb','go','rs','php','swift','kt','vue','yaml','yml','toml','r','lua','dart','scala'])
-                    const _DOC  = new Set(['txt','md','csv','log'])
-                    const _PDF  = new Set(['pdf'])
-                    const _OFF  = new Set(['pptx','ppt','xlsx','xls','docx','doc'])
-                    const _inferredType = _CODE.has(_urlExt) ? 'code' : _DOC.has(_urlExt) ? 'document' : _PDF.has(_urlExt) ? 'pdf' : _OFF.has(_urlExt) ? 'office' : null
-                    const ct = _inferredType || ch.challenge_content_type || 'image'
-                    const cardIcon = (icon, label, bgCls, iconCls) => (
-                      <div className={`h-full w-full flex flex-col items-center justify-center gap-1.5 ${bgCls}`}>
-                        <svg className={`h-8 w-8 ${iconCls}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>{icon}</svg>
-                        <span className={`text-xs font-semibold ${iconCls}`}>{label}</span>
+                  {ch.url_image
+                    ? <img src={ch.url_image} alt="challenge" className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    : <div className="h-full w-full flex items-center justify-center bg-slate-100 dark:bg-slate-800">
+                        <svg className="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
                       </div>
-                    )
-                    if (ct === 'code')     return cardIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />, lang === 'en' ? 'Code' : 'Código', 'bg-slate-900', 'text-violet-400')
-                    if (ct === 'document') return cardIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />, 'Documento', 'bg-amber-50 dark:bg-amber-950/20', 'text-amber-500')
-                    if (ct === 'pdf')      return cardIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />, 'PDF', 'bg-rose-50 dark:bg-rose-950/20', 'text-rose-500')
-                    if (ct === 'office')   return cardIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75.125v-1.5A1.125 1.125 0 013.375 16.5m0 0h17.25m0 0a1.125 1.125 0 011.125 1.125v1.5a1.125 1.125 0 01-1.125 1.125M20.625 16.5h-1.5c-.621 0-1.125.504-1.125 1.125m-15 0V6.375c0-.621.504-1.125 1.125-1.125h13.5c.621 0 1.125.504 1.125 1.125V16.5" />, 'Office', 'bg-emerald-50 dark:bg-emerald-950/20', 'text-emerald-500')
-                    if (ct === 'scenario') return (
-                      <div className="h-full w-full flex flex-col bg-indigo-50 dark:bg-indigo-950/20 p-3 overflow-hidden">
-                        <span className="text-[10px] font-bold uppercase tracking-wide text-indigo-400 mb-1">Enunciado</span>
-                        <p className="text-xs text-indigo-700 dark:text-indigo-300 leading-relaxed line-clamp-6">{ch.challenge_description || '—'}</p>
-                      </div>
-                    )
-                    return ch.url_image
-                      ? <img src={ch.url_image} alt="challenge" className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                      : <div className="h-full w-full flex items-center justify-center"><svg className="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg></div>
-                  })()}
-                  <button onClick={() => openEditChallengeModal(ch)}
+                  }
+                  <button
+                    onClick={() => openEditChallengeModal(ch)}
                     className="absolute top-2 right-2 h-8 w-8 flex items-center justify-center rounded-lg bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm text-slate-600 dark:text-slate-400 hover:bg-violet-100 hover:text-violet-600 dark:hover:bg-violet-900/70 dark:hover:text-violet-400 transition shadow-sm border border-slate-200/50 dark:border-slate-700/50"
-                    title={lang === 'en' ? 'Edit' : 'Editar'}>
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    title={lang === 'en' ? 'Edit challenge' : 'Editar desafío'}
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
                   </button>
-                  <button onClick={() => fetchChallengeStats(ch.id_imagen, ch.image_theme || 'Challenge')}
+                  <button
+                    onClick={() => fetchChallengeStats(ch.id_imagen, ch.image_theme || 'Challenge')}
                     className="absolute top-2 right-12 h-8 w-8 flex items-center justify-center rounded-lg bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm text-slate-600 dark:text-slate-400 hover:bg-blue-100 hover:text-blue-600 dark:hover:bg-blue-900/70 dark:hover:text-blue-400 transition shadow-sm border border-slate-200/50 dark:border-slate-700/50"
-                    title={lang === 'en' ? 'Stats' : 'Estadísticas'}>
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                  </button>
-                  <button onClick={() => deleteChallenge(ch)}
-                    className="absolute top-2 right-[88px] h-8 w-8 flex items-center justify-center rounded-lg bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm text-slate-400 hover:bg-rose-100 hover:text-rose-600 dark:hover:bg-rose-900/70 dark:hover:text-rose-400 transition shadow-sm border border-slate-200/50 dark:border-slate-700/50"
-                    title={lang === 'en' ? 'Delete' : 'Eliminar'}>
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    title={lang === 'en' ? 'View stats' : 'Ver estadísticas'}
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
                   </button>
                 </div>
                 <div className="p-4">
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
                     <span className={`text-[11px] font-semibold rounded-full border px-2 py-0.5 ${diffClass}`}>{ch.image_diff || 'Medium'}</span>
-                    {ch.image_theme && <span className="text-[11px] text-slate-500 bg-slate-100 dark:bg-slate-800 rounded-full px-2 py-0.5 truncate max-w-[120px]">{ch.image_theme}</span>}
+                    {ch.image_theme && (
+                      <span className="text-[11px] text-slate-500 bg-slate-100 dark:bg-slate-800 rounded-full px-2 py-0.5 truncate max-w-[120px]">{ch.image_theme}</span>
+                    )}
                   </div>
                   {ch.prompt_original && <p className="text-xs text-slate-500 line-clamp-2 mb-3">{ch.prompt_original}</p>}
-                  <div className="flex items-center justify-between mt-1">
-                    <p className="text-[11px] text-slate-400">
-                      {ch.fecha ? new Date(ch.fecha).toLocaleDateString(lang === 'en' ? 'en-US' : 'es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
-                    </p>
-                    <button
-                      onClick={() => {
-                        const url = `${window.location.origin}/?challenge=${ch.id_imagen}`
-                        navigator.clipboard?.writeText(url).catch(() => {})
-                        setEnterpriseActionStatus(lang === 'en' ? '✓ Link copied' : '✓ Link copiado')
-                        setTimeout(() => setEnterpriseActionStatus(null), 2500)
-                      }}
-                      className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:text-slate-400 hover:bg-violet-50 hover:text-violet-600 hover:border-violet-300 dark:hover:bg-violet-900/30 dark:hover:text-violet-400 transition"
-                      title={lang === 'en' ? 'Copy challenge link to share with your team' : 'Copiar link para compartir con el equipo'}
-                    >
-                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
-                      {lang === 'en' ? 'Copy link' : 'Copiar link'}
-                    </button>
-                  </div>
-                  {enterpriseActionStatus && enterpriseActionStatus.includes('✓') && (
-                    <p className="text-[11px] text-emerald-600 mt-1 font-medium">{enterpriseActionStatus}</p>
-                  )}
+                  <p className="text-[11px] text-slate-400">
+                    {ch.fecha ? new Date(ch.fecha).toLocaleDateString(lang === 'en' ? 'en-US' : 'es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                  </p>
                 </div>
               </div>
             )
@@ -4430,17 +4163,12 @@ RESPONSE RULES:
               ? 'Billing will begin after June 20, 2026. Your plan will be determined automatically based on your team size. We\'ll notify you before any charges.'
               : 'La facturación comenzará después del 20 de junio de 2026. Tu plan se determinará automáticamente según el tamaño de tu equipo. Te avisaremos antes de cualquier cobro.'}
           </p>
-          <div className="mt-3 flex flex-col gap-1">
-            <span className="text-sm text-slate-500 dark:text-slate-400">
-              {lang === 'en' ? 'Write us at:' : 'Escribinos a:'}
-            </span>
-            <a
-              href="mailto:promptool.app@gmail.com"
-              className="inline-flex items-center text-sm font-semibold text-violet-600 dark:text-violet-400 hover:underline"
-            >
-              promptool.app@gmail.com →
-            </a>
-          </div>
+          <a
+            href="mailto:soporte@promptool.app"
+            className="mt-3 inline-flex items-center text-sm font-semibold text-violet-600 dark:text-violet-400 hover:underline"
+          >
+            {lang === 'en' ? 'Contact us about pricing →' : 'Contactarnos sobre precios →'}
+          </a>
         </div>
       </div>
     )
@@ -4867,6 +4595,7 @@ RESPONSE RULES:
           <button type="submit" className="rounded-full bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 transition">
             {lang === 'en' ? 'Send Invitation' : 'Enviar Invitación'}
           </button>
+          {enterpriseActionStatus && <p className="text-sm text-slate-600 dark:text-slate-400">{enterpriseActionStatus}</p>}
         </form>
       </div>
     </div>
@@ -4956,6 +4685,7 @@ RESPONSE RULES:
           creatingChallenge={creatingChallenge}
           challengeStatus={challengeStatus}
           lang={lang}
+          companyIndustry={companyData?.industry_type || 'general'}
           isEditing={!!editingChallenge}
         />
       )}

@@ -7,6 +7,7 @@ import { useLang } from '../contexts/LangContext'
 import { supabase } from '../supabaseClient'
 import AuthModal from './AuthModal'
 import CompanyPanel from './CompanyPanel'
+import SettingsModal from './SettingsModal'
 import { proxyImg } from '../utils/imgProxy'
 
 const BrandedAvatar = ({ className = 'h-full w-full' }) => (
@@ -52,6 +53,7 @@ const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
   const [notificationActionLoading, setNotificationActionLoading] = useState(null)
   const [companyData, setCompanyData] = useState(null)   // empresa a la que pertenece el usuario
   const [companyPanelOpen, setCompanyPanelOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [dbAvatarUrl, setDbAvatarUrl] = useState(null)
   const notificationRef = useRef(null)
   const closeTimer = useRef(null)
@@ -498,9 +500,22 @@ const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
           {/* Spacer */}
           <div className="flex-1" />
 
-          {/* Search — oculto en móvil */}
-          <div ref={searchRef} className="relative hidden sm:block w-44 md:w-56">
-            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 transition focus-within:border-slate-400 focus-within:bg-white">              <svg className="h-3.5 w-3.5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          {/* Search — botón en móvil, barra en desktop */}
+          <div ref={searchRef} className="relative">
+            {/* Mobile search button */}
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="flex sm:hidden h-10 w-10 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
+              aria-label={lang === 'en' ? 'Search users' : 'Buscar usuarios'}
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </button>
+
+            {/* Desktop search bar */}
+            <div className="hidden sm:flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 transition focus-within:border-slate-400 focus-within:bg-white w-44 md:w-56">
+              <svg className="h-3.5 w-3.5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               <input
@@ -522,39 +537,71 @@ const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
               )}
             </div>
 
+            {/* Search modal/dropdown — full screen en mobile */}
             {searchOpen && (
-              <div className="absolute left-0 right-0 top-full mt-1 z-[300] rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden">
-                {searchResults.length > 0 ? (
-                  <>
-                    <p className="px-3 pt-2 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                      {lang === 'en' ? 'Users' : 'Usuarios'}
+              <div className="fixed sm:absolute inset-0 sm:inset-auto sm:left-0 sm:right-0 sm:top-full sm:mt-1 z-[300] sm:rounded-xl bg-white sm:border sm:border-slate-200 sm:shadow-xl overflow-hidden">
+                {/* Mobile header */}
+                <div className="sm:hidden flex items-center gap-3 border-b border-slate-200 px-4 py-3 bg-white sticky top-0">
+                  <button
+                    onClick={() => { setSearchOpen(false); setSearchQuery('') }}
+                    className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                  <div className="flex-1 flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                    <svg className="h-4 w-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <input
+                      type="text"
+                      autoFocus
+                      value={searchQuery}
+                      onChange={e => handleSearch(e.target.value)}
+                      placeholder={lang === 'en' ? 'Search users...' : 'Buscar usuarios...'}
+                      className="flex-1 bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
+                    />
+                    {searchLoading && (
+                      <div className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
+                    )}
+                  </div>
+                </div>
+
+                {/* Results */}
+                <div className="max-h-[calc(100vh-5rem)] sm:max-h-96 overflow-y-auto">
+                  {searchResults.length > 0 ? (
+                    <>
+                      <p className="px-3 pt-3 sm:pt-2 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        {lang === 'en' ? 'Users' : 'Usuarios'}
+                      </p>
+                      {searchResults.map(u => {
+                        const name = u.nombre_display || u.nombre || u.username || 'User'
+                        const href = u.username ? `/user/${u.username}` : `/usuario.html?id=${u.id_usuario}`
+                        return (
+                          <a key={u.id_usuario} href={href}
+                            onClick={() => { setSearchOpen(false); setSearchQuery('') }}
+                            className="flex items-center gap-3 px-3 py-3 sm:py-2.5 text-sm text-slate-700 transition hover:bg-slate-50 active:bg-slate-100">
+                            <div className="flex h-10 w-10 sm:h-7 sm:w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 border border-slate-200">
+                              {u.avatar_url
+                                ? <img src={proxyImg(u.avatar_url)} alt={name} className="h-full w-full object-cover" />
+                                : <span className="text-sm sm:text-xs font-semibold text-slate-600">{name.substring(0, 2).toUpperCase()}</span>
+                              }
+                            </div>
+                            <div>
+                              <p className="font-medium leading-tight">{name}</p>
+                              {u.username && <p className="text-xs text-slate-400">@{u.username}</p>}
+                            </div>
+                          </a>
+                        )
+                      })}
+                    </>
+                  ) : !searchLoading ? (
+                    <p className="px-3 py-8 text-center text-sm text-slate-400">
+                      {searchQuery ? (lang === 'en' ? 'No users found' : 'Sin resultados') : (lang === 'en' ? 'Type to search...' : 'Escribe para buscar...')}
                     </p>
-                    {searchResults.map(u => {
-                      const name = u.nombre_display || u.nombre || u.username || 'User'
-                      const href = u.username ? `/user/${u.username}` : `/usuario.html?id=${u.id_usuario}`
-                      return (
-                        <a key={u.id_usuario} href={href}
-                          onClick={() => { setSearchOpen(false); setSearchQuery('') }}
-                          className="flex items-center gap-3 px-3 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50">
-                          <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 border border-slate-200">
-                            {u.avatar_url
-                              ? <img src={proxyImg(u.avatar_url)} alt={name} className="h-full w-full object-cover" />
-                              : <span className="text-xs font-semibold text-slate-600">{name.substring(0, 2).toUpperCase()}</span>
-                            }
-                          </div>
-                          <div>
-                            <p className="font-medium leading-tight">{name}</p>
-                            {u.username && <p className="text-xs text-slate-400">@{u.username}</p>}
-                          </div>
-                        </a>
-                      )
-                    })}
-                  </>
-                ) : !searchLoading ? (
-                  <p className="px-3 py-3 text-sm text-slate-400">
-                    {lang === 'en' ? 'No users found' : 'Sin resultados'}
-                  </p>
-                ) : null}
+                  ) : null}
+                </div>
               </div>
             )}
           </div>
@@ -569,8 +616,9 @@ const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
           {/* Hamburger — solo mobile */}
           <button
             onClick={() => setMobileMenuOpen(f => !f)}
-            className="flex md:hidden h-9 w-9 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
+            className="flex md:hidden h-10 w-10 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
             aria-label="Menu"
+            aria-expanded={mobileMenuOpen}
           >
             {mobileMenuOpen
               ? <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -579,9 +627,9 @@ const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
           </button>
 
           {/* Avatar o login */}
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             {loading ? (
-              <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-slate-200 bg-slate-100">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-slate-200 bg-slate-100">
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" />
               </div>
             ) : user ? (
@@ -590,7 +638,7 @@ const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
                 {companyData && (
                   <button
                     onClick={() => setCompanyPanelOpen(true)}
-                    className="hidden sm:flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700 transition group"
+                    className="hidden lg:flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700 transition group"
                     title={companyData.company_name || companyData.nombre_display}
                   >
                     <div className="relative h-5 w-5 rounded-md overflow-hidden bg-violet-100 shrink-0 flex items-center justify-center">
@@ -601,7 +649,7 @@ const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
                           </span>
                       }
                     </div>
-                    <span className="max-w-[100px] truncate">
+                    <span className="max-w-[120px] truncate">
                       {companyData.company_name || companyData.nombre_display}
                     </span>
                     {companyData.verified && (
@@ -616,7 +664,7 @@ const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
                 {onOpenSettings && (
                   <button
                     onClick={onOpenSettings}
-                    className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+                    className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 active:bg-slate-200"
                     title={lang === 'en' ? 'Settings' : 'Configuración'}
                     aria-label={lang === 'en' ? 'Settings' : 'Configuración'}
                   >
@@ -627,14 +675,14 @@ const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
                   </button>
                 )}
 
-                <div ref={notificationRef} className="relative z-[205] mr-1">
+                <div ref={notificationRef} className="relative z-[205]">
                   <button
                     onClick={() => {
                       const next = !notificationOpen
                       setNotificationOpen(next)
                       if (next) fetchNotifications()
                     }}
-                    className="relative flex h-9 w-9 items-center justify-center text-slate-500 transition hover:text-slate-700"
+                    className="relative flex h-10 w-10 items-center justify-center text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 rounded-full active:bg-slate-200"
                     title={lang === 'en' ? 'Inbox' : 'Bandeja'}
                   >
                     <svg
@@ -658,7 +706,7 @@ const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
                   </button>
 
                   {notificationOpen && (
-                    <div className="absolute right-0 top-11 z-[206] w-[calc(100vw-1rem)] max-w-[24rem] overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl">
+                    <div className="fixed sm:absolute inset-x-2 top-[4.5rem] sm:inset-x-auto sm:right-0 sm:top-11 z-[206] w-auto sm:w-96 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl">
                       <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-4 py-3">
                         <div>
                           <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{lang === 'en' ? 'Inbox' : 'Bandeja'}</p>
@@ -791,7 +839,7 @@ const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
 
                 <div className="relative z-[201]" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
                 <a href={profileHref}
-                  className={`flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-slate-100 transition-all hover:shadow-md border-2 ${isAdmin ? 'border-purple-400 hover:border-purple-500' : 'border-slate-200 hover:border-slate-300'}`}>
+                  className={`flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-slate-100 transition-all hover:shadow-md border-2 ${isAdmin ? 'border-purple-400 hover:border-purple-500' : 'border-slate-200 hover:border-slate-300'}`}>
                   {getUserAvatar()}
                 </a>
 
@@ -820,7 +868,7 @@ const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
                             <Icon d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                             {t('viewProfile')}
                           </a>
-                          <button onClick={() => { onOpenSettings?.(); setUserMenuOpen(false) }}
+                          <button onClick={() => { setSettingsOpen(true); setUserMenuOpen(false) }}
                             className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50">
                             <span className="flex items-center gap-3">
                               <Icon d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -863,20 +911,135 @@ const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
 
       {/* Mobile menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-slate-200 bg-white/95 backdrop-blur-xl px-4 py-3 space-y-0.5">
-          {navLinks.map(({ href, label, className: cls }) => (
-            <NavLink key={href} href={href} label={label} className={cls} mobile />
-          ))}
-          {!user && (
-            <button
-              onClick={() => { setMobileMenuOpen(false); setAuthModalOpen(true) }}
-              className="flex w-full items-center rounded-xl px-3 py-2.5 text-sm font-semibold transition hover:bg-slate-50"
-              style={{ color: 'rgb(var(--color-accent))' }}
-            >
-              {t('signIn')}
-            </button>
-          )}
+        <>
+          {/* Overlay — cierra el menú al tocar fuera */}
+          <div
+            className="md:hidden fixed inset-0 z-[98] bg-black/20"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          <div className="md:hidden fixed inset-x-0 top-[57px] z-[99] border-t border-slate-200 bg-white shadow-xl" style={{ maxHeight: 'calc(100dvh - 57px)', overflowY: 'auto' }}>
+          <div className="px-4 py-3 space-y-3">
+            {/* Búsqueda móvil */}
+            <div className="relative">
+              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 transition focus-within:border-slate-400 focus-within:bg-white">
+                <svg className="h-4 w-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => handleSearch(e.target.value)}
+                  placeholder={lang === 'en' ? 'Search users...' : 'Buscar usuarios...'}
+                  className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
+                />
+                {searchLoading && (
+                  <div className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
+                )}
+              </div>
+
+              {searchOpen && searchQuery && (
+                <div className="mt-2 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+                  {searchResults.length > 0 ? (
+                    <>
+                      <p className="px-3 pt-2 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        {lang === 'en' ? 'Users' : 'Usuarios'}
+                      </p>
+                      {searchResults.map(u => {
+                        const name = u.nombre_display || u.nombre || u.username || 'User'
+                        const href = u.username ? `/user/${u.username}` : `/usuario.html?id=${u.id_usuario}`
+                        return (
+                          <a key={u.id_usuario} href={href}
+                            onClick={() => { setSearchOpen(false); setSearchQuery(''); setMobileMenuOpen(false) }}
+                            className="flex items-center gap-3 px-3 py-2.5 text-sm text-slate-700 transition active:bg-slate-100">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 border border-slate-200">
+                              {u.avatar_url
+                                ? <img src={proxyImg(u.avatar_url)} alt={name} className="h-full w-full object-cover" />
+                                : <span className="text-xs font-semibold text-slate-600">{name.substring(0, 2).toUpperCase()}</span>
+                              }
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium leading-tight truncate">{name}</p>
+                              {u.username && <p className="text-xs text-slate-400 truncate">@{u.username}</p>}
+                            </div>
+                          </a>
+                        )
+                      })}
+                    </>
+                  ) : !searchLoading ? (
+                    <p className="px-3 py-3 text-sm text-slate-400">
+                      {lang === 'en' ? 'No users found' : 'Sin resultados'}
+                    </p>
+                  ) : null}
+                </div>
+              )}
+            </div>
+
+            {/* Botón de empresa móvil */}
+            {user && companyData && (
+              <button
+                onClick={() => { setCompanyPanelOpen(true); setMobileMenuOpen(false) }}
+                className="flex w-full items-center gap-3 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5 text-sm font-medium text-violet-700 transition active:bg-violet-100"
+              >
+                <div className="relative h-6 w-6 rounded-md overflow-hidden bg-violet-100 shrink-0 flex items-center justify-center">
+                  {companyData.avatar_url
+                    ? <img src={proxyImg(companyData.avatar_url)} alt="" className="h-full w-full object-cover" />
+                    : <span className="text-[9px] font-bold text-violet-600">
+                        {(companyData.company_name || companyData.nombre_display || 'E').substring(0, 2).toUpperCase()}
+                      </span>
+                  }
+                </div>
+                <span className="flex-1 truncate text-left">
+                  {companyData.company_name || companyData.nombre_display}
+                </span>
+                {companyData.verified && (
+                  <svg className="h-4 w-4 text-violet-500 shrink-0" viewBox="0 0 12 12" fill="currentColor">
+                    <path d="M10.28 2.28L4.5 8.06 1.72 5.28a1 1 0 00-1.44 1.44l3.5 3.5a1 1 0 001.44 0l6.5-6.5a1 1 0 00-1.44-1.44z"/>
+                  </svg>
+                )}
+              </button>
+            )}
+
+            {/* Navegación */}
+            <nav className="space-y-1">
+              {navLinks.map(({ href, label, className: cls }) => (
+                <NavLink key={href} href={href} label={label} className={cls} mobile />
+              ))}
+            </nav>
+
+            {/* Botones de acción móvil */}
+            {user ? (
+              <div className="pt-2 border-t border-slate-100 space-y-1">
+                <a href={profileHref}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-slate-700 transition active:bg-slate-50">
+                  <Icon d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  {t('viewProfile')}
+                </a>
+                <button
+                  onClick={() => { setMobileMenuOpen(false); onOpenSettings?.() }}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-slate-700 transition active:bg-slate-50">
+                  <Icon d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  {t('settings')}
+                </button>
+                <button
+                  onClick={() => { signOut(); setMobileMenuOpen(false) }}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-rose-600 transition active:bg-rose-50">
+                  <Icon d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  {t('signOut')}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => { setMobileMenuOpen(false); setAuthModalOpen(true) }}
+                className="flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold text-white transition active:opacity-80"
+                style={{ backgroundColor: 'rgb(var(--color-accent))' }}
+              >
+                {t('signIn')}
+              </button>
+            )}
+          </div>
         </div>
+        </>
       )}
 
       <AuthModal
@@ -895,6 +1058,12 @@ const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
         />
       )}
 
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        user={user}
+        signOut={signOut}
+      />
     </>
   )
 }

@@ -11,7 +11,7 @@ function makeMathQuestion() {
   return { a, b, answer: String(a + b) }
 }
 
-const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSignUpWithEmail, inviteCompany = null, initialPlan = null, initialEmail = null }) => {
+const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSignUpWithEmail, inviteCompany = null, initialPlan = null }) => {
   const { t, lang } = useLang()
   const [mode, setMode] = useState('signin')
   const [signupStep, setSignupStep] = useState('type') // 'type' | 'info' | 'otp'
@@ -40,18 +40,6 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
       setSignupStep('info')
     }
   }, [open, initialPlan])
-
-  useEffect(() => {
-    if (open && initialEmail) {
-      setEmail(initialEmail)
-      // If signup mode not already triggered, go to signup info step
-      if (!initialPlan) {
-        setMode('signup')
-        setUserType('individual')
-        setSignupStep('info')
-      }
-    }
-  }, [open, initialEmail])
 
   if (!open) return null
 
