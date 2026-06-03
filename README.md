@@ -10,7 +10,7 @@ Cada día se presenta una imagen y el usuario debe escribir el prompt que cree q
 
 ## Demo
 
-https://promptool.app
+https://promptool.vercel.app
 
 ---
 

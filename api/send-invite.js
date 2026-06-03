@@ -123,20 +123,17 @@ function buildEmailHtml({ companyName, inviterName, recipientEmail, joinUrl, isE
 
 const ALLOWED_JOIN_ORIGINS = ['https://promptool.app', 'https://www.promptool.app', 'https://promptool.vercel.app']
 
-// Per-IP rate limit: max 10 invite emails per hour
-const ipRateMap = new Map()
-function checkIpRateLimit(ip) {
-  const now = Date.now()
-  const WINDOW = 60 * 60 * 1000 // 1 hour
-  const MAX = 10
-  const entry = ipRateMap.get(ip)
-  if (!entry || now > entry.resetAt) {
-    ipRateMap.set(ip, { count: 1, resetAt: now + WINDOW })
-    return true
-  }
-  if (entry.count >= MAX) return false
-  entry.count++
-  return true
+async function verifySupabaseJwt(authHeader) {
+  const token = authHeader?.replace('Bearer ', '').trim()
+  if (!token) return null
+  const SUPABASE_URL = process.env.VITE_SUPABASE_URL || ''
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { Authorization: `Bearer ${token}`, apikey: process.env.VITE_SUPABASE_ANON_KEY || '' }
+    })
+    if (!r.ok) return null
+    return await r.json()
+  } catch { return null }
 }
 
 export default async function handler(req, res) {
@@ -150,11 +147,9 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end()
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
-  // Rate limit by IP to prevent invite spam
-  const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown'
-  if (!checkIpRateLimit(clientIp)) {
-    return res.status(429).json({ error: 'Too many requests' })
-  }
+  // Require authenticated Supabase user
+  const supabaseUser = await verifySupabaseJwt(req.headers.authorization)
+  if (!supabaseUser?.id) return res.status(401).json({ error: 'Unauthorized' })
 
   const RESEND_API_KEY = process.env.RESEND_API_KEY
   if (!RESEND_API_KEY) return res.status(500).json({ error: 'Email service not configured' })

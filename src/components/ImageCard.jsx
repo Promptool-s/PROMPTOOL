@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { useLang } from '../contexts/LangContext'
 
 function useSecureImage(url) {
   const [blobUrl, setBlobUrl] = useState(null)
@@ -25,11 +24,9 @@ function useSecureImage(url) {
 }
 
 // ── File type detection ──────────────────────────────────────────────────────
-const CODE_EXTS   = new Set(['js','jsx','ts','tsx','py','cs','java','cpp','c','h','hpp','css','scss','html','xml','json','sql','sh','bash','rb','go','rs','php','swift','kt','vue','yaml','yml','toml','r','lua','dart','scala'])
-const DOC_EXTS    = new Set(['txt','md','csv','log'])
-const PDF_EXTS    = new Set(['pdf'])
-const OFFICE_EXTS = new Set(['pptx','ppt','xlsx','xls','docx','doc'])
-const IMG_EXTS    = new Set(['jpg','jpeg','png','gif','webp','svg','bmp','ico','avif'])
+const CODE_EXTS = new Set(['js','jsx','ts','tsx','py','cs','java','cpp','c','h','hpp','css','scss','html','xml','json','sql','sh','bash','rb','go','rs','php','swift','kt','vue','yaml','yml','toml','r','lua','dart','scala'])
+const DOC_EXTS  = new Set(['txt','md','csv','log'])
+const IMG_EXTS  = new Set(['jpg','jpeg','png','gif','webp','svg','bmp','ico','avif'])
 
 const LANG_MAP = {
   js:'JavaScript', jsx:'JavaScript', ts:'TypeScript', tsx:'TypeScript',
@@ -45,58 +42,9 @@ function getExt(url = '') { return url.split('.').pop()?.toLowerCase().split('?'
 function getUrlCategory(url) {
   if (!url) return 'image'
   const ext = getExt(url)
-  if (CODE_EXTS.has(ext))   return 'code'
-  if (DOC_EXTS.has(ext))    return 'document'
-  if (PDF_EXTS.has(ext))    return 'pdf'
-  if (OFFICE_EXTS.has(ext)) return 'office'
+  if (CODE_EXTS.has(ext)) return 'code'
+  if (DOC_EXTS.has(ext))  return 'document'
   return 'image'
-}
-
-const OFFICE_META = {
-  pptx: { label: 'PowerPoint', color: 'text-orange-500', bg: 'bg-orange-50', border: 'border-orange-200' },
-  ppt:  { label: 'PowerPoint', color: 'text-orange-500', bg: 'bg-orange-50', border: 'border-orange-200' },
-  xlsx: { label: 'Excel',      color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' },
-  xls:  { label: 'Excel',      color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' },
-  docx: { label: 'Word',       color: 'text-blue-600',   bg: 'bg-blue-50',   border: 'border-blue-200' },
-  doc:  { label: 'Word',       color: 'text-blue-600',   bg: 'bg-blue-50',   border: 'border-blue-200' },
-}
-
-const PdfView = ({ url }) => (
-  <div className="h-full w-full rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
-    <object data={url} type="application/pdf" className="w-full h-full" title="PDF">
-      <div className="h-full flex flex-col items-center justify-center gap-3 bg-rose-50 p-4">
-        <svg className="h-10 w-10 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-        </svg>
-        <p className="text-sm text-rose-600 font-medium text-center">Tu navegador no soporta la vista previa del PDF</p>
-        <a href={url} target="_blank" rel="noreferrer" className="rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-600 transition">
-          Abrir PDF →
-        </a>
-      </div>
-    </object>
-  </div>
-)
-
-const OfficeView = ({ url, ext }) => {
-  const meta = OFFICE_META[ext] || { label: 'Office', color: 'text-slate-500', bg: 'bg-slate-50', border: 'border-slate-200' }
-  const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`
-  return (
-    <div className="h-full w-full flex flex-col rounded-xl overflow-hidden border border-slate-200">
-      <iframe
-        src={officeViewerUrl}
-        className="flex-1 border-0 w-full"
-        title={`${meta.label} preview`}
-        sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-        onError={() => {}}
-      />
-      <div className={`shrink-0 flex items-center justify-between px-3 py-2 ${meta.bg} border-t ${meta.border}`}>
-        <span className={`text-xs font-semibold ${meta.color}`}>{meta.label}</span>
-        <a href={url} target="_blank" rel="noreferrer" className={`text-xs font-semibold underline ${meta.color} hover:opacity-80`}>
-          Abrir en nueva pestaña →
-        </a>
-      </div>
-    </div>
-  )
 }
 
 function tokenizeLine(line) {
@@ -202,31 +150,28 @@ const applyInvisibleWatermark = (canvas, userId) => {
   }
 }
 
+const ZOOM_HINT_KEY = 'pt_zoom_hint_seen'
+
 const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = null, userId = null }) => {
-  const { lang } = useLang()
   const [aspectRatio, setAspectRatio] = useState('4 / 3')
   const [previewOpen, setPreviewOpen] = useState(false)
   const [imgLoaded, setImgLoaded] = useState(false)
-  // Hint resets on every new image — no localStorage persistence
-  const [zoomHintSeen, setZoomHintSeen] = useState(false)
+  const [zoomHintSeen, setZoomHintSeen] = useState(() => {
+    try { return !!localStorage.getItem(ZOOM_HINT_KEY) } catch { return false }
+  })
   const canvasRef = useRef(null)
   const watermarkedRef = useRef(false)
   const [fileContent, setFileContent] = useState('')
   const [fileLoading, setFileLoading] = useState(false)
 
-  const urlCategory    = getUrlCategory(data?.url_image)
-  // Also treat scenario content type (stored in challenge_description, no URL) as non-image
-  const isScenarioChallenge = data?.challenge_content_type === 'scenario'
-  const isCodeFile     = urlCategory === 'code'
-  const isDocFile      = urlCategory === 'document'
-  const isPdfFile      = urlCategory === 'pdf'
-  const isOfficeFile   = urlCategory === 'office'
-  const isTextBased    = isCodeFile || isDocFile
-  const isNonImage     = isTextBased || isPdfFile || isOfficeFile || isScenarioChallenge
+  const urlCategory = getUrlCategory(data?.url_image)
+  const isCodeFile = urlCategory === 'code'
+  const isDocFile  = urlCategory === 'document'
+  const isNonImage = isCodeFile || isDocFile
 
-  // Fetch text content only for code/doc challenges (not PDF/Office)
+  // Fetch text content for code/doc challenges
   useEffect(() => {
-    if (!isTextBased || !data?.url_image) { setFileContent(''); return }
+    if (!isNonImage || !data?.url_image) { setFileContent(''); return }
     setFileLoading(true)
     fetch(data.url_image)
       .then(r => r.text())
@@ -238,6 +183,7 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
   const handleFirstHover = () => {
     if (zoomHintSeen) return
     setZoomHintSeen(true)
+    try { localStorage.setItem(ZOOM_HINT_KEY, '1') } catch { /* silencioso */ }
   }
 
   const openPreview = () => { setPreviewOpen(true); onPreviewChange?.(true) }
@@ -274,7 +220,6 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
   useEffect(() => {
     if (!imageUrl) return
     setImgLoaded(false)
-    setZoomHintSeen(false) // reset hint on every new image
     watermarkedRef.current = false
     const timer = setTimeout(() => setImgLoaded(true), 10)
     return () => clearTimeout(timer)
@@ -292,7 +237,7 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
   }, [previewOpen])
 
   const renderContent = () => {
-    // Non-image challenge (code, doc, pdf, office)
+    // Code / document challenge
     if (imageStatus === 'ok' && isNonImage) {
       if (fileLoading) {
         return (
@@ -304,21 +249,14 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
       const ext = getExt(data?.url_image)
       const language = LANG_MAP[ext] || 'Code'
       return (
-        <div className="h-full min-h-[300px] w-full flex flex-col gap-3">
-          <div className="flex-1 min-h-[300px]">
-            {isCodeFile  && <CodeView code={fileContent} language={language} />}
-            {isDocFile   && <DocView content={fileContent} />}
-            {isPdfFile   && <PdfView url={data.url_image} />}
-            {isOfficeFile && <OfficeView url={data.url_image} ext={ext} />}
-            {isScenarioChallenge && (
-              <div className="h-full overflow-auto rounded-xl bg-indigo-50 border border-indigo-100 p-5">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 mb-3">Enunciado</p>
-                <p className="text-sm text-indigo-900 leading-relaxed whitespace-pre-wrap">{data?.challenge_description || '—'}</p>
-              </div>
-            )}
-          </div>
+        <div className="h-full min-h-[300px] w-full">
+          {isCodeFile ? (
+            <CodeView code={fileContent} language={language} />
+          ) : (
+            <DocView content={fileContent} />
+          )}
           {revealedPrompt && (
-            <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3">
+            <div className="mt-3 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3">
               <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 mb-1">Respuesta esperada</p>
               <p className="text-sm text-emerald-900 leading-relaxed select-none" onCopy={e => e.preventDefault()}>
                 {revealedPrompt}
@@ -435,7 +373,7 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
               <svg className="h-3.5 w-3.5 text-cyan-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
               </svg>
-              <span className="text-[11px] font-semibold text-white">{lang === 'en' ? 'Tap to zoom' : 'Tocá para ampliar'}</span>
+              <span className="text-[11px] font-semibold text-white">Tocá para ampliar</span>
             </div>
           </div>
         )}
@@ -452,7 +390,7 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
               <svg className="h-4 w-4 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
               </svg>
-              <span className="text-sm font-medium text-slate-700">{lang === 'en' ? 'View image' : 'Ver imagen'}</span>
+              <span className="text-sm font-medium text-slate-700">Ver imagen</span>
             </div>
           </div>
         )}

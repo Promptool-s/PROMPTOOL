@@ -12,6 +12,7 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    overflow-x: hidden;
   }
   
   body {
@@ -20,6 +21,7 @@
     background-color: rgb(var(--color-canvas));
     color: rgb(var(--color-text-1));
     min-height: 100vh;
+    overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -711,32 +713,54 @@ html.dark .settings-toggle-off {
 }
 
 /* ════════════════════════════════════════════
-   Compact Mode — reduces spacing & font sizes
+   Mobile UX Improvements
    ════════════════════════════════════════════ */
-html.mode-compact {
-  font-size: 0.93em;
-}
-html.mode-compact .py-4 { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
-html.mode-compact .py-5 { padding-top: 0.75rem !important; padding-bottom: 0.75rem !important; }
-html.mode-compact .py-6 { padding-top: 1rem !important; padding-bottom: 1rem !important; }
-html.mode-compact .p-4  { padding: 0.625rem !important; }
-html.mode-compact .p-5  { padding: 0.875rem !important; }
-html.mode-compact .p-6  { padding: 1rem !important; }
-html.mode-compact .gap-4 { gap: 0.5rem !important; }
-html.mode-compact .gap-6 { gap: 0.875rem !important; }
-html.mode-compact .mb-4  { margin-bottom: 0.5rem !important; }
-html.mode-compact .mb-6  { margin-bottom: 0.875rem !important; }
-html.mode-compact .mt-4  { margin-top: 0.5rem !important; }
-html.mode-compact .mt-6  { margin-top: 0.875rem !important; }
 
-/* ════════════════════════════════════════════
-   Reduce Motion — disables all CSS animations/transitions
-   ════════════════════════════════════════════ */
-html.reduce-motion *,
-html.reduce-motion *::before,
-html.reduce-motion *::after {
-  animation-duration: 0.01ms !important;
-  animation-iteration-count: 1 !important;
-  transition-duration: 0.01ms !important;
-  scroll-behavior: auto !important;
+/* Safe area insets para iPhone X+ (notch / home indicator) */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  header {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* Evitar zoom automático en iOS al hacer focus en inputs con font-size < 16px */
+@media (max-width: 767px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Scroll suave en modales mobile */
+  .overscroll-contain {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Espaciado extra en la sección del juego */
+  main {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/* Prevenir text resize en iOS landscape */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Touch feedback visual en dispositivos sin hover */
+@media (hover: none) and (pointer: coarse) {
+  button:active,
+  a:active,
+  [role="button"]:active {
+    opacity: 0.75;
+    transition: opacity 0.1s ease;
+  }
 }

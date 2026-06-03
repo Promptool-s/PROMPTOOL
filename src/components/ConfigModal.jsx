@@ -4,26 +4,6 @@ import { supabase } from '../supabaseClient'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../contexts/ThemeContext'
 
-// ── Accent color presets ───────────────────────────────────────────────────
-const ACCENT_PRESETS = [
-  { label: 'Cyan',    light: '6 182 212',   dark: '34 211 238',  light2: '8 145 178',   dark2: '6 182 212' },
-  { label: 'Violet',  light: '124 58 237',  dark: '167 139 250', light2: '109 40 217',  dark2: '139 92 246' },
-  { label: 'Indigo',  light: '79 70 229',   dark: '129 140 248', light2: '67 56 202',   dark2: '99 102 241' },
-  { label: 'Emerald', light: '16 185 129',  dark: '52 211 153',  light2: '5 150 105',   dark2: '16 185 129' },
-  { label: 'Rose',    light: '244 63 94',   dark: '251 113 133', light2: '225 29 72',   dark2: '244 63 94' },
-  { label: 'Amber',   light: '245 158 11',  dark: '251 191 36',  light2: '217 119 6',   dark2: '245 158 11' },
-]
-
-const applyAccentPreset = (idx, isDark) => {
-  const p = ACCENT_PRESETS[idx]
-  if (!p) return
-  const root = document.documentElement
-  root.style.setProperty('--color-accent', isDark ? p.dark : p.light)
-  root.style.setProperty('--color-accent-2', isDark ? p.dark2 : p.light2)
-  localStorage.setItem('accentIdx', String(idx))
-  localStorage.setItem('accentPreset', JSON.stringify(p))
-}
-
 // ── Visual mode definitions ────────────────────────────────────────────────
 export const VISUAL_MODES = {
   default: { id: 'default', label: 'Default',  desc: { es: 'Estilo estándar de la app',       en: 'Standard app style' } },
@@ -83,22 +63,23 @@ const Toggle = ({ checked, onChange, id, disabled = false }) => (
       position: 'relative',
       display: 'inline-flex',
       alignItems: 'center',
-      width: 44,
-      height: 24,
+      width: 48,
+      height: 28,
       borderRadius: 999,
       border: 'none',
-      padding: 2,
+      padding: 3,
       cursor: disabled ? 'not-allowed' : 'pointer',
       opacity: disabled ? 0.4 : 1,
       transition: 'background-color 0.2s',
       backgroundColor: checked ? '#1e293b' : '#cbd5e1',
       flexShrink: 0,
+      minWidth: 48,
     }}
   >
     <span style={{
       display: 'block',
-      width: 20,
-      height: 20,
+      width: 22,
+      height: 22,
       borderRadius: '50%',
       backgroundColor: '#fff',
       boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
@@ -149,7 +130,6 @@ const SettingRow = ({ title, desc, children, badge }) => (
 const IcoGeneral  = () => <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
 const IcoPrivacy  = () => <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
 const IcoVisual   = () => <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" /></svg>
-const IcoAccount  = () => <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
 const IcoReport   = () => <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
 
 // ── Main ConfigModal ───────────────────────────────────────────────────────
@@ -158,7 +138,7 @@ const ConfigModal = ({
   mode, difficulty, availableDiffs, onSave, onModeChange, onDifficultyChange,
 }) => {
   const { lang, changeLang } = useLang()
-  const { user, signOut } = useAuth()
+  const { user } = useAuth()
   const { theme, setTheme } = useTheme()
   const syncTimer = useRef(null)
 
@@ -171,15 +151,6 @@ const ConfigModal = ({
   const [reportTarget, setReportTarget] = useState('image')
   const [reportReason, setReportReason] = useState('')
   const [reportStatus, setReportStatus] = useState('idle')
-
-  // Account state
-  const [accentIdx, setAccentIdx] = useState(() => parseInt(localStorage.getItem('accentIdx') || '0', 10))
-  const [showPw, setShowPw] = useState(false)
-  const [pw, setPw] = useState({ new: '', confirm: '' })
-  const [pwStatus, setPwStatus] = useState(null)
-  const [showEmail, setShowEmail] = useState(false)
-  const [newEmail, setNewEmail] = useState('')
-  const [emailStatus, setEmailStatus] = useState(null)
 
   const es = lang !== 'en'
 
@@ -256,37 +227,6 @@ const ConfigModal = ({
   // Reset report on tab change
   useEffect(() => { setReportStatus('idle'); setReportReason('') }, [tab])
 
-  // ── Persist accent color ──
-  useEffect(() => {
-    applyAccentPreset(accentIdx, theme === 'dark')
-  }, [accentIdx, theme])
-
-  // Account handlers
-  const handleChangePw = async (e) => {
-    e.preventDefault()
-    if (pw.new !== pw.confirm) { setPwStatus('mismatch'); return }
-    if (pw.new.length < 6) { setPwStatus('short'); return }
-    setPwStatus('saving')
-    const { error } = await supabase.auth.updateUser({ password: pw.new })
-    if (error) { setPwStatus('error'); return }
-    setPwStatus('ok')
-    setPw({ new: '', confirm: '' })
-    setShowPw(false)
-    setTimeout(() => setPwStatus(null), 3000)
-  }
-
-  const handleChangeEmail = async (e) => {
-    e.preventDefault()
-    if (!newEmail.includes('@')) { setEmailStatus('invalid'); return }
-    setEmailStatus('saving')
-    const { error } = await supabase.auth.updateUser({ email: newEmail })
-    if (error) { setEmailStatus('error'); return }
-    setEmailStatus('ok')
-    setNewEmail('')
-    setShowEmail(false)
-    setTimeout(() => setEmailStatus(null), 3000)
-  }
-
   const handlePrivacyToggle  = useCallback((key) => setPrivacy(p => ({ ...p, [key]: !p[key] })), [])
   const handleGeneralToggle  = useCallback((key) => setGeneral(p => ({ ...p, [key]: !p[key] })), [])
 
@@ -355,7 +295,6 @@ const ConfigModal = ({
           <TabBtn active={tab === 'general'} onClick={() => setTab('general')} icon={<IcoGeneral />} label={es ? 'General' : 'General'} />
           <TabBtn active={tab === 'privacy'} onClick={() => setTab('privacy')} icon={<IcoPrivacy />} label={es ? 'Privacidad' : 'Privacy'} />
           <TabBtn active={tab === 'visual'}  onClick={() => setTab('visual')}  icon={<IcoVisual />}  label={es ? 'Visual' : 'Visual'} />
-          {user && <TabBtn active={tab === 'account'} onClick={() => setTab('account')} icon={<IcoAccount />} label={es ? 'Cuenta' : 'Account'} />}
           <TabBtn active={tab === 'report'}  onClick={() => setTab('report')}  icon={<IcoReport />}  label={es ? 'Reportar' : 'Report'} />
         </div>
 
@@ -532,121 +471,6 @@ const ConfigModal = ({
               <p className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed">
                 {es ? 'Los modos visuales son experimentales. Algunos elementos pueden no adaptarse completamente.' : 'Visual modes are experimental. Some elements may not fully adapt.'}
               </p>
-            </div>
-          )}
-
-          {/* ── ACCOUNT ── */}
-          {tab === 'account' && user && (
-            <div className="space-y-5">
-
-              {/* Signed-in info */}
-              <div>
-                <SectionLabel>{es ? 'Sesión activa' : 'Signed in as'}</SectionLabel>
-                <div className="rounded-xl border border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 px-4 py-3">
-                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{user.email}</p>
-                </div>
-              </div>
-
-              {/* Accent color */}
-              <div>
-                <SectionLabel>{es ? 'Color de acento' : 'Accent color'}</SectionLabel>
-                <div className="flex gap-3 flex-wrap">
-                  {ACCENT_PRESETS.map((p, i) => {
-                    const hex = '#' + p.light.split(' ').map(c => parseInt(c).toString(16).padStart(2, '0')).join('')
-                    return (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => setAccentIdx(i)}
-                        title={p.label}
-                        className={`relative h-8 w-8 rounded-full transition-all ${accentIdx === i ? 'ring-2 ring-offset-2 ring-slate-400 dark:ring-slate-500 scale-110' : 'hover:scale-110'}`}
-                        style={{ backgroundColor: hex }}
-                      >
-                        {accentIdx === i && (
-                          <svg className="absolute inset-0 m-auto h-4 w-4 text-white drop-shadow" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              {/* Change password */}
-              <div>
-                <SectionLabel>{es ? 'Seguridad' : 'Security'}</SectionLabel>
-                <div className="divide-y divide-slate-100 dark:divide-slate-700/60 rounded-xl border border-slate-200 dark:border-slate-700/60 overflow-hidden">
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() => { setShowPw(f => !f); setPwStatus(null) }}
-                      className="flex w-full items-center justify-between bg-white dark:bg-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-700/60 px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-200 transition"
-                    >
-                      <span className="flex items-center gap-2.5">
-                        <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
-                        {es ? 'Cambiar contraseña' : 'Change password'}
-                      </span>
-                      <svg className={`h-3.5 w-3.5 text-slate-400 transition-transform ${showPw ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                    </button>
-                    {showPw && (
-                      <form onSubmit={handleChangePw} className="border-t border-slate-100 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 px-4 py-3 space-y-2">
-                        <input type="password" placeholder={es ? 'Nueva contraseña' : 'New password'} value={pw.new}
-                          onChange={e => setPw(f => ({ ...f, new: e.target.value }))}
-                          className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 outline-none focus:border-slate-400 transition" minLength={6} required />
-                        <input type="password" placeholder={es ? 'Confirmar contraseña' : 'Confirm password'} value={pw.confirm}
-                          onChange={e => setPw(f => ({ ...f, confirm: e.target.value }))}
-                          className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 outline-none focus:border-slate-400 transition" minLength={6} required />
-                        {pwStatus === 'mismatch' && <p className="text-xs text-rose-500">{es ? 'Las contraseñas no coinciden' : 'Passwords do not match'}</p>}
-                        {pwStatus === 'short'    && <p className="text-xs text-rose-500">{es ? 'Mínimo 6 caracteres' : 'Minimum 6 characters'}</p>}
-                        {pwStatus === 'error'    && <p className="text-xs text-rose-500">{es ? 'Error al cambiar la contraseña' : 'Error changing password'}</p>}
-                        {pwStatus === 'ok'       && <p className="text-xs text-emerald-600 dark:text-emerald-400">{es ? 'Contraseña actualizada' : 'Password updated'}</p>}
-                        <button type="submit" disabled={pwStatus === 'saving'}
-                          className="w-full rounded-xl bg-slate-800 dark:bg-white py-2.5 text-xs font-semibold text-white dark:text-slate-900 transition hover:opacity-90 disabled:opacity-50">
-                          {pwStatus === 'saving' ? '...' : (es ? 'Guardar' : 'Save')}
-                        </button>
-                      </form>
-                    )}
-                  </div>
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() => { setShowEmail(f => !f); setEmailStatus(null) }}
-                      className="flex w-full items-center justify-between bg-white dark:bg-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-700/60 px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-200 transition"
-                    >
-                      <span className="flex items-center gap-2.5">
-                        <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                        {es ? 'Cambiar email' : 'Change email'}
-                      </span>
-                      <svg className={`h-3.5 w-3.5 text-slate-400 transition-transform ${showEmail ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                    </button>
-                    {showEmail && (
-                      <form onSubmit={handleChangeEmail} className="border-t border-slate-100 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 px-4 py-3 space-y-2">
-                        <input type="email" placeholder={es ? 'Nuevo email' : 'New email address'} value={newEmail}
-                          onChange={e => setNewEmail(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 outline-none focus:border-slate-400 transition" required />
-                        {emailStatus === 'invalid' && <p className="text-xs text-rose-500">{es ? 'Email inválido' : 'Invalid email'}</p>}
-                        {emailStatus === 'error'   && <p className="text-xs text-rose-500">{es ? 'Error al actualizar el email' : 'Error updating email'}</p>}
-                        {emailStatus === 'ok'      && <p className="text-xs text-emerald-600 dark:text-emerald-400">{es ? 'Revisá tu bandeja para confirmar' : 'Check your inbox to confirm'}</p>}
-                        <button type="submit" disabled={emailStatus === 'saving'}
-                          className="w-full rounded-xl bg-slate-800 dark:bg-white py-2.5 text-xs font-semibold text-white dark:text-slate-900 transition hover:opacity-90 disabled:opacity-50">
-                          {emailStatus === 'saving' ? '...' : (es ? 'Guardar' : 'Save')}
-                        </button>
-                      </form>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Sign out */}
-              <button
-                type="button"
-                onClick={() => { signOut(); onClose() }}
-                className="w-full flex items-center justify-center gap-2 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/30 py-3 text-sm font-semibold text-rose-600 dark:text-rose-400 transition hover:bg-rose-100 dark:hover:bg-rose-950/50"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-                {es ? 'Cerrar sesión' : 'Sign out'}
-              </button>
             </div>
           )}
 

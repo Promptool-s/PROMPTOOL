@@ -71,20 +71,14 @@ const EnterpriseOnboarding = ({ user, onDone }) => {
     }])
 
     const companyName = user.user_metadata?.nombre_display || user.user_metadata?.nombre || user.email
-    // Always use ?invite= — App.jsx handles it for both logged-in (auto-join) and new users (signup)
     const joinUrl = existingUser?.id_usuario
-      ? `https://promptool.app/?invite=${user.id}`
+      ? `https://promptool.app/?join=${user.id}`
       : `https://promptool.app/?invite=${user.id}&email=${encodeURIComponent(email)}`
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession()
-      const token = sessionData?.session?.access_token
       const inviteRes = await fetch('/api/send-invite', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           recipientEmail: email,
           companyName,
@@ -123,33 +117,33 @@ const EnterpriseOnboarding = ({ user, onDone }) => {
 
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
-      <div className="w-full max-w-2xl rounded-3xl bg-white shadow-2xl overflow-hidden">
-        <div className="h-1.5 bg-slate-100">
+      <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl overflow-hidden">
+        <div className="h-1 bg-slate-100">
           <div className="h-full bg-violet-500 transition-all duration-500" style={{ width: `${progress}%` }} />
         </div>
 
-        <div className="p-10">
+        <div className="p-8">
 
           {/* Step 0: Bienvenida */}
           {step === 0 && (
-            <div className="space-y-8">
-              <div className="space-y-3">
-                <h2 className="text-3xl font-bold text-slate-900">Bienvenido a PrompTool Enterprise</h2>
-                <p className="text-slate-500 text-base leading-relaxed">
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold text-slate-900">Bienvenido a PrompTool Enterprise</h2>
+                <p className="text-slate-500 text-sm leading-relaxed">
                   En 3 pasos configuramos tu espacio para que tu equipo empiece a entrenar con IA desde hoy.
                 </p>
               </div>
-              <div className="grid grid-cols-3 gap-4 text-center text-sm text-slate-500">
+              <div className="grid grid-cols-3 gap-3 text-center text-xs text-slate-500">
                 {['Tu industria', 'Tus objetivos', 'Tu primer miembro'].map((label, i) => (
-                  <div key={i} className="rounded-xl bg-slate-50 p-4 space-y-2">
-                    <div className="text-lg font-bold text-violet-600">{i + 1}</div>
-                    <div className="font-medium text-slate-700">{label}</div>
+                  <div key={i} className="rounded-xl bg-slate-50 p-3 space-y-1">
+                    <div className="font-semibold text-slate-700">{i + 1}</div>
+                    <div>{label}</div>
                   </div>
                 ))}
               </div>
               <button
                 onClick={() => setStep(1)}
-                className="w-full rounded-xl bg-violet-600 py-4 text-base font-semibold text-white hover:bg-violet-700 transition"
+                className="w-full rounded-xl bg-violet-600 py-3 text-sm font-semibold text-white hover:bg-violet-700 transition"
               >
                 Empezar configuración
               </button>
@@ -158,17 +152,17 @@ const EnterpriseOnboarding = ({ user, onDone }) => {
 
           {/* Step 1: Industria y tamaño */}
           {step === 1 && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">¿En qué industria trabajan?</h2>
-                <p className="text-base text-slate-500 mt-2">Esto nos ayuda a mostrarte los challenges más relevantes.</p>
+                <h2 className="text-xl font-bold text-slate-900">¿En qué industria trabajan?</h2>
+                <p className="text-sm text-slate-500 mt-1">Esto nos ayuda a mostrarte los challenges más relevantes.</p>
               </div>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-4 gap-2">
                 {INDUSTRIES.map(ind => (
                   <button
                     key={ind.id}
                     onClick={() => setIndustry(ind.id)}
-                    className={`rounded-xl border-2 p-3 text-sm font-medium transition ${
+                    className={`rounded-xl border-2 p-2.5 text-xs font-medium transition ${
                       industry === ind.id
                         ? 'border-violet-500 bg-violet-50 text-violet-700'
                         : 'border-slate-200 text-slate-600 hover:border-violet-300'
@@ -179,13 +173,13 @@ const EnterpriseOnboarding = ({ user, onDone }) => {
                 ))}
               </div>
               <div>
-                <p className="text-base font-medium text-slate-700 mb-3">Tamaño del equipo</p>
-                <div className="flex gap-3">
+                <p className="text-sm font-medium text-slate-700 mb-2">Tamaño del equipo</p>
+                <div className="flex gap-2">
                   {TEAM_SIZES.map(size => (
                     <button
                       key={size}
                       onClick={() => setTeamSize(size)}
-                      className={`flex-1 rounded-xl border-2 py-3 text-sm font-medium transition ${
+                      className={`flex-1 rounded-lg border-2 py-2 text-xs font-medium transition ${
                         teamSize === size
                           ? 'border-violet-500 bg-violet-50 text-violet-700'
                           : 'border-slate-200 text-slate-600 hover:border-violet-300'
@@ -199,7 +193,7 @@ const EnterpriseOnboarding = ({ user, onDone }) => {
               <button
                 onClick={saveAndNext}
                 disabled={!industry || !teamSize || saving}
-                className="w-full rounded-xl bg-violet-600 py-4 text-base font-semibold text-white hover:bg-violet-700 transition disabled:opacity-40"
+                className="w-full rounded-xl bg-violet-600 py-3 text-sm font-semibold text-white hover:bg-violet-700 transition disabled:opacity-40"
               >
                 {saving ? 'Guardando...' : 'Continuar'}
               </button>
@@ -208,23 +202,23 @@ const EnterpriseOnboarding = ({ user, onDone }) => {
 
           {/* Step 2: Casos de uso */}
           {step === 2 && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">¿Para qué usa tu equipo la IA?</h2>
-                <p className="text-base text-slate-500 mt-2">Seleccioná todos los que apliquen.</p>
+                <h2 className="text-xl font-bold text-slate-900">¿Para qué usa tu equipo la IA?</h2>
+                <p className="text-sm text-slate-500 mt-1">Seleccioná todos los que apliquen.</p>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 {USE_CASES.map(uc => (
                   <button
                     key={uc.id}
                     onClick={() => toggleUseCase(uc.id)}
-                    className={`flex items-center gap-3 rounded-xl border-2 px-4 py-3 text-sm font-medium text-left transition ${
+                    className={`flex items-center gap-2 rounded-xl border-2 px-3 py-2.5 text-sm font-medium text-left transition ${
                       useCases.includes(uc.id)
                         ? 'border-violet-500 bg-violet-50 text-violet-700'
                         : 'border-slate-200 text-slate-600 hover:border-violet-300'
                     }`}
                   >
-                    <span className={`h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 ${
+                    <span className={`h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 ${
                       useCases.includes(uc.id) ? 'border-violet-500 bg-violet-500' : 'border-slate-300'
                     }`}>
                       {useCases.includes(uc.id) && <Check />}
@@ -236,11 +230,11 @@ const EnterpriseOnboarding = ({ user, onDone }) => {
               <button
                 onClick={() => setStep(3)}
                 disabled={useCases.length === 0}
-                className="w-full rounded-xl bg-violet-600 py-4 text-base font-semibold text-white hover:bg-violet-700 transition disabled:opacity-40"
+                className="w-full rounded-xl bg-violet-600 py-3 text-sm font-semibold text-white hover:bg-violet-700 transition disabled:opacity-40"
               >
                 Continuar
               </button>
-              <button onClick={() => setStep(3)} className="w-full text-sm text-slate-400 hover:text-slate-600">
+              <button onClick={() => setStep(3)} className="w-full text-xs text-slate-400 hover:text-slate-600">
                 Saltar este paso
               </button>
             </div>
@@ -248,22 +242,22 @@ const EnterpriseOnboarding = ({ user, onDone }) => {
 
           {/* Step 3: Invitar miembro */}
           {step === 3 && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               {inviteSent ? (
-                <div className="text-center space-y-4 py-6">
-                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50">
-                    <svg className="h-8 w-8 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <div className="text-center space-y-3 py-4">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50">
+                    <svg className="h-7 w-7 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <p className="text-lg font-semibold text-slate-900">Invitación enviada</p>
-                  <p className="text-base text-slate-500">Pasando al último paso...</p>
+                  <p className="font-semibold text-slate-900">Invitación enviada</p>
+                  <p className="text-sm text-slate-500">Pasando al último paso...</p>
                 </div>
               ) : (
                 <>
                   <div>
-                    <h2 className="text-2xl font-bold text-slate-900">Invitá a tu primer miembro</h2>
-                    <p className="text-base text-slate-500 mt-2">
+                    <h2 className="text-xl font-bold text-slate-900">Invitá a tu primer miembro</h2>
+                    <p className="text-sm text-slate-500 mt-1">
                       Podés invitar a todo el equipo desde el panel. Esto es opcional.
                     </p>
                   </div>
@@ -272,16 +266,16 @@ const EnterpriseOnboarding = ({ user, onDone }) => {
                     value={inviteEmail}
                     onChange={e => setInviteEmail(e.target.value)}
                     placeholder="email@tuempresa.com"
-                    className="w-full rounded-xl border border-slate-200 px-4 py-4 text-base outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
                   />
                   <button
                     onClick={sendInvite}
                     disabled={saving}
-                    className="w-full rounded-xl bg-violet-600 py-4 text-base font-semibold text-white hover:bg-violet-700 transition disabled:opacity-40"
+                    className="w-full rounded-xl bg-violet-600 py-3 text-sm font-semibold text-white hover:bg-violet-700 transition disabled:opacity-40"
                   >
                     {saving ? 'Enviando...' : 'Enviar invitación'}
                   </button>
-                  <button onClick={() => setStep(s => s + 1)} className="w-full text-sm text-slate-400 hover:text-slate-600">
+                  <button onClick={() => setStep(s => s + 1)} className="w-full text-xs text-slate-400 hover:text-slate-600">
                     Invitar después desde el panel
                   </button>
                 </>
@@ -291,22 +285,28 @@ const EnterpriseOnboarding = ({ user, onDone }) => {
 
           {/* Step 4: Listo */}
           {step === 4 && (
-            <div className="space-y-8">
-              <div className="text-center space-y-4 py-4">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-50">
-                  <svg className="h-8 w-8 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <h2 className="text-3xl font-bold text-slate-900">Todo listo</h2>
-                <p className="text-base text-slate-500 leading-relaxed max-w-sm mx-auto">
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold text-slate-900">Todo listo</h2>
+                <p className="text-slate-500 text-sm leading-relaxed">
                   Tu espacio de empresa está configurado. Desde el panel podés crear challenges,
-                  invitar miembros y ver el progreso de tu equipo en tiempo real.
+                  invitar miembros y ver el progreso de tu equipo.
                 </p>
+              </div>
+              <div className="grid grid-cols-3 gap-3 text-center text-xs">
+                {[
+                  { label: 'Crear challenges' },
+                  { label: 'Invitar equipo' },
+                  { label: 'Ver analytics' },
+                ].map(({ label }) => (
+                  <div key={label} className="rounded-xl bg-slate-50 p-3">
+                    <div className="text-slate-600 font-medium">{label}</div>
+                  </div>
+                ))}
               </div>
               <button
                 onClick={finish}
-                className="w-full rounded-xl bg-violet-600 py-4 text-base font-semibold text-white hover:bg-violet-700 transition"
+                className="w-full rounded-xl bg-violet-600 py-3 text-sm font-semibold text-white hover:bg-violet-700 transition"
               >
                 Ir al panel de empresa
               </button>
@@ -315,9 +315,9 @@ const EnterpriseOnboarding = ({ user, onDone }) => {
         </div>
 
         {step < 4 && (
-          <div className="flex justify-center gap-2 pb-6">
+          <div className="flex justify-center gap-1.5 pb-5">
             {[0, 1, 2, 3].map(i => (
-              <div key={i} className={`h-2 rounded-full transition-all ${i === step ? 'w-8 bg-violet-500' : 'w-2 bg-slate-200'}`} />
+              <div key={i} className={`h-1.5 rounded-full transition-all ${i === step ? 'w-5 bg-violet-500' : 'w-1.5 bg-slate-200'}`} />
             ))}
           </div>
         )}

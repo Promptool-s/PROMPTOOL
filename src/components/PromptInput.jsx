@@ -73,6 +73,7 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
   const [restoredDraft, setRestoredDraft] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [incognitoActive, setIncognitoActive] = useState(getIncognitoActive)
+  const [mobileOptionsOpen, setMobileOptionsOpen] = useState(false)
   const timerConfig = useMemo(() => getTimerConfig(mode, difficulty, personalizedTime, attemptNumber), [mode, difficulty, personalizedTime, attemptNumber])
   const { onTextChange: trackTyping, getReport: getTypingReport, reset: resetTyping } = useTypingBehavior()
 
@@ -476,11 +477,16 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
           onChange={handleChange}
           onCopy={handleAntiPaste} onPaste={handleAntiPaste} onCut={handleAntiPaste}
           onDrop={handleAntiPaste} onKeyDown={handleKeyDown} onContextMenu={handleContextMenu}
-          rows="3"
+          rows="4"
           placeholder={t('promptPlaceholder')}
           disabled={disabled}
           maxLength={2000}
-          className="w-full min-h-[100px] resize-none rounded-t-xl bg-transparent px-4 py-3 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:ring-0 disabled:cursor-not-allowed disabled:text-slate-400"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="sentences"
+          spellCheck="true"
+          className="w-full min-h-[120px] resize-none rounded-t-xl bg-transparent px-4 py-3 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:ring-0 disabled:cursor-not-allowed disabled:text-slate-400"
+          style={{ fontSize: '16px' }}
         />
         {/* Footer de stats rediseñado */}
         <div className="border-t border-slate-100 dark:border-slate-700/60 px-3 pt-2 pb-1.5 space-y-1.5">
@@ -546,7 +552,44 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
       </div>
 
       <div className="flex flex-col gap-2 text-xs font-medium sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-        <div className="flex flex-wrap items-center gap-2 min-w-0">
+        {/* ── Mobile: barra compacta con botón de opciones ── */}
+        <div className="flex sm:hidden items-center gap-2">
+          {/* Timer siempre visible */}
+          <span className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 ${timeBadgeClass}`}>
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="font-bold text-sm">{formatTime(remainingSeconds)}</span>
+            {attemptNumber > 1 && <span className="opacity-70 text-[10px] font-bold">#{attemptNumber}</span>}
+          </span>
+
+          {/* Chips de estado: modo + dificultad */}
+          <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 dark:bg-slate-800 px-2.5 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+            {mode === 'daily' ? (lang === 'en' ? 'Daily' : 'Diario') : mode === 'challenge' ? (lang === 'en' ? 'Challenge' : 'Desafío') : (lang === 'en' ? 'Random' : 'Aleatorio')}
+          </span>
+          <span className={`inline-flex items-center rounded-lg px-2.5 py-2 text-xs font-semibold ${
+            normalizeDifficulty(difficulty) === 'easy' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' :
+            normalizeDifficulty(difficulty) === 'hard' ? 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400' :
+            'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+          }`}>
+            {difficulty}
+          </span>
+
+          {/* Botón opciones */}
+          <button
+            type="button"
+            onClick={() => setMobileOptionsOpen(true)}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 active:bg-slate-50 dark:active:bg-slate-700"
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+            </svg>
+            {lang === 'en' ? 'Options' : 'Opciones'}
+          </button>
+        </div>
+
+        {/* ── Desktop: controles inline (comportamiento original) ── */}
+        <div className="hidden sm:flex flex-wrap items-center gap-2 min-w-0">
         {onModeChange ? (
           <div className="relative group">
             <button
@@ -748,7 +791,7 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
 
         </div>
         {(onToggleRanked || onNewRandom || mode === 'daily') && (
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+        <div className="hidden sm:flex flex-wrap items-center gap-2 sm:shrink-0">
         {onToggleRanked && (
           <div className="relative group">
             <button
@@ -871,7 +914,7 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
         )}
       </div>
 
-      <div className="flex items-start gap-2 rounded-lg border border-amber-100 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-900/20 px-3 py-2">
+      <div className="hidden sm:flex items-start gap-2 rounded-lg border border-amber-100 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-900/20 px-3 py-2">
         <svg className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
         </svg>
@@ -881,14 +924,14 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
       </div>
 
       {overtimeSeconds > 0 && penaltyOvertimeSeconds === 0 && (
-        <p className="text-xs text-amber-600 dark:text-amber-500">
+        <p className="hidden sm:block text-xs text-amber-600 dark:text-amber-500">
           {t('mode') === 'Modo'
             ? `Tiempo superado. ${formatTime(timerConfig.graceSeconds - overtimeSeconds)} antes de penalización.`
             : `Time exceeded. ${formatTime(timerConfig.graceSeconds - overtimeSeconds)} before penalty.`}
         </p>
       )}
       {penaltyOvertimeSeconds > 0 && (
-        <p className="text-xs text-rose-600 dark:text-rose-500">
+        <p className="hidden sm:block text-xs text-rose-600 dark:text-rose-500">
           {t('mode') === 'Modo'
             ? `Penalización activa — ${formatTime(penaltyOvertimeSeconds)} extra.`
             : `Penalty active — ${formatTime(penaltyOvertimeSeconds)} over.`}
@@ -909,12 +952,221 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
       )}
 
       <button type="submit" disabled={isLoading || disabled}
-        className="inline-flex w-full items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-40"
+        className="inline-flex w-full items-center justify-center rounded-xl px-6 py-3.5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-40 min-h-[48px]"
         style={{ backgroundColor: 'rgb(var(--color-accent))' }}
         onMouseEnter={e => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = 'rgb(var(--color-accent-2))')}
         onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'rgb(var(--color-accent))')}>
         {isLoading ? t('analyzing') : disabled ? t('noImageAvailable') : t('analyzeWithAI')}
       </button>
+
+      {/* ── Mobile Options Bottom Sheet ── */}
+      {mobileOptionsOpen && (
+        <>
+          {/* Overlay */}
+          <div
+            className="fixed inset-0 z-[400] bg-black/40 sm:hidden"
+            onClick={() => setMobileOptionsOpen(false)}
+          />
+          {/* Sheet */}
+          <div className="fixed inset-x-0 bottom-0 z-[401] sm:hidden rounded-t-2xl bg-white dark:bg-slate-900 shadow-2xl border-t border-slate-200 dark:border-slate-700"
+            style={{ paddingBottom: 'env(safe-area-inset-bottom, 16px)' }}>
+
+            {/* Handle */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="h-1 w-10 rounded-full bg-slate-300 dark:bg-slate-600" />
+            </div>
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-slate-800">
+              <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                {lang === 'en' ? 'Game options' : 'Opciones de juego'}
+              </p>
+              <button
+                type="button"
+                onClick={() => setMobileOptionsOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-4">
+
+              {/* Modo */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{t('mode')}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    {mode === 'daily'
+                      ? (lang === 'en' ? 'One image per day, same for all' : 'Una imagen por día, igual para todos')
+                      : mode === 'challenge'
+                      ? (lang === 'en' ? 'Company challenge' : 'Desafío de empresa')
+                      : (lang === 'en' ? 'Random image from the library' : 'Imagen aleatoria de la biblioteca')}
+                  </p>
+                </div>
+                {onModeChange ? (
+                  <button
+                    type="button"
+                    onClick={() => { onModeChange(); setMobileOptionsOpen(false) }}
+                    className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold border transition active:opacity-70"
+                    style={{
+                      borderColor: 'rgb(var(--color-accent) / 0.4)',
+                      color: 'rgb(var(--color-accent))',
+                      backgroundColor: 'rgb(var(--color-accent) / 0.08)',
+                    }}
+                  >
+                    {mode === 'daily' ? (lang === 'en' ? 'Daily' : 'Diario') : mode === 'challenge' ? (lang === 'en' ? 'Challenge' : 'Desafío') : (lang === 'en' ? 'Random' : 'Aleatorio')}
+                    <svg className="h-3.5 w-3.5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                    </svg>
+                  </button>
+                ) : (
+                  <span className="inline-flex items-center rounded-xl px-4 py-2.5 text-sm font-semibold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                    {mode === 'daily' ? (lang === 'en' ? 'Daily' : 'Diario') : mode === 'challenge' ? (lang === 'en' ? 'Challenge' : 'Desafío') : (lang === 'en' ? 'Random' : 'Aleatorio')}
+                  </span>
+                )}
+              </div>
+
+              {/* Dificultad */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{t('difficulty')}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    {normalizeDifficulty(difficulty) === 'easy'
+                      ? (lang === 'en' ? 'Pass score: 55%' : 'Score para pasar: 55%')
+                      : normalizeDifficulty(difficulty) === 'hard'
+                      ? (lang === 'en' ? 'Pass score: 82%' : 'Score para pasar: 82%')
+                      : (lang === 'en' ? 'Pass score: 70%' : 'Score para pasar: 70%')}
+                  </p>
+                </div>
+                {onDifficultyChange && availableDiffs.length > 1 ? (
+                  <div className="flex items-center gap-2">
+                    {availableDiffs.map(d => (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => { onDifficultyChange(d); setMobileOptionsOpen(false) }}
+                        className={`rounded-xl px-3.5 py-2.5 text-xs font-bold transition active:scale-95 ${
+                          d.toLowerCase() === normalizeDifficulty(difficulty)
+                            ? d.toLowerCase() === 'easy'
+                              ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 ring-2 ring-emerald-400'
+                              : d.toLowerCase() === 'hard'
+                              ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-400 ring-2 ring-rose-400'
+                              : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 ring-2 ring-amber-400'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                        }`}
+                      >
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <span className={`rounded-xl px-4 py-2.5 text-sm font-bold ${
+                    normalizeDifficulty(difficulty) === 'easy' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' :
+                    normalizeDifficulty(difficulty) === 'hard' ? 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400' :
+                    'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                  }`}>
+                    {difficulty}
+                  </span>
+                )}
+              </div>
+
+              {/* Modo competitivo */}
+              {onToggleRanked && (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                      {lang === 'en' ? 'Ranked mode' : 'Modo competitivo'}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      {isRanked
+                        ? (lang === 'en' ? 'Counts toward your score & ranking' : 'Cuenta para tu puntaje y ranking')
+                        : (lang === 'en' ? 'Practice without affecting your rank' : 'Practica sin afectar tu puntaje')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onToggleRanked(!isRanked)}
+                    style={{
+                      position: 'relative',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      width: 52,
+                      height: 30,
+                      borderRadius: 999,
+                      border: 'none',
+                      padding: 3,
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s',
+                      backgroundColor: isRanked ? 'rgb(var(--color-accent))' : '#cbd5e1',
+                      flexShrink: 0,
+                    }}
+                    role="switch"
+                    aria-checked={isRanked}
+                  >
+                    <span style={{
+                      display: 'block',
+                      width: 24,
+                      height: 24,
+                      borderRadius: '50%',
+                      backgroundColor: '#fff',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                      transition: 'transform 0.2s',
+                      transform: isRanked ? 'translateX(22px)' : 'translateX(0px)',
+                    }} />
+                  </button>
+                </div>
+              )}
+
+              {/* Tiempo restante */}
+              <div className="flex items-center justify-between rounded-xl bg-slate-50 dark:bg-slate-800/60 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                    {lang === 'en' ? 'Time remaining' : 'Tiempo restante'}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    {lang === 'en' ? `Recommended: ${formatTime(estimatedSeconds)}` : `Recomendado: ${formatTime(estimatedSeconds)}`}
+                    {attemptNumber > 1 && ` · #${attemptNumber}`}
+                  </p>
+                </div>
+                <span className={`text-2xl font-black tabular-nums ${timeBadgeClass} rounded-xl px-3 py-1.5`}>
+                  {formatTime(remainingSeconds)}
+                </span>
+              </div>
+
+              {/* Nueva imagen */}
+              {(onNewRandom || mode === 'daily') && (
+                <div className="pt-1">
+                  {mode === 'daily' ? (
+                    <div className="flex items-center gap-3 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 px-4 py-3 opacity-60">
+                      <svg className="h-4 w-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        {lang === 'en' ? 'New image locked in Daily mode' : 'Nueva imagen bloqueada en modo Diario'}
+                      </p>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => { onNewRandom(); setMobileOptionsOpen(false) }}
+                      className="w-full flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm font-semibold text-slate-600 dark:text-slate-300 transition active:bg-slate-50 dark:active:bg-slate-700"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      {lang === 'en' ? 'Get new image' : 'Obtener nueva imagen'}
+                    </button>
+                  )}
+                </div>
+              )}
+
+            </div>
+          </div>
+        </>
+      )}
     </form>
   )
 }

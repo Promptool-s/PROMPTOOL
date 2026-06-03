@@ -575,9 +575,9 @@ const InteractiveDemo = ({ dark, lang }) => {
   
   return (
     <div ref={demoRef} className={`rounded-2xl border p-6 lg:p-8 ${card} relative overflow-hidden`}>
-      <div className="grid lg:grid-cols-[42%_58%] gap-6 lg:gap-10">
-
-        {/* Left: Image - fills column width */}
+      <div className="grid lg:grid-cols-2 gap-6 lg:gap-8">
+        
+        {/* Left: Image - altura fija para evitar estiramiento */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <span className={`text-xs font-semibold ${muted}`}>
@@ -587,7 +587,7 @@ const InteractiveDemo = ({ dark, lang }) => {
               {lang === 'en' ? 'Daily' : 'Diario'}
             </span>
           </div>
-          <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-gradient-to-br from-slate-800 to-slate-900 w-full h-72 lg:h-96">
+          <div className="relative aspect-[3/4] rounded-xl overflow-hidden border border-slate-200 bg-gradient-to-br from-slate-800 to-slate-900 max-h-72 lg:max-h-80 mx-auto">
             <img
               src={demoImage}
               alt=""
@@ -781,7 +781,6 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
     if (!container) return
     let wheelTimeout = null
     const onWheel = (e) => {
-      if (e.ctrlKey || e.metaKey) return
       e.preventDefault()
       if (isScrolling.current) return
       clearTimeout(wheelTimeout)
@@ -898,21 +897,26 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                     {c.cta2}
                   </button>
                 </div>
-                <div className="pt-2">
+                <div className={`flex items-center gap-3 pt-1`}>
+                  <div className={`h-px flex-1 max-w-[4rem] ${dark ? 'bg-slate-700' : 'bg-slate-200'}`} />
                   <button
                     type="button"
                     onClick={onEnterprise}
-                    className={`group inline-flex w-full sm:w-auto items-center justify-center gap-2.5 rounded-xl border-2 px-6 py-3 text-sm font-semibold transition-all ${
+                    className={`group inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold transition-all ${
                       dark
-                        ? 'border-violet-500/50 bg-violet-950/30 text-violet-300 hover:border-violet-400 hover:bg-violet-900/40'
-                        : 'border-violet-200 bg-violet-50 text-violet-700 hover:border-violet-400 hover:bg-violet-100'
+                        ? 'border-slate-700 bg-slate-800/60 text-slate-400 hover:border-violet-500/50 hover:bg-violet-950/40 hover:text-violet-300'
+                        : 'border-slate-200 bg-white text-slate-500 hover:border-violet-200 hover:bg-violet-50 hover:text-violet-600'
                     }`}
                   >
-                    <svg className="h-4.5 w-4.5 shrink-0" style={{width:'1.125rem',height:'1.125rem'}} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                     </svg>
-                    {lang === 'en' ? 'For companies & teams →' : 'Para empresas y equipos →'}
+                    {lang === 'en' ? 'For companies & teams' : 'Para empresas y equipos'}
+                    <svg className="h-3 w-3 shrink-0 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
                   </button>
+                  <div className={`h-px flex-1 ${dark ? 'bg-slate-700' : 'bg-slate-200'}`} />
                 </div>
               </div>
               <div className={`hidden lg:block relative overflow-hidden rounded-2xl border p-6 lg:h-[520px] ${card}`}>

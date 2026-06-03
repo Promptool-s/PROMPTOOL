@@ -41,26 +41,16 @@ import('./components/ConfigModal').then(({ loadVisualMode, applyVisualMode }) =>
 // para todos — registrados y no registrados.
 const GUEST_MAX_ATTEMPTS = 4
 
-const _NON_IMG_EXTS = new Set(['js','jsx','ts','tsx','py','cs','java','cpp','c','h','hpp','css','scss','html','xml','json','sql','sh','bash','rb','go','rs','php','swift','kt','vue','yaml','yml','toml','r','lua','dart','scala','txt','md','csv','log','pdf','pptx','ppt','xlsx','xls','docx','doc'])
-const _isNonImage = (url) => {
-  if (!url) return false
-  const ext = url.split('.').pop()?.toLowerCase().split('?')[0] || ''
-  return _NON_IMG_EXTS.has(ext)
-}
-
 // Columnas reales: id_imagen, url_image, prompt_original, seed, fecha, image_diff, image_theme
 const normalizeImageData = (row) => {
   if (!row) return null
-  const rawUrl = row.url_image
+  // Spread all fields first so challenge-specific columns (challenge_eval_instructions, etc.)
+  // are preserved, then overwrite the fields we normalize.
   return {
     ...row,
     id_imagen: row.id_imagen ?? null,
-    // Code/doc files must NOT go through img-proxy (it rejects non-image content types)
-    url_image: rawUrl
-      ? (_isNonImage(rawUrl)
-          ? rawUrl
-          : `/api/img-proxy?url=${encodeURIComponent(rawUrl)}`)
-      : null,
+    url_image: row.url_image ? `/api/img-proxy?url=${encodeURIComponent(row.url_image)}` : null,
+    // prompt_original NO se guarda en estado — se fetcha al momento del submit
     seed: row.seed ?? null,
     fecha: row.fecha ?? null,
     image_diff: row.image_diff ?? 'Medium',
@@ -170,7 +160,6 @@ function App() {
   const [showSplash, setShowSplash] = useState(true)
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const [authPreselect, setAuthPreselect] = useState(null)
-  const [authInviteEmail, setAuthInviteEmail] = useState(null)
   const [userType, setUserType] = useState(null)
   const [userTypeLoading, setUserTypeLoading] = useState(false)
   const [userStreak, setUserStreak] = useState(0)
@@ -211,7 +200,6 @@ function App() {
   const [challengeCompany, setChallengeCompany] = useState(null) // { company_name, avatar_url, verified }
   const challengeId = new URLSearchParams(window.location.search).get('challenge')
   const inviteCompanyId = new URLSearchParams(window.location.search).get('invite')
-  const inviteEmailParam = new URLSearchParams(window.location.search).get('email')
   const [inviteState, setInviteState] = useState(null)
   const [inviteCompany, setInviteCompany] = useState(null)
   const [imageAttempts, setImageAttempts] = useState(0)
@@ -228,42 +216,12 @@ function App() {
   const anticheatTimerRef = useRef(null)
   const guestToastTimerRef = useRef(null)
   const [guestFeatureToast, setGuestFeatureToast] = useState('')
-  const [focusWarningOpen, setFocusWarningOpen] = useState(false)
-  const imageChangedByFocusRef = useRef(false)
-  const [adBlockDetected, setAdBlockDetected] = useState(false)
-  const [adBlockDismissed, setAdBlockDismissed] = useState(false)
 
   const showGuestFeatureToast = (message) => {
     setGuestFeatureToast(message)
     if (guestToastTimerRef.current) clearTimeout(guestToastTimerRef.current)
     guestToastTimerRef.current = setTimeout(() => setGuestFeatureToast(''), 4000)
   }
-
-  // AdBlocker detection — uses absolute positioning (fixed makes offsetParent always null → false positive)
-  useEffect(() => {
-    const testEl = document.createElement('div')
-    testEl.className = 'adsbygoogle'
-    testEl.style.cssText = 'position:absolute;top:-9999px;left:-9999px;width:1px;height:1px;pointer-events:none;'
-    document.body.appendChild(testEl)
-    const timer = setTimeout(() => {
-      try {
-        const cs = window.getComputedStyle(testEl)
-        const blocked =
-          testEl.offsetHeight === 0 ||
-          cs.display === 'none' ||
-          cs.visibility === 'hidden' ||
-          parseFloat(cs.height) === 0
-        if (document.body.contains(testEl)) document.body.removeChild(testEl)
-        if (blocked) setAdBlockDetected(true)
-      } catch {
-        if (document.body.contains(testEl)) document.body.removeChild(testEl)
-      }
-    }, 300)
-    return () => {
-      clearTimeout(timer)
-      if (document.body.contains(testEl)) document.body.removeChild(testEl)
-    }
-  }, [])
 
   // Limpiar timers al desmontar
   useEffect(() => () => {
@@ -320,34 +278,16 @@ function App() {
       try {
         const { data, error } = await supabase
           .from('imagenes_ia')
-          .select('id_imagen, url_image, seed, fecha, image_diff, image_theme, company_id, challenge_eval_instructions, challenge_content_type, challenge_description')
+          .select('id_imagen, url_image, seed, fecha, image_diff, image_theme, company_id, challenge_eval_instructions')
           .eq('id_imagen', challengeId)
           .maybeSingle()
         if (error || !data) { setImageStatus('error'); return }
-
-        // Access control: enterprise challenges require login + company membership
-        if (data.company_id) {
-          if (!user) {
-            setImageStatus('challenge_auth_required')
-            setAuthModalOpen(true)
-            return
-          }
-          const { data: membership } = await supabase
-            .from('usuarios')
-            .select('company_id')
-            .eq('id_usuario', user.id)
-            .maybeSingle()
-          if (membership?.company_id !== data.company_id) {
-            setImageStatus('challenge_forbidden')
-            return
-          }
-        }
-
         setImageData(normalizeImageData(data))
         setDifficulty(data.image_diff || 'Medium')
         setMode('challenge')
         setImageStatus('ok')
         startFocusTracking()
+        // Cargar datos de la empresa
         if (data.company_id) {
           const { data: co } = await supabase
             .from('usuarios')
@@ -361,7 +301,7 @@ function App() {
       }
     }
     loadChallenge()
-  }, [challengeId, user?.id])
+  }, [challengeId])
 
   // Manejar link de invitación ?invite=COMPANY_ID
   useEffect(() => {
@@ -380,12 +320,8 @@ function App() {
     loadInviteCompany()
 
     if (!user) {
+      // No logueado — mostrar banner + modal de login
       setInviteState('prompt_login')
-      // If the invite URL carries an email, pre-fill signup for new users
-      if (inviteEmailParam) {
-        setAuthInviteEmail(inviteEmailParam)
-        setAuthPreselect('individual')
-      }
       setAuthModalOpen(true)
       return
     }
@@ -503,7 +439,6 @@ function App() {
 
   useEffect(() => {
     if (user) setShowLanding(false)
-    else setShowLanding(true)
   }, [user])
 
   // Apply visual mode only when NOT on landing page
@@ -797,42 +732,24 @@ function App() {
     if (submitted || mode !== 'random' || challengeId || !imageData) return
 
     let blurTimer = null
-    // Track whether the image change was triggered by a tab switch (visibilitychange)
-    // so handleFocus doesn't race with handleVisibility and clear the ref first
-    let visibilityTriggered = false
 
     const handleBlur = () => {
       blurTimer = setTimeout(() => {
-        if (!document.hasFocus() && !document.hidden) {
+        if (!document.hasFocus()) {
           flashAnticheatWarning(9000)
           handleForcedImageChange('blur')
-          imageChangedByFocusRef.current = true
         }
       }, 400)
     }
 
     const handleFocus = () => {
       if (blurTimer) { clearTimeout(blurTimer); blurTimer = null }
-      // Skip — tab-switch visibility handled separately to avoid race condition
-      if (visibilityTriggered) return
-      if (imageChangedByFocusRef.current) {
-        imageChangedByFocusRef.current = false
-        setFocusWarningOpen(true)
-      }
     }
 
     const handleVisibility = () => {
       if (document.hidden) {
-        visibilityTriggered = true
         flashAnticheatWarning(9000)
         handleForcedImageChange('visibility')
-        imageChangedByFocusRef.current = true
-      } else if (visibilityTriggered) {
-        visibilityTriggered = false
-        if (imageChangedByFocusRef.current) {
-          imageChangedByFocusRef.current = false
-          setFocusWarningOpen(true)
-        }
       }
     }
 
@@ -953,7 +870,7 @@ function App() {
       const timePenalty = getTimePenalty(timingData, imageData?.image_diff ?? difficulty, mode)
 
       const [result, clipCheck] = await Promise.all([
-        comparePrompts(submittedPrompt, promptReferencia, imageData?.image_diff ?? difficulty, lang, imageData?.challenge_eval_instructions || null, imageData?.challenge_content_type || 'image'),
+        comparePrompts(submittedPrompt, promptReferencia, imageData?.image_diff ?? difficulty, lang, imageData?.challenge_eval_instructions || null),
         // Clipboard check corre en paralelo con el LLM — falla silencioso
         (imageData?.url_image
           ? checkClipboardForGameImage(imageData.url_image).catch(() => ({ hasImage: false, similarToGame: false, similarity: 0 }))
@@ -1627,7 +1544,6 @@ function App() {
             onSignUpWithEmail={signUpWithEmail}
             inviteCompany={inviteState === 'prompt_login' ? inviteCompany : null}
             initialPlan={authPreselect}
-            initialEmail={authInviteEmail}
           />
         </Suspense>
       </div>
@@ -1661,25 +1577,9 @@ function App() {
     )
   }
 
-  // Challenge access denied screens
-  if (challengeId && imageStatus === 'challenge_forbidden') {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 text-slate-900 px-4">
-        <div className="max-w-sm text-center space-y-4">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-100">
-            <svg className="h-8 w-8 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-          </div>
-          <h1 className="text-xl font-bold">Acceso restringido</h1>
-          <p className="text-slate-500 text-sm">Este desafío es exclusivo para miembros de la empresa que lo creó. Pedí que te inviten para poder acceder.</p>
-          <a href="/" className="inline-block rounded-xl bg-violet-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 transition">Ir al inicio</a>
-        </div>
-      </div>
-    )
-  }
-
   // Si es individual, mostrar juego
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
+    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900 overflow-x-hidden">
       <Header companyRefreshKey={inviteState === 'joined' ? 1 : 0} onOpenSettings={() => setConfigOpen(true)} />
 
       {suspensionInfo && (
@@ -1689,7 +1589,7 @@ function App() {
         </div>
       )}
 
-      <main className="flex-1 overflow-y-auto py-2 px-2 sm:px-4">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden py-2 px-2 sm:px-4">
         <div className="mx-auto flex max-w-screen-2xl gap-3 items-start">
           {/* Left ad — hidden for company members */}
           {!userHasCompany && (
@@ -1700,7 +1600,7 @@ function App() {
 
           {/* Game area */}
           <div className="flex-1 min-w-0 overflow-hidden rounded-2xl bg-slate-50 dark:bg-slate-900">
-          <div className="grid lg:items-stretch lg:grid-cols-[1.2fr_1fr]">
+          <div className="grid w-full lg:items-stretch lg:grid-cols-[1.2fr_1fr]">
             <section className="order-2 lg:order-1 flex flex-col justify-center space-y-4 p-4 sm:p-6 lg:p-8">
               <div className="space-y-4">
                 {/* Banner de invitación a empresa */}
@@ -1987,8 +1887,8 @@ function App() {
               </div>
             </section>
 
-            <aside className="order-1 lg:order-2 flex flex-col items-stretch justify-start gap-4 p-2 sm:p-4 transition-all duration-500">
-              <div className="w-full relative" style={{ height: 'clamp(180px, 42vw, calc(100vh - 120px))' }}>
+            <aside className="order-1 lg:order-2 flex flex-col items-stretch justify-start gap-4 p-2 sm:p-4 transition-all duration-500 min-w-0 overflow-hidden">
+              <div className="w-full max-w-full relative overflow-hidden" style={{ height: 'clamp(200px, 45vw, calc(100vh - 120px))' }}>
                 <ImageCard
                   mode={mode}
                   data={imageData ?? {}}
@@ -2149,78 +2049,6 @@ function App() {
         </div>
       )}
 
-      {/* Focus warning modal — shown when user returns after image was force-changed */}
-      {focusWarningOpen && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}>
-          <div className="relative w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-            {/* Red accent bar */}
-            <div className="h-1 w-full bg-gradient-to-r from-rose-500 to-orange-400" />
-            <div className="px-6 py-5">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-900/40">
-                  <svg className="h-5 w-5 text-rose-600 dark:text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 leading-snug">
-                    {lang === 'en' ? 'Image changed' : 'Se cambió la imagen'}
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    {lang === 'en' ? 'Anti-cheat system' : 'Sistema anti-trampa'}
-                  </p>
-                </div>
-              </div>
-              <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed mb-5">
-                {lang === 'en'
-                  ? 'You left the page, so a new image was loaded. Don\'t leave again if you don\'t want to lose your progress.'
-                  : 'Saliste de la página, así que se cargó una nueva imagen. No vuelvas a salir si no querés perder tu progreso.'}
-              </p>
-              <button
-                type="button"
-                onClick={() => setFocusWarningOpen(false)}
-                className="w-full rounded-xl bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 font-semibold py-3 text-sm transition"
-              >
-                {lang === 'en' ? 'Got it' : 'Aceptar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* AdBlocker soft banner */}
-      {adBlockDetected && !adBlockDismissed && (
-        <div className="fixed bottom-0 left-0 right-0 z-[250] px-4 pb-4 pointer-events-none">
-          <div className="mx-auto max-w-2xl pointer-events-auto">
-            <div className="flex items-start gap-3 rounded-2xl border border-amber-200 dark:border-amber-700/50 bg-amber-50 dark:bg-amber-950/60 px-4 py-3.5 shadow-xl backdrop-blur-sm">
-              <svg className="h-5 w-5 shrink-0 text-amber-500 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-amber-900 dark:text-amber-200 leading-snug">
-                  {lang === 'en' ? 'We noticed you\'re using an ad blocker' : 'Notamos que estás usando un bloqueador de anuncios'}
-                </p>
-                <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5 leading-relaxed">
-                  {lang === 'en'
-                    ? 'PrompTool is free and supported by ads. You can still play without disabling it, but consider allowing ads to keep the project going.'
-                    : 'PrompTool es gratis y se mantiene con publicidad. Podés seguir jugando sin desactivarlo, pero considerá permitir los anuncios para mantener el proyecto.'}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAdBlockDismissed(true)}
-                className="shrink-0 flex h-6 w-6 items-center justify-center rounded-full text-amber-500 hover:bg-amber-200 dark:hover:bg-amber-800/50 transition"
-                aria-label="Dismiss"
-              >
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Modal de configuración */}
       <Suspense fallback={null}>
         <ConfigModal
@@ -2252,7 +2080,6 @@ function App() {
           onSignUpWithEmail={signUpWithEmail}
           inviteCompany={inviteState === 'prompt_login' ? inviteCompany : null}
           initialPlan={authPreselect}
-          initialEmail={authInviteEmail}
         />
       </Suspense>
     </div>

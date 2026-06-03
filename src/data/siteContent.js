@@ -106,7 +106,7 @@ export const faqContent = {
   es: {
     title: 'Preguntas frecuentes',
     subtitle: 'Respuestas claras sobre cómo usar PrompTool, tu cuenta y la evaluación con IA.',
-    contact: '¿No encontrás lo que buscás? Escribinos a promptool.app@gmail.com o abrí un ticket desde Soporte (requiere iniciar sesión).',
+    contact: '¿No encontrás lo que buscás? Escribinos a soporte@promptool.app o abrí un ticket desde Soporte (requiere iniciar sesión).',
     items: [
       {
         q: '¿PrompTool es gratis?',
@@ -161,7 +161,7 @@ export const faqContent = {
   en: {
     title: 'Frequently asked questions',
     subtitle: 'Clear answers about using PrompTool, your account, and AI evaluation.',
-    contact: 'Can\'t find what you need? Email promptool.app@gmail.com or open a ticket from Support (sign-in required).',
+    contact: 'Can\'t find what you need? Email soporte@promptool.app or open a ticket from Support (sign-in required).',
     items: [
       {
         q: 'Is PrompTool free?',
