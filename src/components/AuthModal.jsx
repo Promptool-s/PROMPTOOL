@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient'
 import { useLang } from '../contexts/LangContext'
 import { proxyImg } from '../utils/imgProxy'
 import { checkRateLimit, formatTimeRemaining } from '../services/rateLimitService'
+import { api } from '../lib/apiClient'
 import { sanitizeUsername } from '../utils/inputSanitizer'
 
 function makeMathQuestion() {
@@ -108,14 +109,8 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
           setLoading(false); return
         }
 
-        // Send OTP to email
-        const res = await fetch('/api/send-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, lang: lang || 'es' }),
-        })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error || 'Failed to send verification code')
+        // Send OTP to email (público: todavía no hay cuenta)
+        const data = await api.post('/email/otp', { email, lang: lang || 'es' }, { auth: false })
 
         setOtpToken(data.token)
         setPendingSignup({ email, password, nombre, username, userType, companyName, acceptTerms, acceptEmails })
@@ -136,14 +131,10 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
     setError('')
     setLoading(true)
     try {
-      const res = await fetch('/api/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: otpToken, code: otpCode.trim(), email: pendingSignup.email }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        const msg = data.error === 'Code expired'
+      try {
+        await api.post('/email/otp/verify', { token: otpToken, code: otpCode.trim(), email: pendingSignup.email }, { auth: false })
+      } catch (verifyErr) {
+        const msg = /expir/i.test(verifyErr.message || '')
           ? (lang === 'en' ? 'Code expired. Please go back and try again.' : 'El código expiró. Volvé e intentá de nuevo.')
           : (lang === 'en' ? 'Incorrect code. Check your email and try again.' : 'Código incorrecto. Revisá tu correo e intentá de nuevo.')
         setError(msg)
@@ -289,12 +280,7 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
                   onClick={async () => {
                     setError(''); setOtpCode(''); setLoading(true)
                     try {
-                      const res = await fetch('/api/send-otp', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email: pendingSignup?.email, lang: lang || 'es' }),
-                      })
-                      const d = await res.json()
-                      if (!res.ok) throw new Error(d.error || 'Error')
+                      const d = await api.post('/email/otp', { email: pendingSignup?.email, lang: lang || 'es' }, { auth: false })
                       setOtpToken(d.token)
                     } catch (err) { setError(err.message) }
                     finally { setLoading(false) }

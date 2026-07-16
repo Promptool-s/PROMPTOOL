@@ -8,6 +8,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts'
 import { proxyImg } from '../utils/imgProxy'
+import { api } from '../lib/apiClient'
 import { nowAR } from '../utils/dateAR'
 import ChallengeCreatorModal from './ChallengeCreatorModal'
 import { sanitizeText } from '../utils/inputSanitizer'
@@ -795,25 +796,16 @@ const EnterprisePanel = ({ user }) => {
         : `https://promptool.app/?invite=${user.id}&email=${encodeURIComponent(inviteEmail.trim())}`
 
       try {
-        const { data: { session } } = await supabase.auth.getSession()
-        const inviteRes = await fetch('/api/send-invite', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token ?? ''}`,
-          },
-          body: JSON.stringify({
-            recipientEmail: inviteEmail.trim(),
-            companyName,
-            inviterName: companyName,
-            joinUrl,
-            isExistingUser: !!existingUser?.id_usuario,
-          }),
+        await api.post('/email/invite', {
+          recipientEmail: inviteEmail.trim(),
+          companyName,
+          inviterName: companyName,
+          joinUrl,
+          isExistingUser: !!existingUser?.id_usuario,
         })
-        if (!inviteRes.ok) {
-          console.error('[send-invite] HTTP error:', inviteRes.status)
-        }
-      } catch (_) {}
+      } catch (err) {
+        console.error('[email/invite] error:', err.message)
+      }
 
       setInviteEmail('')
       setInviteMessage('')

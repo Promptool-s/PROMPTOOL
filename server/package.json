@@ -1,0 +1,5 @@
+{
+  "name": "promptool-server",
+  "private": true,
+  "type": "module"
+}
