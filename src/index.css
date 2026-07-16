@@ -765,33 +765,27 @@ html {
   }
 }
 
-/* ── Landing: gradientes animados y fondos ─────────────────────────────── */
-@keyframes gradient-x {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+/* ── Landing: fondos y detalles de marca ───────────────────────────────── */
+/* Cursor de bloque estilo terminal para el titular */
+@keyframes type-cursor-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
 }
 
-.animate-gradient-x {
-  background-size: 200% 100%;
-  animation: gradient-x 5s ease infinite;
+.type-cursor {
+  display: inline-block;
+  width: 0.5em;
+  height: 1em;
+  margin-left: 0.06em;
+  vertical-align: baseline;
+  transform: translateY(0.12em);
+  animation: type-cursor-blink 0.9s step-end infinite;
 }
 
-.text-gradient-animate {
-  background-image: linear-gradient(90deg, #06b6d4, #8b5cf6, #0ea5e9, #06b6d4);
-  background-size: 300% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: gradient-x 7s linear infinite;
-}
-
-.text-gradient-violet {
-  background-image: linear-gradient(90deg, #8b5cf6, #6366f1, #a855f7, #8b5cf6);
-  background-size: 300% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: gradient-x 7s linear infinite;
+/* Subrayado marcador que se dibuja solo (SVG dentro del h1) */
+.draw-underline path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
 }
 
 .landing-grid-bg {

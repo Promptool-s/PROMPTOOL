@@ -155,7 +155,13 @@ const copy = {
 const reducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
-// Fondo animado del hero: orbes de gradiente + partículas flotantes (anime.js)
+// Fondo del hero: grilla + chips de palabras de prompt que flotan a la deriva (anime.js).
+// Las palabras son las que un jugador escribiría en un prompt real — fondo temático, no decorativo.
+const PROMPT_TOKENS = [
+  'cinematic light', '35mm film', 'ultra detailed', 'golden hour',
+  'isometric', 'watercolor', 'neon noir', 'bokeh', 'low poly', 'volumetric fog',
+]
+
 const HeroBackground = ({ isMobile }) => {
   const rootRef = useRef(null)
 
@@ -164,13 +170,14 @@ const HeroBackground = ({ isMobile }) => {
     const root = rootRef.current
     if (!root) return
     const anims = []
-    root.querySelectorAll('.hero-orb').forEach((orb, i) => {
+    root.querySelectorAll('.hero-token').forEach(chip => {
       anims.push(anime({
-        targets: orb,
-        translateX: [{ value: -30 + i * 22 }, { value: 45 - i * 28 }],
-        translateY: [{ value: 28 - i * 18 }, { value: -40 + i * 14 }],
-        scale: [{ value: 1.18 }, { value: 0.88 }],
-        duration: 9000 + i * 2600,
+        targets: chip,
+        translateY: () => anime.random(-46, 46),
+        translateX: () => anime.random(-34, 34),
+        rotate: () => anime.random(-6, 6),
+        opacity: [{ value: 0.9 }, { value: 0.35 }],
+        duration: () => anime.random(6000, 12000),
         direction: 'alternate',
         loop: true,
         easing: 'easeInOutSine',
@@ -181,7 +188,7 @@ const HeroBackground = ({ isMobile }) => {
         targets: dot,
         translateY: () => anime.random(-70, 70),
         translateX: () => anime.random(-50, 50),
-        opacity: [{ value: 0.85 }, { value: 0.15 }],
+        opacity: [{ value: 0.8 }, { value: 0.15 }],
         scale: () => anime.random(6, 15) / 10,
         duration: () => anime.random(4000, 9000),
         direction: 'alternate',
@@ -192,13 +199,27 @@ const HeroBackground = ({ isMobile }) => {
     return () => anims.forEach(a => a.pause())
   }, [])
 
-  const dotCount = isMobile ? 8 : 18
+  const tokens = isMobile ? PROMPT_TOKENS.slice(0, 5) : PROMPT_TOKENS
+  const dotCount = isMobile ? 6 : 14
+  // Posiciones fijas en los bordes para no pisar el contenido central
+  const spots = [
+    { left: '4%', top: '12%' }, { left: '86%', top: '8%' }, { left: '73%', top: '30%' },
+    { left: '6%', top: '58%' }, { left: '88%', top: '55%' }, { left: '15%', top: '32%' },
+    { left: '60%', top: '6%' }, { left: '80%', top: '78%' }, { left: '10%', top: '84%' },
+    { left: '45%', top: '90%' },
+  ]
   return (
     <div ref={rootRef} className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
       <div className="landing-grid-bg absolute inset-0" />
-      <div className="hero-orb absolute -top-24 -left-24 h-96 w-96 rounded-full bg-cyan-400/25 blur-3xl" />
-      <div className="hero-orb absolute top-1/3 -right-32 h-[28rem] w-[28rem] rounded-full bg-violet-400/20 blur-3xl" />
-      <div className="hero-orb absolute -bottom-32 left-1/3 h-80 w-80 rounded-full bg-sky-400/20 blur-3xl" />
+      {tokens.map((t, i) => (
+        <span
+          key={t}
+          className="hero-token absolute rounded-md border border-slate-300/70 bg-white/70 px-2 py-1 font-mono text-[10px] text-slate-400 shadow-sm backdrop-blur-[2px] lg:text-xs"
+          style={{ ...spots[i % spots.length], opacity: 0.55 }}
+        >
+          {t}
+        </span>
+      ))}
       {Array.from({ length: dotCount }).map((_, i) => (
         <span
           key={i}
@@ -824,6 +845,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
   // Con reduced-motion los elementos del hero arrancan visibles; si no, ocultos hasta que anime los revela
   const rm = useMemo(() => reducedMotion(), [])
   const heroHidden = rm ? undefined : { opacity: 0 }
+  const typeRef = useRef(null)
 
   useEffect(() => {
     if (rm) return
@@ -842,8 +864,21 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
       duration: 750,
       delay: anime.stagger(110),
     }, '-=650')
-    return () => tl.pause()
-  }, [rm])
+
+    // La segunda línea del titular se "tipea" como un prompt
+    const text = copy[lang].h1b
+    let idx = 0
+    let interval
+    const timeout = setTimeout(() => {
+      interval = setInterval(() => {
+        idx++
+        if (typeRef.current) typeRef.current.textContent = text.slice(0, idx)
+        if (idx >= text.length) clearInterval(interval)
+      }, 65)
+    }, 850)
+
+    return () => { tl.pause(); clearTimeout(timeout); clearInterval(interval) }
+  }, [rm, lang])
 
   useEffect(() => {
     const handler = () => setIsMobile(window.innerWidth < 768)
@@ -997,7 +1032,10 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                     {c.h1a.split(' ').map((w, i) => (
                       <span key={i} className="hero-word inline-block" style={heroHidden}>{w}&nbsp;</span>
                     ))}
-                    <span className="hero-word inline-block text-gradient-animate" style={heroHidden}>{c.h1b}</span>
+                    <span className="block text-cyan-500" aria-label={c.h1b}>
+                      <span ref={typeRef} aria-hidden="true">{rm ? c.h1b : ''}</span>
+                      {!rm && <span className="type-cursor bg-cyan-500" aria-hidden="true" />}
+                    </span>
                   </h1>
                   <p data-hero-fade style={heroHidden} className={`max-w-md text-base lg:text-lg leading-relaxed ${muted}`}>{c.sub}</p>
                 </div>
@@ -1017,26 +1055,30 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                   <button
                     type="button"
                     onClick={onEnterprise}
-                    className="group relative block w-full max-w-md overflow-hidden rounded-2xl bg-gradient-to-r from-violet-600 via-indigo-500 to-violet-600 p-[1.5px] text-left shadow-md shadow-violet-500/10 transition-all duration-300 animate-gradient-x hover:-translate-y-1 hover:shadow-xl hover:shadow-violet-500/30"
+                    className="group relative block w-full max-w-md overflow-hidden rounded-2xl bg-violet-600 text-left shadow-lg shadow-violet-600/25 transition-all duration-300 hover:-translate-y-1 hover:bg-violet-700 hover:shadow-xl hover:shadow-violet-600/35"
                   >
-                    <span className={`flex items-center gap-4 rounded-[14px] px-5 py-3.5 ${dark ? 'bg-slate-900/95' : 'bg-white/95'} backdrop-blur`}>
-                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-lg shadow-violet-500/30 transition-transform duration-300 group-hover:scale-110">
+                    {/* Silueta de skyline: mismo motivo que la landing enterprise */}
+                    <svg className="pointer-events-none absolute bottom-0 right-0 h-full w-40 text-white/10" viewBox="0 0 160 80" preserveAspectRatio="xMaxYMax slice" aria-hidden="true">
+                      <path fill="currentColor" d="M0 80V46h14v-12h12v12h8V28h16v52h6V38h18v42h6V20h20v60h6V50h16v30h8V34h14v46h16V80z" />
+                    </svg>
+                    <span className="relative flex items-center gap-4 px-5 py-4">
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white transition-transform duration-300 group-hover:scale-110">
                         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                         </svg>
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className={`flex items-center gap-2 text-sm font-bold ${dark ? 'text-white' : 'text-slate-900'}`}>
+                        <span className="flex items-center gap-2 text-sm font-bold text-white">
                           {lang === 'en' ? 'PrompTool for Business' : 'PrompTool para Empresas'}
-                          <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-600">
+                          <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-700">
                             {lang === 'en' ? 'Free beta' : 'Beta gratis'}
                           </span>
                         </span>
-                        <span className={`block text-xs ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
+                        <span className="block text-xs text-violet-200">
                           {lang === 'en' ? 'Train your team in AI · Dashboard & analytics' : 'Entrená a tu equipo en IA · Panel y analytics'}
                         </span>
                       </span>
-                      <svg className="h-5 w-5 shrink-0 text-violet-500 transition-transform duration-300 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <svg className="h-5 w-5 shrink-0 text-white transition-transform duration-300 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                       </svg>
                     </span>
@@ -1327,7 +1369,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                 {c.ctaSignup}
               </button>
               <button type="button" onClick={onEnterprise}
-                className="group inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-violet-500/30 transition-all duration-300 hover:shadow-xl hover:shadow-violet-500/40 hover:-translate-y-0.5">
+                className="group inline-flex items-center justify-center gap-2 rounded-lg bg-violet-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-violet-600/25 transition-all duration-300 hover:bg-violet-700 hover:shadow-xl hover:shadow-violet-600/35 hover:-translate-y-0.5">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>

@@ -311,6 +311,9 @@ const PLANS = [
   },
 ]
 
+// Funciones visibles por plan en móvil antes del "ver más"
+const MOBILE_FEATURES = 4
+
 const CUSTOM_FEATURES = [
   { key: 'customChallenges', label: 'Desafíos personalizados' },
   { key: 'guidesAssignable', label: 'Guías asignables' },
@@ -341,6 +344,9 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
     isMobile || tall
       ? { minHeight: '100svh', scrollSnapAlign: 'start' }
       : { height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }
+
+  // En móvil cada plan muestra solo las primeras funciones; el resto se expande a demanda
+  const [expandedPlan, setExpandedPlan] = useState(null)
 
   // Custom plan state
   const [members, setMembers] = useState(25)
@@ -373,12 +379,18 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
       delay: anime.stagger(60),
     }, 250)
     tl.add({
+      targets: '.draw-underline path',
+      strokeDashoffset: [1, 0],
+      duration: 700,
+      easing: 'easeInOutQuad',
+    }, '-=250')
+    tl.add({
       targets: '[data-hero-fade]',
       translateY: [26, 0],
       opacity: [0, 1],
       duration: 750,
       delay: anime.stagger(110),
-    }, '-=650')
+    }, '-=750')
     return () => tl.pause()
   }, [rm])
 
@@ -609,7 +621,7 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
                 dark ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400' : 'border-emerald-200 bg-emerald-50 text-emerald-700'
               }`}>
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
-                Gratis durante la beta — hasta el 20 de junio de 2026
+                Gratis durante la beta — hasta el 1 de septiembre de 2026
               </div>
               <span className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold ${
                 dark ? 'border-violet-500/40 bg-violet-500/10 text-violet-400' : 'border-violet-200 bg-violet-50 text-violet-600'
@@ -625,7 +637,18 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
               {'Tu equipo necesita hablar'.split(' ').map((w, i) => (
                 <span key={i} className="ent-word inline-block" style={heroHidden}>{w}&nbsp;</span>
               ))}
-              <span className="ent-word inline-block text-gradient-violet" style={heroHidden}>el nuevo idioma del mundo tech</span>
+              <span className="relative inline-block">
+                <span className="ent-word inline-block text-violet-500" style={heroHidden}>el nuevo idioma del mundo tech</span>
+                {/* Subrayado marcador que se dibuja solo al entrar */}
+                <svg
+                  className={`pointer-events-none absolute -bottom-1.5 left-0 h-2.5 w-full sm:-bottom-2.5 sm:h-3.5 ${rm ? '' : 'draw-underline'}`}
+                  viewBox="0 0 300 12"
+                  preserveAspectRatio="none"
+                  aria-hidden="true"
+                >
+                  <path d="M4 9 C 60 3, 150 11, 296 5" pathLength="1" fill="none" stroke="#8b5cf6" strokeWidth="5" strokeLinecap="round" opacity="0.8" />
+                </svg>
+              </span>
             </h1>
 
             <p data-hero-fade style={heroHidden} className={`max-w-2xl mx-auto text-base sm:text-lg leading-relaxed ${muted}`}>
@@ -636,7 +659,7 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
               <button
                 type="button"
                 onClick={onOpenAuth}
-                className="group inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-3 sm:px-8 sm:py-3.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/30 transition-all duration-300 hover:shadow-xl hover:shadow-violet-500/40 hover:-translate-y-0.5"
+                className="group inline-flex items-center justify-center gap-2 rounded-lg bg-violet-600 px-6 py-3 sm:px-8 sm:py-3.5 text-sm font-semibold text-white shadow-lg shadow-violet-600/25 transition-all duration-300 hover:bg-violet-700 hover:shadow-xl hover:shadow-violet-600/35 hover:-translate-y-0.5"
               >
                 Empezar gratis
                 <svg className="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -703,7 +726,7 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
               ].map(({ icon, title, desc }, i) => (
                 <Reveal key={title} delay={i * 60} className="h-full">
                   <div className={`group rounded-2xl border p-5 sm:p-6 h-full card-lift ${card} ${dark ? 'hover:border-violet-500/50' : 'hover:border-violet-300'}`}>
-                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-110 ${dark ? 'bg-gradient-to-br from-violet-500/25 to-indigo-500/15' : 'bg-gradient-to-br from-violet-100 to-indigo-100'}`}>
+                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-110 ${dark ? 'bg-violet-500/15' : 'bg-violet-100'}`}>
                       <FeatureIcon type={icon} dark={dark} />
                     </div>
                     <p className="font-semibold mb-2">{title}</p>
@@ -931,7 +954,7 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
                     dark ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400' : 'border-emerald-200 bg-emerald-50 text-emerald-700'
                   }`}>
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500 animate-pulse inline-block" />
-                    <span>Gratis hasta el 20 de junio de 2026 — Estamos en beta</span>
+                    <span>Gratis hasta el 1 de septiembre de 2026 — Estamos en beta</span>
                   </div>
                 </div>
                 <p className={`text-xs font-semibold uppercase tracking-widest mb-2 ${accentText}`}>Planes</p>
@@ -942,56 +965,95 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
               </div>
             </Reveal>
 
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 pt-1">
-              {PLANS.map((plan, i) => (
-                <Reveal key={plan.name} delay={i * 80} className="h-full">
-                  <div className={`relative rounded-2xl border p-3 sm:p-4 flex flex-col h-full card-lift ${card} ${plan.popular ? 'ring-2 ring-violet-500 shadow-lg shadow-violet-500/15' : ''} ${plan.popular ? 'mt-4 sm:mt-0' : ''}`}>
-                    {plan.popular && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-                        <span className="bg-violet-500 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap shadow-sm">
-                          Más popular
-                        </span>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:gap-4 pt-1">
+              {PLANS.map((plan, i) => {
+                const expanded = expandedPlan === plan.name
+                const hiddenCount = plan.features.length - MOBILE_FEATURES
+                return (
+                  <Reveal
+                    key={plan.name}
+                    delay={i * 80}
+                    className={`h-full ${plan.popular ? 'order-first sm:order-none' : ''} ${plan.name === 'Enterprise' ? 'sm:col-span-2 lg:col-span-1' : ''}`}
+                  >
+                    <div className={`relative rounded-2xl border p-4 sm:p-4 lg:p-5 flex flex-col h-full card-lift ${card} ${plan.popular ? 'ring-2 ring-violet-500 shadow-lg shadow-violet-500/15 mt-4 sm:mt-0' : ''}`}>
+                      {plan.popular && (
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
+                          <span className="bg-violet-500 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap shadow-sm">
+                            Más popular
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="mb-2 flex items-start justify-between gap-2">
+                        <div>
+                          <h3 className="text-base font-bold mb-0.5">{plan.name}</h3>
+                          <span className={`text-xs font-semibold ${accentText}`}>{plan.limit}</span>
+                        </div>
+                        <div className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-center ${dark ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-emerald-200 bg-emerald-50'}`}>
+                          <p className={`text-sm font-black leading-none ${dark ? 'text-emerald-400' : 'text-emerald-600'}`}>Beta</p>
+                          <p className={`text-[9px] mt-0.5 ${subtle}`}>gratis</p>
+                        </div>
                       </div>
-                    )}
 
-                    <div className="mb-2">
-                      <h3 className="text-base font-bold mb-1">{plan.name}</h3>
-                      <p className={`text-xs leading-relaxed mb-1.5 ${muted}`}>{plan.desc}</p>
-                      <span className={`text-xs font-semibold ${accentText}`}>{plan.limit}</span>
+                      {/* La descripción larga solo aporta en pantallas grandes */}
+                      <p className={`hidden sm:block text-xs leading-relaxed mb-2 ${muted}`}>{plan.desc}</p>
+
+                      <ul className="space-y-1.5 mb-2 flex-1">
+                        {plan.features.map((f, fi) => (
+                          <li
+                            key={f}
+                            className={`items-start gap-1.5 ${fi >= MOBILE_FEATURES && !expanded ? 'hidden sm:flex' : 'flex'}`}
+                          >
+                            <svg className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span className={`text-xs ${dark ? 'text-slate-300' : 'text-slate-700'}`}>{f}</span>
+                          </li>
+                        ))}
+                      </ul>
+
+                      {/* Toggle solo en móvil: expandir el resto de las funciones */}
+                      {hiddenCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setExpandedPlan(expanded ? null : plan.name)}
+                          className={`sm:hidden mb-2 self-start text-xs font-semibold ${accentText}`}
+                        >
+                          {expanded ? '− Ver menos' : `+ ${hiddenCount} funciones más`}
+                        </button>
+                      )}
+
+                      {/* En desktop hay lugar: mostramos también lo que NO incluye */}
+                      {plan.excluded.length > 0 && (
+                        <ul className={`hidden lg:block space-y-1 mb-2 border-t pt-2 ${dark ? 'border-slate-700' : 'border-slate-100'}`}>
+                          {plan.excluded.map(f => (
+                            <li key={f} className="flex items-start gap-1.5">
+                              <svg className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${subtle}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                              <span className={`text-xs line-through decoration-1 ${subtle}`}>{f}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={plan.name === 'Enterprise' ? () => window.location.href = 'mailto:soporte@promptool.app' : onOpenAuth}
+                        className={`w-full rounded-lg py-2.5 text-sm font-semibold transition ${
+                          plan.popular
+                            ? 'bg-violet-600 text-white hover:bg-violet-700'
+                            : dark
+                              ? 'border border-slate-700 text-slate-300 hover:bg-slate-700'
+                              : 'border border-slate-300 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        {plan.cta}
+                      </button>
                     </div>
-
-                    <div className={`rounded-xl border p-2.5 text-center mb-2 ${dark ? 'border-slate-700 bg-slate-900' : 'border-slate-100 bg-slate-50'}`}>
-                      <p className="text-base font-black">Beta</p>
-                      <p className={`text-[10px] mt-0.5 ${subtle}`}>Gratis hasta el 20 jun 2026</p>
-                    </div>
-
-                    <ul className="space-y-1 mb-2 flex-1">
-                      {plan.features.map(f => (
-                        <li key={f} className="flex items-start gap-1.5">
-                          <svg className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                          <span className={`text-xs ${dark ? 'text-slate-300' : 'text-slate-700'}`}>{f}</span>
-                        </li>
-                      ))}
-                    </ul>
-
-                    <button
-                      type="button"
-                      onClick={plan.name === 'Enterprise' ? () => window.location.href = 'mailto:soporte@promptool.app' : onOpenAuth}
-                      className={`w-full rounded-lg py-2.5 text-sm font-semibold transition ${
-                        plan.popular
-                          ? 'bg-violet-600 text-white hover:bg-violet-700'
-                          : dark
-                            ? 'border border-slate-700 text-slate-300 hover:bg-slate-700'
-                            : 'border border-slate-300 text-slate-700 hover:bg-slate-100'
-                      }`}
-                    >
-                      {plan.cta}
-                    </button>
-                  </div>
-                </Reveal>
-              ))}
+                  </Reveal>
+                )
+              })}
             </div>
           </div>
         </section>
@@ -1029,18 +1091,18 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
                         className="w-full accent-violet-500 h-2 rounded-lg cursor-pointer"
                       />
                       <div className={`flex justify-between text-xs mt-1.5 ${subtle}`}>
-                        <span>5</span><span>100</span><span>250</span><span>500</span>
+                        <span>5</span><span className="hidden sm:inline">100</span><span>250</span><span>500</span>
                       </div>
                     </div>
 
-                    {/* Feature toggles */}
+                    {/* Feature toggles: 1 columna en pantallas muy chicas, 2 desde 420px */}
                     <div>
                       <p className="font-semibold mb-2 text-sm">Funciones</p>
-                      <div className="grid gap-1.5 sm:gap-2 grid-cols-2">
+                      <div className="grid gap-1.5 sm:gap-2 grid-cols-1 min-[420px]:grid-cols-2">
                         {CUSTOM_FEATURES.map(({ key, label }) => (
                           <label
                             key={key}
-                            className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-2 sm:px-3 sm:py-2.5 cursor-pointer transition select-none ${
+                            className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2.5 cursor-pointer transition select-none ${
                               customFeatures[key]
                                 ? dark ? 'border-violet-500/40 bg-violet-500/10' : 'border-violet-300 bg-violet-50'
                                 : dark ? 'border-slate-700 hover:border-slate-600' : 'border-slate-200 hover:border-slate-300'
@@ -1060,24 +1122,41 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
                   </div>
 
                   {/* Result card */}
-                  <div className={`rounded-xl border p-3 sm:p-4 md:sticky md:top-4 ${dark ? 'border-violet-500/30 bg-violet-500/5' : 'border-violet-200 bg-violet-50'}`}>
+                  <div className={`mt-3 md:mt-0 rounded-xl border p-3 sm:p-4 md:sticky md:top-4 ${dark ? 'border-violet-500/30 bg-violet-500/5' : 'border-violet-200 bg-violet-50'}`}>
                     <p className={`text-xs font-semibold uppercase tracking-widest mb-1.5 ${accentText}`}>Tu plan estimado</p>
                     <p className="text-lg sm:text-xl font-black mb-0.5">{getCustomPlanLabel()}</p>
                     <p className={`text-sm ${muted}`}>{members} miembros · {activeFeatureCount} función{activeFeatureCount !== 1 ? 'es' : ''} activa{activeFeatureCount !== 1 ? 's' : ''}</p>
 
-                    <div className="mt-2.5 mb-1">
-                      <div className={`h-1.5 rounded-full overflow-hidden ${dark ? 'bg-slate-700' : 'bg-violet-200'}`}>
-                        <div
-                          className="h-full bg-violet-500 rounded-full transition-all duration-500"
-                          style={{ width: `${complexityPct}%` }}
-                        />
+                    {/* Barra de complejidad: aporta contexto solo donde hay espacio */}
+                    <div className="hidden sm:block">
+                      <div className="mt-2.5 mb-1">
+                        <div className={`h-1.5 rounded-full overflow-hidden ${dark ? 'bg-slate-700' : 'bg-violet-200'}`}>
+                          <div
+                            className="h-full bg-violet-500 rounded-full transition-all duration-500"
+                            style={{ width: `${complexityPct}%` }}
+                          />
+                        </div>
                       </div>
+                      <p className={`text-xs mb-2.5 ${subtle}`}>Complejidad del plan: {complexityPct}%</p>
                     </div>
-                    <p className={`text-xs mb-2.5 ${subtle}`}>Complejidad del plan: {complexityPct}%</p>
 
-                    <div className={`rounded-lg border p-2 sm:p-2.5 text-center mb-2.5 ${dark ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-emerald-200 bg-emerald-50'}`}>
+                    {/* En desktop: resumen de lo que elegiste, como un ticket */}
+                    {activeFeatureCount > 0 && (
+                      <div className="hidden lg:flex flex-wrap gap-1.5 mt-2 mb-2.5">
+                        {CUSTOM_FEATURES.filter(({ key }) => customFeatures[key]).map(({ key, label }) => (
+                          <span
+                            key={key}
+                            className={`rounded-md px-2 py-1 text-[11px] font-medium ${dark ? 'bg-violet-500/15 text-violet-300' : 'bg-violet-100 text-violet-700'}`}
+                          >
+                            {label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className={`rounded-lg border p-2 sm:p-2.5 text-center mb-2.5 mt-2.5 sm:mt-0 ${dark ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-emerald-200 bg-emerald-50'}`}>
                       <p className="text-lg sm:text-xl font-black text-emerald-600 dark:text-emerald-400">Gratis</p>
-                      <p className={`text-xs mt-0.5 ${subtle}`}>Hasta el 20 de junio de 2026 — Beta</p>
+                      <p className={`text-xs mt-0.5 ${subtle}`}>Hasta el 1 de septiembre de 2026 — Beta</p>
                     </div>
 
                     <button
@@ -1113,7 +1192,7 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
                 dark ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400' : 'border-emerald-200 bg-emerald-50 text-emerald-700'
               }`}>
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
-                Gratis hasta el 20 de junio de 2026
+                Gratis hasta el 1 de septiembre de 2026
               </div>
               <div className="flex flex-wrap gap-3 sm:gap-4 justify-center pt-2">
                 <button

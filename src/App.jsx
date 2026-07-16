@@ -3,7 +3,6 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import Header from './components/Header'
 import Footer from './components/Footer'
 import ImageCard from './components/ImageCard'
-import AdSenseUnit from './components/AdSenseUnit'
 import PromptInput from './components/PromptInput'
 import ResultPanel from './components/ResultPanel'
 import SplashScreen from './components/SplashScreen'
@@ -1589,17 +1588,10 @@ function App() {
         </div>
       )}
 
-      <main className="flex-1 overflow-y-auto overflow-x-hidden py-2 px-2 sm:px-4">
-        <div className="mx-auto flex max-w-screen-2xl gap-3 items-start">
-          {/* Left ad — hidden for company members */}
-          {!userHasCompany && (
-          <aside className="hidden xl:flex shrink-0 flex-col self-start sticky top-4 w-40 h-[calc(100vh-2rem)]">
-            <AdSenseUnit slot={import.meta.env.VITE_ADSENSE_SLOT_LEFT || 'LEFT'} />
-          </aside>
-          )}
-
+      <main className="flex-1 overflow-y-auto overflow-x-hidden py-3 px-2 sm:py-4 sm:px-4">
+        <div className="mx-auto flex max-w-7xl gap-3 items-start">
           {/* Game area */}
-          <div className="flex-1 min-w-0 overflow-hidden rounded-2xl bg-slate-50 dark:bg-slate-900">
+          <div className="flex-1 min-w-0 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
           <div className="grid w-full lg:items-stretch lg:grid-cols-[1.2fr_1fr]">
             <section className="order-2 lg:order-1 flex flex-col justify-center space-y-4 p-4 sm:p-6 lg:p-8">
               <div className="space-y-4">
@@ -1887,7 +1879,7 @@ function App() {
               </div>
             </section>
 
-            <aside className="order-1 lg:order-2 flex flex-col items-stretch justify-start gap-4 p-2 sm:p-4 transition-all duration-500 min-w-0 overflow-hidden">
+            <aside className="order-1 lg:order-2 flex flex-col items-stretch justify-start gap-4 p-2 sm:p-4 transition-all duration-500 min-w-0 overflow-hidden lg:border-l lg:border-slate-100 dark:lg:border-slate-800">
               <div className="w-full max-w-full relative overflow-hidden" style={{ height: 'clamp(200px, 45vw, calc(100vh - 120px))' }}>
                 <ImageCard
                   mode={mode}
@@ -1930,13 +1922,6 @@ function App() {
 
           </div>
           </div>{/* /game area */}
-
-          {/* Right ad — hidden for company members */}
-          {!userHasCompany && (
-          <aside className="hidden xl:flex shrink-0 flex-col self-start sticky top-4 w-40 h-[calc(100vh-2rem)]">
-            <AdSenseUnit slot={import.meta.env.VITE_ADSENSE_SLOT_RIGHT || 'RIGHT'} />
-          </aside>
-          )}
         </div>{/* /flex wrapper */}
       </main>
 

@@ -79,7 +79,7 @@ function buildEnterpriseHtml({ nombre, email }) {
                 <tr>
                   <td>
                     <p style="margin:0 0 2px;color:rgba(255,255,255,0.65);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Tu plan actual</p>
-                    <p style="margin:0;color:#fff;font-size:16px;font-weight:800;">Enterprise — Prueba gratuita hasta el 20 de junio de 2026</p>
+                    <p style="margin:0;color:#fff;font-size:16px;font-weight:800;">Enterprise — Prueba gratuita hasta el 1 de septiembre de 2026</p>
                   </td>
                   <td style="text-align:right;white-space:nowrap;padding-left:16px;">
                     <span style="background:rgba(255,255,255,0.15);border-radius:99px;padding:6px 14px;color:#fff;font-size:13px;font-weight:700;">GRATIS</span>

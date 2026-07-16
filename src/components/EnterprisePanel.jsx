@@ -4008,7 +4008,7 @@ RESPONSE RULES:
 
   const renderSubscription = () => {
     const memberCount = teamUsers.length
-    const BETA_END = new Date('2026-06-20')
+    const BETA_END = new Date('2026-09-01')
     const now = new Date()
     const daysLeft = Math.max(0, Math.ceil((BETA_END - now) / (1000 * 60 * 60 * 24)))
     const betaActive = now < BETA_END
@@ -4055,7 +4055,7 @@ RESPONSE RULES:
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
               <div>
                 <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-                  {lang === 'en' ? 'Beta — Free until June 20, 2026' : 'Beta — Gratis hasta el 20 de junio de 2026'}
+                  {lang === 'en' ? 'Beta — Free until September 1, 2026' : 'Beta — Gratis hasta el 1 de septiembre de 2026'}
                 </p>
                 <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
                   {lang === 'en'
@@ -4160,8 +4160,8 @@ RESPONSE RULES:
           </p>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             {lang === 'en'
-              ? 'Billing will begin after June 20, 2026. Your plan will be determined automatically based on your team size. We\'ll notify you before any charges.'
-              : 'La facturación comenzará después del 20 de junio de 2026. Tu plan se determinará automáticamente según el tamaño de tu equipo. Te avisaremos antes de cualquier cobro.'}
+              ? 'Billing will begin after September 1, 2026. Your plan will be determined automatically based on your team size. We\'ll notify you before any charges.'
+              : 'La facturación comenzará después del 1 de septiembre de 2026. Tu plan se determinará automáticamente según el tamaño de tu equipo. Te avisaremos antes de cualquier cobro.'}
           </p>
           <a
             href="mailto:soporte@promptool.app"
