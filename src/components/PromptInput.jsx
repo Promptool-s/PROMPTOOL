@@ -551,7 +551,7 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
         )}
       </div>
 
-      <div className="flex flex-col gap-2 text-xs font-medium sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+      <div className="flex flex-col gap-2 text-xs font-medium">
         {/* ── Mobile: barra compacta con botón de opciones ── */}
         <div className="flex sm:hidden items-center gap-2">
           {/* Timer siempre visible */}
@@ -588,14 +588,14 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
           </button>
         </div>
 
-        {/* ── Desktop: controles inline (comportamiento original) ── */}
+        {/* ── Desktop: una sola fila de controles que envuelve prolijo ── */}
         <div className="hidden sm:flex flex-wrap items-center gap-2 min-w-0">
         {onModeChange ? (
           <div className="relative group">
             <button
               type="button"
               onClick={onModeChange}
-              className="group/btn inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5 transition hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+              className="group/btn inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 transition hover:border-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"
             >
               <span className="text-slate-400 dark:text-slate-500">{t('mode')}</span>
               <span className="font-semibold text-slate-700 dark:text-slate-300">{mode === 'daily' ? t('daily') : mode === 'challenge' ? (lang === 'en' ? 'Challenge' : 'Desafío') : t('random')}</span>
@@ -640,7 +640,7 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
             </div>
           </div>
         ) : (
-          <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5">
+          <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3">
             <span className="text-slate-400 dark:text-slate-500">{t('mode')}</span>
             <span className="font-semibold text-slate-700 dark:text-slate-300">{mode === 'daily' ? t('daily') : mode === 'challenge' ? (lang === 'en' ? 'Challenge' : 'Desafío') : t('random')}</span>
           </span>
@@ -656,7 +656,7 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
                 const next = diffs[(current + 1) % diffs.length]
                 onDifficultyChange(next)
               }}
-              className="group/btn inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5 transition hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+              className="group/btn inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 transition hover:border-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"
             >
               <span className="text-slate-400 dark:text-slate-500">{t('difficulty')}</span>
               <span className={`font-semibold transition ${
@@ -705,7 +705,7 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
           </div>
         ) : (
           <div className="relative group">
-            <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5 cursor-default">
+            <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 cursor-default">
               <span className="text-slate-400 dark:text-slate-500">{t('difficulty')}</span>
               <span className={`font-semibold ${
                 normalizeDifficulty(difficulty) === 'easy' ? 'text-emerald-600 dark:text-emerald-500' :
@@ -738,69 +738,15 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
           </div>
         )}
 
-        <div className="relative group">
-          <span className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 cursor-default ${timeBadgeClass}`}>
-            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span className="font-semibold">{formatTime(remainingSeconds)}</span>
-            {attemptNumber > 1 && (
-              <span className="opacity-60 text-[10px] font-bold">
-                #{attemptNumber}
-              </span>
-            )}
-          </span>
-          <div className="pointer-events-none absolute bottom-full left-0 mb-2 hidden group-hover:block z-50 w-72">
-            <div className="rounded-xl bg-slate-900 px-3 py-2.5 text-xs text-white shadow-xl space-y-1.5">
-              <p className="font-semibold text-sky-300">{lang === 'en' ? 'Recommended time' : 'Tiempo recomendado'}</p>
-              <p className="text-slate-300 leading-relaxed">
-                {lang === 'en'
-                  ? `You have ${formatTime(estimatedSeconds)} to write your prompt. Going over starts a grace period, then a score penalty kicks in.`
-                  : `Tenés ${formatTime(estimatedSeconds)} para escribir tu prompt. Si te pasás, hay un período de gracia y luego se aplica una penalización al score.`}
-              </p>
-              {attemptNumber > 1 && (
-                <p className="text-cyan-400 font-medium">
-                  {lang === 'en'
-                    ? `Attempt ${attemptNumber}/5 — time decreases progressively to add pressure.`
-                    : `Intento ${attemptNumber}/5 — el tiempo baja progresivamente para agregar presión.`}
-                </p>
-              )}
-              {overtimeSeconds > 0 && penaltyOvertimeSeconds === 0 && (
-                <p className="text-amber-400 font-medium">
-                  {lang === 'en'
-                    ? `Grace period: ${formatTime(timerConfig.graceSeconds - overtimeSeconds)} left before penalty.`
-                    : `Período de gracia: ${formatTime(timerConfig.graceSeconds - overtimeSeconds)} antes de penalización.`}
-                </p>
-              )}
-              {penaltyOvertimeSeconds > 0 && (
-                <p className="text-rose-400 font-medium">
-                  {lang === 'en'
-                    ? `Penalty active — ${formatTime(penaltyOvertimeSeconds)} over limit.`
-                    : `Penalización activa — ${formatTime(penaltyOvertimeSeconds)} sobre el límite.`}
-                </p>
-              )}
-              <p className="text-slate-400">
-                {lang === 'en'
-                  ? 'Time adapts to your history as you play more.'
-                  : 'El tiempo se adapta a tu historial a medida que jugás más.'}
-              </p>
-            </div>
-            <div className="ml-3 h-2 w-2 rotate-45 bg-slate-900 -mt-1" />
-          </div>
-        </div>
-
-        </div>
-        {(onToggleRanked || onNewRandom || mode === 'daily') && (
-        <div className="hidden sm:flex flex-wrap items-center gap-2 sm:shrink-0">
         {onToggleRanked && (
           <div className="relative group">
             <button
               type="button"
               onClick={() => onToggleRanked(!isRanked)}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition ${
+              className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 transition ${
                 isRanked
-                  ? 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'
+                  ? 'border-cyan-200 dark:border-cyan-800 bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400'
+                  : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 hover:border-slate-300'
               }`}
             >
               <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -847,7 +793,7 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
             {mode === 'daily' ? (
               /* ── Locked state (daily mode) ── */
               <span
-                className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 px-3 py-1.5 cursor-not-allowed select-none opacity-60"
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 px-3 cursor-not-allowed select-none opacity-60"
                 aria-disabled="true"
               >
                 <span className="font-semibold text-slate-400 dark:text-slate-500 text-xs">
@@ -863,7 +809,7 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
               <button
                 type="button"
                 onClick={onNewRandom}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5 text-slate-500 dark:text-slate-400 transition hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-300"
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 text-slate-500 dark:text-slate-400 transition hover:border-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-300"
               >
                 <span className="font-semibold text-slate-700 dark:text-slate-300 text-xs">
                   {lang === 'en' ? 'New image' : 'Nueva imagen'}
@@ -875,7 +821,7 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
             )}
 
             {/* Tooltip */}
-            <div className="pointer-events-none absolute bottom-full right-0 mb-2 hidden group-hover/newimg:block z-50 w-64">
+            <div className="pointer-events-none absolute bottom-full left-0 mb-2 hidden group-hover/newimg:block z-50 w-64">
               <div className="rounded-xl bg-slate-900 dark:bg-slate-950 border border-slate-700 px-3.5 py-3 text-xs text-white shadow-xl space-y-1.5">
                 {mode === 'daily' ? (
                   <>
@@ -906,21 +852,64 @@ const PromptInput = ({ promptUsuario, setPromptUsuario, onSubmit, isLoading, dis
                   </p>
                 )}
               </div>
-              <div className="mr-3 h-2 w-2 rotate-45 bg-slate-900 dark:bg-slate-950 border-r border-b border-slate-700 -mt-1 ml-auto" />
+              <div className="ml-3 h-2 w-2 rotate-45 bg-slate-900 dark:bg-slate-950 -mt-1" />
             </div>
           </div>
         )}
-        </div>
-        )}
-      </div>
 
-      <div className="hidden sm:flex items-start gap-2 rounded-lg border border-amber-100 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-900/20 px-3 py-2">
-        <svg className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-        </svg>
-        <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-snug">
-          {t('promptRecommendation')}
-        </p>
+        {/* Timer — siempre al final de la fila, alineado a la derecha */}
+        <div className="relative group ml-auto">
+          <span className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-3 cursor-default ${timeBadgeClass}`}>
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="font-bold tabular-nums">{formatTime(remainingSeconds)}</span>
+            {attemptNumber > 1 && (
+              <span className="opacity-60 text-[10px] font-bold">
+                #{attemptNumber}
+              </span>
+            )}
+          </span>
+          <div className="pointer-events-none absolute bottom-full right-0 mb-2 hidden group-hover:block z-50 w-72">
+            <div className="rounded-xl bg-slate-900 px-3 py-2.5 text-xs text-white shadow-xl space-y-1.5">
+              <p className="font-semibold text-sky-300">{lang === 'en' ? 'Recommended time' : 'Tiempo recomendado'}</p>
+              <p className="text-slate-300 leading-relaxed">
+                {lang === 'en'
+                  ? `You have ${formatTime(estimatedSeconds)} to write your prompt. Going over starts a grace period, then a score penalty kicks in.`
+                  : `Tenés ${formatTime(estimatedSeconds)} para escribir tu prompt. Si te pasás, hay un período de gracia y luego se aplica una penalización al score.`}
+              </p>
+              {attemptNumber > 1 && (
+                <p className="text-cyan-400 font-medium">
+                  {lang === 'en'
+                    ? `Attempt ${attemptNumber}/5 — time decreases progressively to add pressure.`
+                    : `Intento ${attemptNumber}/5 — el tiempo baja progresivamente para agregar presión.`}
+                </p>
+              )}
+              {overtimeSeconds > 0 && penaltyOvertimeSeconds === 0 && (
+                <p className="text-amber-400 font-medium">
+                  {lang === 'en'
+                    ? `Grace period: ${formatTime(timerConfig.graceSeconds - overtimeSeconds)} left before penalty.`
+                    : `Período de gracia: ${formatTime(timerConfig.graceSeconds - overtimeSeconds)} antes de penalización.`}
+                </p>
+              )}
+              {penaltyOvertimeSeconds > 0 && (
+                <p className="text-rose-400 font-medium">
+                  {lang === 'en'
+                    ? `Penalty active — ${formatTime(penaltyOvertimeSeconds)} over limit.`
+                    : `Penalización activa — ${formatTime(penaltyOvertimeSeconds)} sobre el límite.`}
+                </p>
+              )}
+              <p className="text-slate-400">
+                {lang === 'en'
+                  ? 'Time adapts to your history as you play more.'
+                  : 'El tiempo se adapta a tu historial a medida que jugás más.'}
+              </p>
+            </div>
+            <div className="mr-3 ml-auto h-2 w-2 rotate-45 bg-slate-900 -mt-1" />
+          </div>
+        </div>
+
+        </div>
       </div>
 
       {overtimeSeconds > 0 && penaltyOvertimeSeconds === 0 && (
