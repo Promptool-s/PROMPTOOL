@@ -1,4 +1,5 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
+import anime from 'animejs'
 import { supabase } from '../supabaseClient'
 import { useTheme } from '../contexts/ThemeContext'
 import { proxyImg } from '../utils/imgProxy'
@@ -148,6 +149,88 @@ const copy = {
     community: 'Community',
     noSlides: 'The best community plays will appear here.',
   }
+}
+
+// ── Motion helpers ─────────────────────────────────────────────────────────
+const reducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
+// Fondo animado del hero: orbes de gradiente + partículas flotantes (anime.js)
+const HeroBackground = ({ isMobile }) => {
+  const rootRef = useRef(null)
+
+  useEffect(() => {
+    if (reducedMotion()) return
+    const root = rootRef.current
+    if (!root) return
+    const anims = []
+    root.querySelectorAll('.hero-orb').forEach((orb, i) => {
+      anims.push(anime({
+        targets: orb,
+        translateX: [{ value: -30 + i * 22 }, { value: 45 - i * 28 }],
+        translateY: [{ value: 28 - i * 18 }, { value: -40 + i * 14 }],
+        scale: [{ value: 1.18 }, { value: 0.88 }],
+        duration: 9000 + i * 2600,
+        direction: 'alternate',
+        loop: true,
+        easing: 'easeInOutSine',
+      }))
+    })
+    root.querySelectorAll('.hero-dot').forEach(dot => {
+      anims.push(anime({
+        targets: dot,
+        translateY: () => anime.random(-70, 70),
+        translateX: () => anime.random(-50, 50),
+        opacity: [{ value: 0.85 }, { value: 0.15 }],
+        scale: () => anime.random(6, 15) / 10,
+        duration: () => anime.random(4000, 9000),
+        direction: 'alternate',
+        loop: true,
+        easing: 'easeInOutQuad',
+      }))
+    })
+    return () => anims.forEach(a => a.pause())
+  }, [])
+
+  const dotCount = isMobile ? 8 : 18
+  return (
+    <div ref={rootRef} className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+      <div className="landing-grid-bg absolute inset-0" />
+      <div className="hero-orb absolute -top-24 -left-24 h-96 w-96 rounded-full bg-cyan-400/25 blur-3xl" />
+      <div className="hero-orb absolute top-1/3 -right-32 h-[28rem] w-[28rem] rounded-full bg-violet-400/20 blur-3xl" />
+      <div className="hero-orb absolute -bottom-32 left-1/3 h-80 w-80 rounded-full bg-sky-400/20 blur-3xl" />
+      {Array.from({ length: dotCount }).map((_, i) => (
+        <span
+          key={i}
+          className="hero-dot absolute h-1.5 w-1.5 rounded-full bg-cyan-500/50"
+          style={{ left: `${(i * 53 + 7) % 100}%`, top: `${(i * 37 + 11) % 100}%` }}
+        />
+      ))}
+    </div>
+  )
+}
+
+// Contador animado para valores tipo '74%', '12d', '#38'
+const CountUpValue = ({ value, start }) => {
+  const ref = useRef(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!start || !el) return
+    const m = String(value).match(/^([^0-9]*)(\d+)(.*)$/)
+    if (!m || reducedMotion()) { el.textContent = value; return }
+    const [, pre, num, post] = m
+    const obj = { v: 0 }
+    const a = anime({
+      targets: obj,
+      v: Number(num),
+      round: 1,
+      duration: 1400,
+      easing: 'easeOutExpo',
+      update: () => { if (ref.current) ref.current.textContent = `${pre}${obj.v}${post}` },
+    })
+    return () => a.pause()
+  }, [start, value])
+  return <span ref={ref}>{value}</span>
 }
 
 // ── Scroll reveal hook ─────────────────────────────────────────────────────
@@ -347,7 +430,7 @@ const AnimatedStats = ({ stats, dark }) => {
           title={stat.desc}
         >
           <p className={`text-3xl font-bold ${stat.color} transition-transform duration-300 group-hover:scale-110`}>
-            {stat.value}
+            <CountUpValue value={stat.value} start={isVisible} />
           </p>
           <p className={`text-sm mt-2 ${subtle}`}>{stat.label}</p>
           
@@ -738,6 +821,30 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
 
   const TOTAL_SECTIONS = 9
 
+  // Con reduced-motion los elementos del hero arrancan visibles; si no, ocultos hasta que anime los revela
+  const rm = useMemo(() => reducedMotion(), [])
+  const heroHidden = rm ? undefined : { opacity: 0 }
+
+  useEffect(() => {
+    if (rm) return
+    const tl = anime.timeline({ easing: 'easeOutExpo' })
+    tl.add({
+      targets: '.hero-word',
+      translateY: [50, 0],
+      opacity: [0, 1],
+      duration: 950,
+      delay: anime.stagger(80),
+    })
+    tl.add({
+      targets: '[data-hero-fade]',
+      translateY: [26, 0],
+      opacity: [0, 1],
+      duration: 750,
+      delay: anime.stagger(110),
+    }, '-=650')
+    return () => tl.pause()
+  }, [rm])
+
   useEffect(() => {
     const handler = () => setIsMobile(window.innerWidth < 768)
     window.addEventListener('resize', handler)
@@ -875,51 +982,68 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
         {/* ── HERO ── */}
         <section style={isMobile ? { minHeight: '100svh', scrollSnapAlign: 'start' } : { height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }}
           className="relative flex items-center px-6 py-14 lg:py-20 lg:px-8">
-          <div className="mx-auto w-full max-w-6xl">
+          <HeroBackground isMobile={isMobile} />
+          <div className="relative z-10 mx-auto w-full max-w-6xl">
             <div className="grid items-center gap-10 lg:gap-16 lg:grid-cols-2">
               <div className="space-y-6 lg:space-y-8">
                 <div className="space-y-4 lg:space-y-6">
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2" data-hero-fade style={heroHidden}>
                     <span className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold ${dark ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-400' : 'border-cyan-200 bg-cyan-50 text-cyan-600'}`}>
+                      <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse" />
                       {c.badge}
                     </span>
                   </div>
                   <h1 className="text-4xl font-black leading-tight tracking-tight sm:text-5xl lg:text-7xl">
-                    {c.h1a}{' '}<span className="text-cyan-500">{c.h1b}</span>
+                    {c.h1a.split(' ').map((w, i) => (
+                      <span key={i} className="hero-word inline-block" style={heroHidden}>{w}&nbsp;</span>
+                    ))}
+                    <span className="hero-word inline-block text-gradient-animate" style={heroHidden}>{c.h1b}</span>
                   </h1>
-                  <p className={`max-w-md text-base lg:text-lg leading-relaxed ${muted}`}>{c.sub}</p>
+                  <p data-hero-fade style={heroHidden} className={`max-w-md text-base lg:text-lg leading-relaxed ${muted}`}>{c.sub}</p>
                 </div>
-                <div className="flex flex-wrap gap-3 lg:gap-4">
-                  <button type="button" onClick={onTryApp} className="inline-flex items-center justify-center rounded-lg bg-cyan-600 px-8 py-3.5 text-sm font-semibold text-white hover:bg-cyan-700 transition">
+                <div className="flex flex-wrap gap-3 lg:gap-4" data-hero-fade style={heroHidden}>
+                  <button type="button" onClick={onTryApp} className="group inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-600 px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-cyan-500/30 transition-all duration-300 hover:bg-cyan-500 hover:shadow-xl hover:shadow-cyan-500/40 hover:-translate-y-0.5">
                     {c.cta1}
+                    <svg className="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5-5 5M6 12h12" />
+                    </svg>
                   </button>
-                  <button type="button" onClick={onOpenAuth} className={`inline-flex items-center justify-center rounded-lg border px-8 py-3.5 text-sm font-semibold transition ${dark ? 'border-slate-700 text-white hover:bg-slate-800' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`}>
+                  <button type="button" onClick={onOpenAuth} className={`inline-flex items-center justify-center rounded-lg border px-8 py-3.5 text-sm font-semibold transition-all duration-300 hover:-translate-y-0.5 ${dark ? 'border-slate-700 text-white hover:bg-slate-800' : 'border-slate-300 bg-white/70 text-slate-700 backdrop-blur hover:bg-slate-100'}`}>
                     {c.cta2}
                   </button>
                 </div>
-                <div className={`flex items-center gap-3 pt-1`}>
-                  <div className={`h-px flex-1 max-w-[4rem] ${dark ? 'bg-slate-700' : 'bg-slate-200'}`} />
+                {/* Acceso destacado para empresas */}
+                <div data-hero-fade style={heroHidden}>
                   <button
                     type="button"
                     onClick={onEnterprise}
-                    className={`group inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold transition-all ${
-                      dark
-                        ? 'border-slate-700 bg-slate-800/60 text-slate-400 hover:border-violet-500/50 hover:bg-violet-950/40 hover:text-violet-300'
-                        : 'border-slate-200 bg-white text-slate-500 hover:border-violet-200 hover:bg-violet-50 hover:text-violet-600'
-                    }`}
+                    className="group relative block w-full max-w-md overflow-hidden rounded-2xl bg-gradient-to-r from-violet-600 via-indigo-500 to-violet-600 p-[1.5px] text-left shadow-md shadow-violet-500/10 transition-all duration-300 animate-gradient-x hover:-translate-y-1 hover:shadow-xl hover:shadow-violet-500/30"
                   >
-                    <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                    </svg>
-                    {lang === 'en' ? 'For companies & teams' : 'Para empresas y equipos'}
-                    <svg className="h-3 w-3 shrink-0 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
+                    <span className={`flex items-center gap-4 rounded-[14px] px-5 py-3.5 ${dark ? 'bg-slate-900/95' : 'bg-white/95'} backdrop-blur`}>
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-lg shadow-violet-500/30 transition-transform duration-300 group-hover:scale-110">
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className={`flex items-center gap-2 text-sm font-bold ${dark ? 'text-white' : 'text-slate-900'}`}>
+                          {lang === 'en' ? 'PrompTool for Business' : 'PrompTool para Empresas'}
+                          <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-600">
+                            {lang === 'en' ? 'Free beta' : 'Beta gratis'}
+                          </span>
+                        </span>
+                        <span className={`block text-xs ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
+                          {lang === 'en' ? 'Train your team in AI · Dashboard & analytics' : 'Entrená a tu equipo en IA · Panel y analytics'}
+                        </span>
+                      </span>
+                      <svg className="h-5 w-5 shrink-0 text-violet-500 transition-transform duration-300 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </span>
                   </button>
-                  <div className={`h-px flex-1 ${dark ? 'bg-slate-700' : 'bg-slate-200'}`} />
                 </div>
               </div>
-              <div className={`hidden lg:block relative overflow-hidden rounded-2xl border p-6 lg:h-[520px] ${card}`}>
+              <div data-hero-fade style={heroHidden} className={`hidden lg:block relative overflow-hidden rounded-2xl border p-6 lg:h-[520px] shadow-xl shadow-slate-200/60 ${card}`}>
                 <div className="relative h-full">
                   <CommunitySlideshow dark={dark} lang={lang} />
                 </div>
@@ -944,12 +1068,16 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
         <section style={isMobile ? { minHeight: '100svh', scrollSnapAlign: 'start' } : { height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }}
           className="flex items-center px-6 py-12 lg:py-16 lg:px-8">
           <div className="mx-auto w-full max-w-6xl">
-            <div className="text-center mb-8 lg:mb-12">
-              <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.howTag}</p>
-              <h2 className="text-3xl lg:text-4xl font-bold mb-3">{c.howTitle}</h2>
-              <p className={`text-base lg:text-lg leading-relaxed max-w-2xl mx-auto ${muted}`}>{c.howDesc}</p>
-            </div>
-            <InteractiveDemo dark={dark} lang={lang} />
+            <Reveal>
+              <div className="text-center mb-8 lg:mb-12">
+                <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.howTag}</p>
+                <h2 className="text-3xl lg:text-4xl font-bold mb-3">{c.howTitle}</h2>
+                <p className={`text-base lg:text-lg leading-relaxed max-w-2xl mx-auto ${muted}`}>{c.howDesc}</p>
+              </div>
+            </Reveal>
+            <Reveal delay={150}>
+              <InteractiveDemo dark={dark} lang={lang} />
+            </Reveal>
           </div>
         </section>
 
@@ -957,7 +1085,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
         <section style={isMobile ? { minHeight: '100svh', scrollSnapAlign: 'start' } : { height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }}
           className="flex items-center px-6 py-12 lg:py-20 lg:px-8">
           <div className="mx-auto w-full max-w-6xl grid gap-10 lg:gap-20 lg:grid-cols-2 items-center">
-            <div>
+            <Reveal>
               <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.progressTag}</p>
               <h2 className="text-3xl lg:text-4xl font-bold mb-4">{c.progressTitle}</h2>
               <p className={`text-base lg:text-lg leading-relaxed mb-6 ${muted}`}>{c.progressDesc}</p>
@@ -967,12 +1095,14 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                 { value: '96%', label: c.statsLabels[2], color: 'text-cyan-500', desc: lang === 'en' ? 'Your highest score achieved' : 'Tu puntaje más alto logrado' },
                 { value: '#38', label: c.statsLabels[3], color: 'text-sky-500', desc: lang === 'en' ? 'Your position in the global ranking' : 'Tu posición en el ranking global' }
               ]} dark={dark} />
-            </div>
-            <div className={`rounded-2xl border p-8 ${card}`}>
-              <p className={`text-xs font-semibold uppercase tracking-widest mb-2 ${subtle}`}>{c.chartTitle}</p>
-              <p className="text-3xl font-bold mb-6">{c.chartSub}</p>
-              <StatsChart dark={dark} />
-            </div>
+            </Reveal>
+            <Reveal delay={150}>
+              <div className={`rounded-2xl border p-8 card-lift ${card}`}>
+                <p className={`text-xs font-semibold uppercase tracking-widest mb-2 ${subtle}`}>{c.chartTitle}</p>
+                <p className="text-3xl font-bold mb-6">{c.chartSub}</p>
+                <StatsChart dark={dark} />
+              </div>
+            </Reveal>
           </div>
         </section>
 
@@ -980,7 +1110,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
         <section style={isMobile ? { minHeight: '100svh', scrollSnapAlign: 'start' } : { height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }}
           className="flex items-center px-6 py-12 lg:py-20 lg:px-8">
           <div className="mx-auto w-full max-w-6xl grid gap-10 lg:gap-20 lg:grid-cols-2 items-center">
-            <div>
+            <Reveal>
               <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.communityTag}</p>
               <h2 className="text-3xl lg:text-4xl font-bold mb-4">{c.communityTitle}</h2>
               <p className={`text-base lg:text-lg leading-relaxed mb-6 ${muted}`}>{c.communityDesc}</p>
@@ -992,10 +1122,10 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                   </li>
                 ))}
               </ul>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+            </Reveal>
+            <Reveal delay={150} className="grid grid-cols-2 gap-4">
               {[['alex_p', '94%', 1420, 1], ['marta_r', '88%', 1380, 2], ['juandev', '83%', 1310, 3], ['sofia_m', '79%', 1270, 4]].map(([name, score, elo, rank]) => (
-                <div key={name} className={`rounded-xl border p-5 flex items-center gap-3 ${card}`}>
+                <div key={name} className={`rounded-xl border p-5 flex items-center gap-3 card-lift ${card}`}>
                   <span className={`text-lg font-black tabular-nums ${rank === 1 ? 'text-amber-400' : rank === 2 ? 'text-slate-400' : rank === 3 ? 'text-amber-700' : 'text-slate-500'}`}>#{rank}</span>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold truncate">{name}</p>
@@ -1003,7 +1133,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                   </div>
                 </div>
               ))}
-            </div>
+            </Reveal>
           </div>
         </section>
 
@@ -1011,7 +1141,8 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
         <section style={isMobile ? { minHeight: '100svh', scrollSnapAlign: 'start' } : { height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }}
           className="flex items-center px-6 py-12 lg:py-20 lg:px-8">
           <div className="mx-auto w-full max-w-6xl grid gap-10 lg:gap-20 lg:grid-cols-2 items-center">
-            <div className={`rounded-2xl border p-8 space-y-5 ${card}`}>
+            <Reveal delay={150}>
+              <div className={`rounded-2xl border p-8 space-y-5 card-lift ${card}`}>
               <div className="flex items-center justify-between">
                 <span className="rounded-full bg-cyan-500/15 text-cyan-500 text-xs font-semibold px-3 py-1">{c.tourLive}</span>
                 <span className={`text-xs ${subtle}`}>{c.tourEnds}</span>
@@ -1026,8 +1157,9 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                 </div>
                 <span className={`text-xs ${subtle}`}>+48 {c.tourParticipants}</span>
               </div>
-            </div>
-            <div>
+              </div>
+            </Reveal>
+            <Reveal>
               <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.tourTag}</p>
               <h2 className="text-3xl lg:text-4xl font-bold mb-4">{c.tourTitle}</h2>
               <p className={`text-base lg:text-lg leading-relaxed mb-6 ${muted}`}>{c.tourDesc}</p>
@@ -1039,7 +1171,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                   </li>
                 ))}
               </ul>
-            </div>
+            </Reveal>
           </div>
         </section>
 
@@ -1047,7 +1179,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
         <section style={isMobile ? { minHeight: '100svh', scrollSnapAlign: 'start' } : { height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }}
           className="flex items-center px-6 py-12 lg:py-20 lg:px-8">
           <div className="mx-auto w-full max-w-6xl grid gap-10 lg:gap-16 lg:grid-cols-2 items-center">
-            <div>
+            <Reveal>
               <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.guidesTag}</p>
               <h2 className="text-3xl font-bold mb-4">{c.guidesTitle}</h2>
               <p className={`text-base leading-7 mb-6 ${muted}`}>{c.guidesDesc}</p>
@@ -1063,10 +1195,10 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                 {c.guidesLink}
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </a>
-            </div>
-            <div className="space-y-3">
+            </Reveal>
+            <Reveal delay={150} className="space-y-3">
               {c.guides.map(({ t, tag, time }) => (
-                <div key={t} className={`rounded-xl border p-4 flex items-center gap-4 ${card}`}>
+                <div key={t} className={`rounded-xl border p-4 flex items-center gap-4 card-lift ${card}`}>
                   <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${dark ? 'bg-cyan-500/15' : 'bg-cyan-100'}`}>
                     <svg className="h-5 w-5 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
@@ -1082,7 +1214,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                   </div>
                 </div>
               ))}
-            </div>
+            </Reveal>
           </div>
         </section>
 
@@ -1090,20 +1222,24 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
         <section style={isMobile ? { minHeight: '100svh', scrollSnapAlign: 'start' } : { height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }}
           className="flex items-center px-6 py-12 lg:py-20 lg:px-8">
           <div className="mx-auto w-full max-w-6xl">
-            <div className="max-w-2xl mb-8 lg:mb-12">
-              <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.orgTag}</p>
-              <h2 className="text-2xl lg:text-3xl font-bold mb-3">{c.orgTitle}</h2>
-              <p className={`text-sm lg:text-base leading-7 ${muted}`}>{c.orgDesc}</p>
-            </div>
+            <Reveal>
+              <div className="max-w-2xl mb-8 lg:mb-12">
+                <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.orgTag}</p>
+                <h2 className="text-2xl lg:text-3xl font-bold mb-3">{c.orgTitle}</h2>
+                <p className={`text-sm lg:text-base leading-7 ${muted}`}>{c.orgDesc}</p>
+              </div>
+            </Reveal>
             <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
-              {c.orgCards.map(({ icon, t, d }) => (
-                <div key={t} className={`rounded-xl border p-4 lg:p-6 h-full ${card}`}>
-                  <div className={`h-8 w-8 lg:h-10 lg:w-10 rounded-lg lg:rounded-xl flex items-center justify-center mb-3 ${dark ? 'bg-cyan-500/15' : 'bg-cyan-100'}`}>
-                    <OrgIcon type={icon} dark={dark} />
+              {c.orgCards.map(({ icon, t, d }, i) => (
+                <Reveal key={t} delay={i * 70} className="h-full">
+                  <div className={`rounded-xl border p-4 lg:p-6 h-full card-lift ${card}`}>
+                    <div className={`h-8 w-8 lg:h-10 lg:w-10 rounded-lg lg:rounded-xl flex items-center justify-center mb-3 ${dark ? 'bg-cyan-500/15' : 'bg-cyan-100'}`}>
+                      <OrgIcon type={icon} dark={dark} />
+                    </div>
+                    <p className="font-semibold text-sm lg:text-base mb-1.5">{t}</p>
+                    <p className={`text-xs lg:text-sm leading-5 lg:leading-6 ${muted}`}>{d}</p>
                   </div>
-                  <p className="font-semibold text-sm lg:text-base mb-1.5">{t}</p>
-                  <p className={`text-xs lg:text-sm leading-5 lg:leading-6 ${muted}`}>{d}</p>
-                </div>
+                </Reveal>
               ))}
             </div>
           </div>
@@ -1113,7 +1249,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
         <section style={isMobile ? { minHeight: '100svh', scrollSnapAlign: 'start' } : { height: '100svh', overflowY: 'hidden', scrollSnapAlign: 'start' }}
           className="flex items-center px-6 py-12 lg:py-20 lg:px-8">
           <div className="mx-auto w-full max-w-6xl grid gap-10 lg:gap-16 lg:grid-cols-2 items-center">
-            <div>
+            <Reveal>
               <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? 'text-cyan-400' : 'text-cyan-600'}`}>{c.profileTag}</p>
               <h2 className="text-3xl font-bold mb-4">{c.profileTitle}</h2>
               <p className={`text-base leading-7 mb-6 ${muted}`}>{c.profileDesc}</p>
@@ -1125,8 +1261,9 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                   </li>
                 ))}
               </ul>
-            </div>
-            <div className={`rounded-2xl border p-6 ${card}`}>
+            </Reveal>
+            <Reveal delay={150}>
+              <div className={`rounded-2xl border p-6 card-lift ${card}`}>
               <div className="flex items-center gap-4 mb-6">
                 <div className="h-12 w-12 rounded-full bg-cyan-500/20 flex items-center justify-center text-base font-bold text-cyan-500">AP</div>
                 <div>
@@ -1148,7 +1285,8 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                 ))}
               </div>
               <StatsChart dark={dark} />
-            </div>
+              </div>
+            </Reveal>
           </div>
         </section>
 
@@ -1189,11 +1327,14 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                 {c.ctaSignup}
               </button>
               <button type="button" onClick={onEnterprise}
-                className={`inline-flex items-center justify-center gap-2 rounded-lg border-2 px-8 py-3.5 text-base font-semibold transition ${dark ? 'border-violet-500 text-violet-400 hover:bg-violet-500/10' : 'border-violet-600 text-violet-600 hover:bg-violet-50'}`}>
+                className="group inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-violet-500/30 transition-all duration-300 hover:shadow-xl hover:shadow-violet-500/40 hover:-translate-y-0.5">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
                 {lang === 'en' ? 'For teams & companies' : 'Para equipos y empresas'}
+                <svg className="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
               </button>
             </div>
           </div>

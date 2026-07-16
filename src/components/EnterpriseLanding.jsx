@@ -1,5 +1,214 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
+import anime from 'animejs'
 import { useTheme } from '../contexts/ThemeContext'
+
+// ── Motion helpers ─────────────────────────────────────────────────────────
+const reducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
+// Contador animado para valores tipo '74%', '1240'
+const CountUpValue = ({ value, start }) => {
+  const ref = useRef(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!start || !el) return
+    const m = String(value).match(/^([^0-9]*)(\d+)(.*)$/)
+    if (!m || reducedMotion()) { el.textContent = value; return }
+    const [, pre, num, post] = m
+    const obj = { v: 0 }
+    const a = anime({
+      targets: obj,
+      v: Number(num),
+      round: 1,
+      duration: 1500,
+      easing: 'easeOutExpo',
+      update: () => { if (ref.current) ref.current.textContent = `${pre}${obj.v}${post}` },
+    })
+    return () => a.pause()
+  }, [start, value])
+  return <span ref={ref}>{value}</span>
+}
+
+// ── Skyline: edificios construyéndose (anime.js) ───────────────────────────
+const SKYLINE = [
+  { x: 10, w: 90, h: 150 },
+  { x: 115, w: 70, h: 220 },
+  { x: 200, w: 110, h: 180 },
+  { x: 325, w: 80, h: 260 },
+  { x: 420, w: 60, h: 140 },
+  { x: 495, w: 100, h: 300 },
+  { x: 610, w: 75, h: 190 },
+  { x: 700, w: 120, h: 240 },
+  { x: 835, w: 65, h: 160 },
+  { x: 915, w: 95, h: 280 },
+  { x: 1025, w: 70, h: 200 },
+  { x: 1110, w: 105, h: 170 },
+  { x: 1230, w: 80, h: 250 },
+  { x: 1325, w: 100, h: 190 },
+]
+
+const buildingWindows = (b) => {
+  const wins = []
+  const cols = Math.min(4, Math.max(1, Math.floor((b.w - 14) / 22)))
+  const rows = Math.min(8, Math.max(2, Math.floor((b.h - 30) / 32)))
+  const stepX = (b.w - 20) / cols
+  const stepY = (b.h - 30) / rows
+  for (let r = 0; r < rows; r++) {
+    for (let ci = 0; ci < cols; ci++) {
+      wins.push({ x: b.x + 12 + ci * stepX, y: 400 - b.h + 16 + r * stepY })
+    }
+  }
+  return wins
+}
+
+const CitySkyline = ({ dark, className = '' }) => {
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const root = ref.current
+    if (!root) return
+    const bodies = root.querySelectorAll('.sk-body')
+    const wins = root.querySelectorAll('.sk-win')
+    const crane = root.querySelector('.sk-crane')
+
+    if (reducedMotion()) {
+      bodies.forEach(el => {
+        el.setAttribute('height', el.dataset.h)
+        el.setAttribute('y', String(400 - Number(el.dataset.h)))
+      })
+      wins.forEach(el => { el.style.opacity = 0.8 })
+      if (crane) crane.style.opacity = 1
+      return
+    }
+
+    const anims = []
+    const startAnims = () => {
+      // Los edificios "se construyen" subiendo desde el suelo
+      anims.push(anime({
+        targets: bodies,
+        height: el => [0, Number(el.dataset.h)],
+        y: el => [400, 400 - Number(el.dataset.h)],
+        duration: 1500,
+        delay: anime.stagger(90),
+        easing: 'easeOutCubic',
+      }))
+      // Las ventanas se encienden una a una
+      anims.push(anime({
+        targets: wins,
+        opacity: [0, 0.8],
+        duration: 400,
+        delay: anime.stagger(10, { start: 1100 }),
+        easing: 'linear',
+      }))
+      // Algunas ventanas titilan en loop
+      anims.push(anime({
+        targets: root.querySelectorAll('.sk-win-blink'),
+        opacity: [0.15, 0.8],
+        duration: () => anime.random(1400, 3400),
+        delay: anime.stagger(220, { start: 4200 }),
+        direction: 'alternate',
+        loop: true,
+        easing: 'easeInOutSine',
+      }))
+      // La grúa aparece y su gancho sube y baja
+      if (crane) {
+        anims.push(anime({ targets: crane, opacity: [0, 1], duration: 900, delay: 1500, easing: 'linear' }))
+        anims.push(anime({
+          targets: root.querySelector('.sk-hook'),
+          y: [150, 270],
+          duration: 3800,
+          delay: 2400,
+          direction: 'alternate',
+          loop: true,
+          easing: 'easeInOutSine',
+        }))
+        anims.push(anime({
+          targets: root.querySelector('.sk-cable'),
+          y2: [150, 270],
+          duration: 3800,
+          delay: 2400,
+          direction: 'alternate',
+          loop: true,
+          easing: 'easeInOutSine',
+        }))
+      }
+    }
+
+    // Arranca la construcción recién cuando el skyline entra en vista
+    const obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { startAnims(); obs.disconnect() }
+    }, { threshold: 0.15 })
+    obs.observe(root)
+
+    return () => { obs.disconnect(); anims.forEach(a => a.pause()) }
+  }, [])
+
+  const bodyA = dark ? '#334155' : '#cbd5e1'
+  const bodyB = dark ? '#1e293b' : '#e2e8f0'
+  const win = dark ? '#a78bfa' : '#8b5cf6'
+  const craneCol = dark ? '#64748b' : '#94a3b8'
+
+  return (
+    <div className={`pointer-events-none absolute inset-x-0 bottom-0 overflow-hidden ${className}`} aria-hidden="true">
+      <svg
+        ref={ref}
+        viewBox="0 0 1440 400"
+        preserveAspectRatio="xMidYMax slice"
+        className={`w-full h-[38vh] min-h-[220px] max-h-[380px] ${dark ? 'opacity-40' : 'opacity-50'}`}
+      >
+        {SKYLINE.map((b, bi) => (
+          <g key={bi}>
+            <rect
+              className="sk-body"
+              data-h={b.h}
+              x={b.x}
+              y={400}
+              width={b.w}
+              height={0}
+              fill={bi % 2 === 0 ? bodyA : bodyB}
+            />
+            {buildingWindows(b).map((w, wi) => (
+              <rect
+                key={wi}
+                className={`sk-win ${(bi * 7 + wi) % 5 === 0 ? 'sk-win-blink' : ''}`}
+                x={w.x}
+                y={w.y}
+                width="7"
+                height="9"
+                rx="1"
+                fill={win}
+                style={{ opacity: 0 }}
+              />
+            ))}
+          </g>
+        ))}
+        {/* Grúa de construcción */}
+        <g className="sk-crane" style={{ opacity: 0 }}>
+          <rect x={968} y={90} width={7} height={310} fill={craneCol} />
+          <rect x={880} y={86} width={215} height={6} fill={craneCol} />
+          <rect x={872} y={92} width={26} height={16} fill={craneCol} />
+          <line x1={971.5} y1={60} x2={890} y2={88} stroke={craneCol} strokeWidth={2.5} />
+          <line x1={971.5} y1={60} x2={1090} y2={88} stroke={craneCol} strokeWidth={2.5} />
+          <rect x={969} y={56} width={5} height={34} fill={craneCol} />
+          <line className="sk-cable" x1={1062} y1={92} x2={1062} y2={150} stroke={craneCol} strokeWidth={2} />
+          <rect className="sk-hook" x={1051} y={150} width={22} height={14} rx="2" fill={win} opacity={0.85} />
+          {/* Piso en construcción: estructura punteada sobre el edificio */}
+          <rect
+            x={917}
+            y={92}
+            width={91}
+            height={26}
+            fill="none"
+            stroke={craneCol}
+            strokeWidth={2}
+            strokeDasharray="7 5"
+          />
+        </g>
+        <rect x={0} y={397} width={1440} height={3} fill={craneCol} opacity={0.5} />
+      </svg>
+    </div>
+  )
+}
 
 // ── Scroll reveal ──────────────────────────────────────────────────────────
 const useReveal = () => {
@@ -145,6 +354,33 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
   })
 
   const TOTAL_SECTIONS = 8
+
+  // Contadores del dashboard preview: arrancan cuando la sección entra en vista
+  const [dashRef, dashVisible] = useReveal()
+
+  // Con reduced-motion los elementos del hero arrancan visibles; si no, anime los revela
+  const rm = useMemo(() => reducedMotion(), [])
+  const heroHidden = rm ? undefined : { opacity: 0 }
+
+  useEffect(() => {
+    if (rm) return
+    const tl = anime.timeline({ easing: 'easeOutExpo' })
+    tl.add({
+      targets: '.ent-word',
+      translateY: [50, 0],
+      opacity: [0, 1],
+      duration: 950,
+      delay: anime.stagger(60),
+    }, 250)
+    tl.add({
+      targets: '[data-hero-fade]',
+      translateY: [26, 0],
+      opacity: [0, 1],
+      duration: 750,
+      delay: anime.stagger(110),
+    }, '-=650')
+    return () => tl.pause()
+  }, [rm])
 
   const bg = dark ? 'bg-slate-900 text-white' : 'bg-gray-50 text-slate-900'
   const card = dark ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'
@@ -345,12 +581,20 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
       >
 
         {/* ── HERO ── */}
-        <section style={sectionStyle()} className="relative flex items-center px-4 py-20 sm:px-6 lg:px-8">
+        <section style={sectionStyle()} className="relative flex items-center overflow-hidden px-4 py-20 sm:px-6 lg:px-8">
+          {/* Fondo: grilla + skyline de edificios construyéndose */}
+          <div className="landing-grid-bg pointer-events-none absolute inset-0" aria-hidden="true" />
+          <CitySkyline dark={dark} />
+          <div
+            className={`pointer-events-none absolute inset-x-0 bottom-0 h-[40vh] bg-gradient-to-t ${dark ? 'from-slate-900/40' : 'from-gray-50/40'} to-transparent`}
+            aria-hidden="true"
+          />
+
           <button
             type="button"
             onClick={onBack}
-            className={`absolute top-6 left-4 sm:left-6 inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
-              dark ? 'border-slate-700 text-slate-300 hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-100'
+            className={`absolute top-6 left-4 sm:left-6 z-20 inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+              dark ? 'border-slate-700 bg-slate-900/70 text-slate-300 backdrop-blur hover:bg-slate-800' : 'border-slate-200 bg-white/70 text-slate-600 backdrop-blur hover:bg-slate-100'
             }`}
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -359,92 +603,83 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
             <span className="hidden sm:inline">Volver</span>
           </button>
 
-          <div className="mx-auto w-full max-w-5xl text-center space-y-6 sm:space-y-8">
-            {/* Beta pill */}
-            <Reveal>
-              <div className="flex justify-center">
-                <div className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold ${
-                  dark ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400' : 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                }`}>
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
-                  Gratis durante la beta — hasta el 20 de junio de 2026
-                </div>
+          <div className="relative z-10 mx-auto w-full max-w-5xl text-center space-y-6 sm:space-y-8">
+            <div className="flex flex-wrap items-center justify-center gap-2" data-hero-fade style={heroHidden}>
+              <div className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold ${
+                dark ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400' : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+              }`}>
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
+                Gratis durante la beta — hasta el 20 de junio de 2026
               </div>
-            </Reveal>
+              <span className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold ${
+                dark ? 'border-violet-500/40 bg-violet-500/10 text-violet-400' : 'border-violet-200 bg-violet-50 text-violet-600'
+              }`}>
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                Para empresas y equipos
+              </span>
+            </div>
 
-            <Reveal delay={80}>
-              <div className="flex justify-center">
-                <span className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold ${
-                  dark ? 'border-violet-500/40 bg-violet-500/10 text-violet-400' : 'border-violet-200 bg-violet-50 text-violet-600'
-                }`}>
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                  </svg>
-                  Para empresas y equipos
-                </span>
-              </div>
-            </Reveal>
+            <h1 className="text-4xl font-black leading-tight tracking-tight sm:text-5xl lg:text-7xl">
+              {'Tu equipo necesita hablar'.split(' ').map((w, i) => (
+                <span key={i} className="ent-word inline-block" style={heroHidden}>{w}&nbsp;</span>
+              ))}
+              <span className="ent-word inline-block text-gradient-violet" style={heroHidden}>el nuevo idioma del mundo tech</span>
+            </h1>
 
-            <Reveal delay={160}>
-              <h1 className="text-4xl font-black leading-tight tracking-tight sm:text-5xl lg:text-7xl">
-                Tu equipo necesita hablar{' '}
-                <span className="text-violet-500">el nuevo idioma del mundo tech</span>
-              </h1>
-            </Reveal>
+            <p data-hero-fade style={heroHidden} className={`max-w-2xl mx-auto text-base sm:text-lg leading-relaxed ${muted}`}>
+              Las empresas que lideran hoy son las que ya saben comunicarse con la IA. PrompTool entrena a tu equipo en prompting — y te muestra en tiempo real quién avanza, quién se queda atrás y qué tan cerca están de los objetivos que vos definís.
+            </p>
 
-            <Reveal delay={240}>
-              <p className={`max-w-2xl mx-auto text-base sm:text-lg leading-relaxed ${muted}`}>
-                Las empresas que lideran hoy son las que ya saben comunicarse con la IA. PrompTool entrena a tu equipo en prompting — y te muestra en tiempo real quién avanza, quién se queda atrás y qué tan cerca están de los objetivos que vos definís.
-              </p>
-            </Reveal>
-
-            <Reveal delay={320}>
-              <div className="flex flex-wrap gap-3 justify-center">
-                <button
-                  type="button"
-                  onClick={onOpenAuth}
-                  className="inline-flex items-center justify-center rounded-lg bg-violet-600 px-6 py-3 sm:px-8 sm:py-3.5 text-sm font-semibold text-white hover:bg-violet-700 transition"
-                >
-                  Empezar gratis
-                </button>
-                <button
-                  type="button"
-                  onClick={() => scrollTo(1)}
-                  className={`inline-flex items-center justify-center rounded-lg border px-6 py-3 sm:px-8 sm:py-3.5 text-sm font-semibold transition ${
-                    dark ? 'border-slate-700 text-white hover:bg-slate-800' : 'border-slate-300 text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  Ver cómo funciona ↓
-                </button>
-              </div>
-            </Reveal>
-
-            <Reveal delay={400}>
-              <div className="flex flex-wrap justify-center gap-3">
-                {['Ves quién mejora y quién no', 'Definís los objetivos vos', 'El equipo práctica en el día a día'].map(stat => (
-                  <div
-                    key={stat}
-                    className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs sm:text-sm font-medium ${
-                      dark ? 'border-slate-700 text-slate-300' : 'border-slate-200 text-slate-600'
-                    }`}
-                  >
-                    <span className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" />
-                    {stat}
-                  </div>
-                ))}
-              </div>
-            </Reveal>
-
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
+            <div className="flex flex-wrap gap-3 justify-center" data-hero-fade style={heroHidden}>
               <button
-                onClick={() => scrollTo(1)}
-                className={`group flex h-10 w-10 items-center justify-center rounded-full border-2 border-violet-400 bg-white/80 shadow-md backdrop-blur-sm transition hover:bg-violet-500 hover:border-violet-500 animate-bounce ${dark ? 'bg-slate-800/80' : 'bg-white/80'}`}
+                type="button"
+                onClick={onOpenAuth}
+                className="group inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-3 sm:px-8 sm:py-3.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/30 transition-all duration-300 hover:shadow-xl hover:shadow-violet-500/40 hover:-translate-y-0.5"
               >
-                <svg className="h-5 w-5 text-violet-500 transition group-hover:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                Empezar gratis
+                <svg className="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5-5 5M6 12h12" />
                 </svg>
               </button>
+              <button
+                type="button"
+                onClick={() => scrollTo(1)}
+                className={`inline-flex items-center justify-center rounded-lg border px-6 py-3 sm:px-8 sm:py-3.5 text-sm font-semibold backdrop-blur transition-all duration-300 hover:-translate-y-0.5 ${
+                  dark ? 'border-slate-700 bg-slate-900/60 text-white hover:bg-slate-800' : 'border-slate-300 bg-white/70 text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                Ver cómo funciona ↓
+              </button>
             </div>
+
+            <div className="flex flex-wrap justify-center gap-3" data-hero-fade style={heroHidden}>
+              {['Ves quién mejora y quién no', 'Definís los objetivos vos', 'El equipo practica en el día a día'].map(stat => (
+                <div
+                  key={stat}
+                  className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs sm:text-sm font-medium backdrop-blur ${
+                    dark ? 'border-slate-700 bg-slate-900/50 text-slate-300' : 'border-slate-200 bg-white/60 text-slate-600'
+                  }`}
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" />
+                  {stat}
+                </div>
+              ))}
+            </div>
+
+          </div>
+
+          <div className="absolute bottom-8 left-1/2 z-20 -translate-x-1/2">
+            <button
+              onClick={() => scrollTo(1)}
+              aria-label="Bajar"
+              className={`group flex h-10 w-10 items-center justify-center rounded-full border-2 border-violet-400 shadow-md backdrop-blur-sm transition hover:bg-violet-500 hover:border-violet-500 animate-bounce ${dark ? 'bg-slate-800/80' : 'bg-white/80'}`}
+            >
+              <svg className="h-5 w-5 text-violet-500 transition group-hover:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
           </div>
         </section>
 
@@ -466,9 +701,9 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
                 { icon: 'badge', title: 'Ranking interno que motiva', desc: 'Tu equipo compite entre sí con un leaderboard propio. Métricas comparativas que generan competencia sana y compromiso real.' },
                 { icon: 'chat', title: 'Chatbot IA para el manager', desc: 'Preguntale en lenguaje natural cómo va el equipo, quién necesita refuerzo o qué desafíos generar. La IA actúa sobre el panel.' },
               ].map(({ icon, title, desc }, i) => (
-                <Reveal key={title} delay={i * 60}>
-                  <div className={`rounded-2xl border p-5 sm:p-6 h-full ${card}`}>
-                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center mb-4 ${dark ? 'bg-violet-500/15' : 'bg-violet-100'}`}>
+                <Reveal key={title} delay={i * 60} className="h-full">
+                  <div className={`group rounded-2xl border p-5 sm:p-6 h-full card-lift ${card} ${dark ? 'hover:border-violet-500/50' : 'hover:border-violet-300'}`}>
+                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-110 ${dark ? 'bg-gradient-to-br from-violet-500/25 to-indigo-500/15' : 'bg-gradient-to-br from-violet-100 to-indigo-100'}`}>
                       <FeatureIcon type={icon} dark={dark} />
                     </div>
                     <p className="font-semibold mb-2">{title}</p>
@@ -513,7 +748,7 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
                   <p className="font-bold text-sm">Dashboard del equipo</p>
                   <span className={`text-xs px-2 py-1 rounded-full font-semibold ${dark ? 'bg-emerald-500/15 text-emerald-400' : 'bg-emerald-50 text-emerald-700'}`}>En vivo</span>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div ref={dashRef} className="grid grid-cols-2 gap-3">
                   {[
                     { value: '74%', label: 'Score prom.', color: 'text-emerald-500' },
                     { value: '83%', label: 'Participación', color: 'text-amber-500' },
@@ -521,7 +756,9 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
                     { value: '1240', label: 'ELO prom.', color: 'text-sky-500' },
                   ].map(({ value, label, color }) => (
                     <div key={label} className={`rounded-xl p-3 sm:p-4 ${dark ? 'bg-slate-900 border border-slate-700' : 'bg-slate-50 border border-slate-100'}`}>
-                      <p className={`text-xl sm:text-2xl font-black ${color}`}>{value}</p>
+                      <p className={`text-xl sm:text-2xl font-black ${color}`}>
+                        <CountUpValue value={value} start={dashVisible} />
+                      </p>
                       <p className={`text-xs mt-1 ${subtle}`}>{label}</p>
                     </div>
                   ))}
@@ -707,8 +944,8 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
 
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 pt-1">
               {PLANS.map((plan, i) => (
-                <Reveal key={plan.name} delay={i * 80}>
-                  <div className={`relative rounded-2xl border p-3 sm:p-4 flex flex-col h-full ${card} ${plan.popular ? 'ring-2 ring-violet-500' : ''} ${plan.popular ? 'mt-4 sm:mt-0' : ''}`}>
+                <Reveal key={plan.name} delay={i * 80} className="h-full">
+                  <div className={`relative rounded-2xl border p-3 sm:p-4 flex flex-col h-full card-lift ${card} ${plan.popular ? 'ring-2 ring-violet-500 shadow-lg shadow-violet-500/15' : ''} ${plan.popular ? 'mt-4 sm:mt-0' : ''}`}>
                     {plan.popular && (
                       <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
                         <span className="bg-violet-500 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap shadow-sm">
@@ -858,8 +1095,13 @@ const EnterpriseLanding = ({ onBack, onOpenAuth }) => {
         </section>
 
         {/* ── CTA ── */}
-        <section style={sectionStyle()} className="flex items-center justify-center px-4 py-20 sm:px-6 lg:px-8">
-          <Reveal>
+        <section style={sectionStyle()} className="relative flex items-center justify-center overflow-hidden px-4 py-20 sm:px-6 lg:px-8">
+          <CitySkyline dark={dark} />
+          <div
+            className={`pointer-events-none absolute inset-x-0 bottom-0 h-[38vh] bg-gradient-to-t ${dark ? 'from-slate-900/50' : 'from-gray-50/50'} to-transparent`}
+            aria-hidden="true"
+          />
+          <Reveal className="relative z-10">
             <div className="mx-auto max-w-3xl text-center space-y-6">
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight">
                 Tu equipo puede hablar el idioma de la IA.<br className="hidden sm:block" /> ¿Cuándo empezamos?
