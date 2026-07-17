@@ -197,6 +197,14 @@ module.exports = defineConfig({
   server: {
     hmr: {
       overlay: false
+    },
+    // Backend Express local (npm run dev:api). En Vercel el mismo tráfico
+    // /api/* va a la función serverless api/index.mjs vía rewrite.
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      }
     }
   }
 })

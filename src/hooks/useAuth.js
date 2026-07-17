@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
+import { api } from '../lib/apiClient'
 import { checkRateLimit } from '../services/rateLimitService'
 import {
   sanitizeEmail,
@@ -204,21 +205,6 @@ export const useAuth = () => {
       const { error: dbError } = await supabase.from('usuarios').insert([profileData])
       if (dbError) throw dbError
 
-      // Email de bienvenida — fire and forget, antes del auto-login para que siempre se envíe
-      try {
-        const lang = localStorage.getItem('lang') || 'es'
-        fetch('/api/send-welcome', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            nombre: nombreResult.sanitized,
-            email: emailResult.sanitized,
-            userType: userType || 'individual',
-            lang,
-          }),
-        })
-      } catch (_) {}
-
       // Auto-login después del registro — no pedir que inicie sesión por separado
       // Si la sesión ya está activa (confirmación de email desactivada), esto la refresca
       if (!data.session) {
@@ -228,6 +214,16 @@ export const useAuth = () => {
         })
         if (loginError) throw loginError
       }
+
+      // Email de bienvenida — fire and forget. Va después del auto-login porque
+      // el endpoint requiere sesión (el apiClient adjunta el Bearer solo).
+      const lang = localStorage.getItem('lang') || 'es'
+      api.post('/email/welcome', {
+        nombre: nombreResult.sanitized,
+        email: emailResult.sanitized,
+        userType: userType || 'individual',
+        lang,
+      }).catch((err) => console.error('[email/welcome] error:', err.message))
     }
 
     return data

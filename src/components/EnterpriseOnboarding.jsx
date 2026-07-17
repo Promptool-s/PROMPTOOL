@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../supabaseClient'
+import { api } from '../lib/apiClient'
 
 const INDUSTRIES = [
   { id: 'marketing', label: 'Marketing' },
@@ -76,21 +77,17 @@ const EnterpriseOnboarding = ({ user, onDone }) => {
       : `https://promptool.app/?invite=${user.id}&email=${encodeURIComponent(email)}`
 
     try {
-      const inviteRes = await fetch('/api/send-invite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipientEmail: email,
-          companyName,
-          inviterName: companyName,
-          joinUrl,
-          isExistingUser: !!existingUser?.id_usuario,
-        }),
+      // El endpoint nuevo requiere sesión: el apiClient adjunta el Bearer solo
+      await api.post('/email/invite', {
+        recipientEmail: email,
+        companyName,
+        inviterName: companyName,
+        joinUrl,
+        isExistingUser: !!existingUser?.id_usuario,
       })
-      if (!inviteRes.ok) {
-        console.error('[send-invite] HTTP error:', inviteRes.status)
-      }
-    } catch (_) {}
+    } catch (err) {
+      console.error('[email/invite] error:', err.message)
+    }
 
     setSaving(false)
     setInviteSent(true)

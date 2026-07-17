@@ -1,6 +1,16 @@
 {
   "outputDirectory": "dist",
+  "functions": {
+    "api/index.mjs": {
+      "maxDuration": 60
+    }
+  },
+  "crons": [
+    { "path": "/api/cron/leaderboard-snapshot", "schedule": "0 6 * * *" }
+  ],
   "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/index" },
+    { "source": "/health", "destination": "/api/index" },
     { "source": "/user/:path*", "destination": "/user.html" },
     { "source": "/perfil", "destination": "/usuario.html" },
     { "source": "/admin", "destination": "/admin.html" },
