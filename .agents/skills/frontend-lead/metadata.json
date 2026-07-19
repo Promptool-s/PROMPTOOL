@@ -1,0 +1,11 @@
+{
+  "name": "frontend-lead",
+  "version": "3.1.0",
+  "description": "Tech Lead & Diseñador Front-End Experto en interfaces interactivas premium, React, Tailwind, animaciones GSAP de alta performance, escenas 3D con Three.js/R3F, custom shaders GLSL, orquestación de Canvas WebGL, efectos tipográficos creativos y ecosistema de smooth scroll.",
+  "language": "es",
+  "triggers": {
+    "files": ["*.tsx", "*.jsx", "*.ts", "*.js", "*.glsl", "*.frag", "*.vert", "tailwind.config.js", "package.json"],
+    "keywords": ["gsap", "animation", "useGSAP", "ScrollTrigger", "tailwind", "ui/ux", "bento grid", "glassmorphism", "canvas", "r3f", "three", "useFrame", "shader", "uniforms", "mesh", "geometry", "WebGL", "vertex", "fragment", "scene", "GLSL", "SplitText", "TextPlugin", "variable font", "font-variation-settings", "textPath", "kinetic typography", "typewriter", "lenis", "ScrollSmoother", "smooth scroll"]
+  },
+  "dependencies": ["@gsap/react", "gsap", "tailwindcss", "three", "@types/three", "@react-three/fiber", "@react-three/drei", "lenis"]
+}

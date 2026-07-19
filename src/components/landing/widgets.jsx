@@ -1,9 +1,9 @@
 import { useEffect, useState, useRef } from 'react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
-// Shared glass-card class for the dark hybrid theme
-export const GLASS = 'border border-white/10 bg-white/[0.04] backdrop-blur-md'
-export const FOCUS = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-400 focus-visible:outline-offset-2'
+// Shared glass-card class for the light hybrid theme
+export const GLASS = 'border border-slate-900/10 bg-white/70 backdrop-blur-md shadow-sm shadow-slate-900/[0.03]'
+export const FOCUS = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600 focus-visible:outline-offset-2'
 
 // ── Animated Stats Component ──────────────────────────────────────────────
 export const AnimatedStats = ({ stats }) => {
@@ -28,26 +28,18 @@ export const AnimatedStats = ({ stats }) => {
   }, [isVisible])
 
   return (
-    <div ref={statsRef} className="grid grid-cols-2 gap-4">
+    <div ref={statsRef} className="grid grid-cols-2 gap-3">
       {stats.map((stat, i) => (
         <div
           key={stat.label}
-          className={`rounded-xl p-5 ${GLASS} group relative transition-all duration-300 hover:scale-105 hover:bg-white/[0.07] ${
+          className={`rounded-xl border border-slate-900/[0.06] bg-white/70 p-4 ${
             isVisible ? 'animate-in fade-in slide-in-from-bottom-4' : 'opacity-0'
           }`}
           style={{ animationDelay: `${i * 100}ms`, animationDuration: '600ms', animationFillMode: 'both' }}
-          title={stat.desc}
         >
-          <p className={`text-3xl font-bold tabular-nums ${stat.color} transition-transform duration-300 group-hover:scale-110`}>
-            {stat.value}
-          </p>
-          <p className="text-sm mt-2 text-slate-400">{stat.label}</p>
-
-          {/* Tooltip on hover */}
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-lg text-xs whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 bg-slate-800 text-slate-200 shadow-lg z-10">
-            {stat.desc}
-            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
-          </div>
+          <p className={`text-2xl font-black tabular-nums ${stat.color}`}>{stat.value}</p>
+          <p className="mt-1 text-xs font-medium text-slate-500">{stat.label}</p>
+          <span className="sr-only">{stat.desc}</span>
         </div>
       ))}
     </div>
@@ -88,20 +80,20 @@ export const StatsChart = ({ ariaLabel }) => {
         <AreaChart data={CHART_DATA} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
           <defs>
             <linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.25} />
-              <stop offset="95%" stopColor="#22d3ee" stopOpacity={0} />
+              <stop offset="5%" stopColor="#0891b2" stopOpacity={0.22} />
+              <stop offset="95%" stopColor="#0891b2" stopOpacity={0} />
             </linearGradient>
           </defs>
           <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
           <YAxis tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} domain={[0, 100]} />
-          <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 11, color: '#e2e8f0' }} formatter={v => [`${v}%`, 'Score']} />
+          <Tooltip contentStyle={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.12)', borderRadius: 8, fontSize: 11, color: '#0f172a' }} formatter={v => [`${v}%`, 'Score']} />
           <Area
             type="monotone"
             dataKey="score"
-            stroke="#22d3ee"
+            stroke="#0891b2"
             strokeWidth={2}
             fill="url(#sg)"
-            dot={{ r: 3, fill: '#22d3ee', strokeWidth: 0 }}
+            dot={{ r: 3, fill: '#0891b2', strokeWidth: 0 }}
             isAnimationActive={isVisible}
             animationDuration={1200}
             animationEasing="ease-out"
@@ -123,7 +115,7 @@ export const OrgIcon = ({ type }) => {
     trophy: 'M8 21h8m-4-4v4M5 3h14l-1 7a5 5 0 01-10 0L5 3zm0 0H3m16 0h2',
   }
   return (
-    <svg className="h-5 w-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
+    <svg className="h-5 w-5 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
       {paths[type].split('M').filter(Boolean).map((d, i) => (
         <path key={i} strokeLinecap="round" strokeLinejoin="round" d={`M${d}`} />
       ))}
