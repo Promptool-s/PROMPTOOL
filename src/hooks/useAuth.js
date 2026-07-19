@@ -40,6 +40,12 @@ const ensureUserProfile = async (u) => {
 
       // upsert con ignoreDuplicates evita el 409 si dos llamadas concurrentes llegan al mismo tiempo
       await supabase.from('usuarios').upsert([profileData], { onConflict: 'id_usuario', ignoreDuplicates: true })
+
+      // Email de bienvenida — fire and forget. Cubre el alta vía Google OAuth,
+      // que no pasa por signUpWithEmail (ese flujo ya manda el suyo aparte).
+      const lang = localStorage.getItem('lang') || 'es'
+      api.post('/email/welcome', { nombre, email: u.email, userType, lang })
+        .catch((err) => console.error('[email/welcome] error:', err.message))
     }
   } catch {
     // profile creation failed silently
