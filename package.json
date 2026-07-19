@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite",
     "dev:api": "node --watch server/src/server.js",
+    "test-email": "node server/scripts/test-mailtrap.mjs",
     "build": "vite build",
     "preview": "vite preview"
   },
