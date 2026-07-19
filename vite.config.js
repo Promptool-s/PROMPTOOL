@@ -175,10 +175,17 @@ module.exports = defineConfig({
         '404': resolve(__dirname, '404.html'),
       },
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom'],
-          'vendor-charts': ['recharts'],
-          'vendor-supabase': ['@supabase/supabase-js'],
+        manualChunks(id) {
+          // Vite virtual helper modules (e.g. \0vite/preload-helper) must live in a
+          // chunk that every page loads, otherwise the chunk they land in is
+          // preloaded everywhere (this once dragged all of three.js into index.html)
+          if (id.startsWith('\0vite/') || id.includes('commonjsHelpers')) return 'vendor-react'
+          if (!id.includes('node_modules')) return
+          if (/[\\/]node_modules[\\/](three|three-stdlib|@react-three)[\\/]/.test(id)) return 'vendor-three'
+          if (/[\\/]node_modules[\\/](gsap|lenis)[\\/]/.test(id)) return 'vendor-motion'
+          if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return 'vendor-react'
+          if (/[\\/]node_modules[\\/](recharts|d3-[^\\/]+|victory-vendor)[\\/]/.test(id)) return 'vendor-charts'
+          if (/[\\/]node_modules[\\/]@supabase[\\/]/.test(id)) return 'vendor-supabase'
         }
       }
     },
@@ -192,7 +199,7 @@ module.exports = defineConfig({
     }
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', '@supabase/supabase-js', 'recharts']
+    include: ['react', 'react-dom', '@supabase/supabase-js', 'recharts', 'three', '@react-three/fiber', '@react-three/drei', 'gsap', 'lenis']
   },
   server: {
     hmr: {

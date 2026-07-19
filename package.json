@@ -14,6 +14,8 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@react-three/drei": "^9.114.3",
+    "@react-three/fiber": "^8.17.10",
     "@supabase/supabase-js": "^2.33.0",
     "@tensorflow/tfjs": "^4.22.0",
     "@upstash/ratelimit": "^2.0.5",
@@ -24,15 +26,18 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^5.1.0",
+    "gsap": "^3.12.5",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
+    "lenis": "^1.1.14",
     "nsfwjs": "^4.3.0",
     "pg": "^8.13.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-markdown": "^10.1.0",
     "recharts": "^3.8.1",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "three": "^0.169.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
