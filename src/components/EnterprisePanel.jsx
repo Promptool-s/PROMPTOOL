@@ -742,77 +742,23 @@ const EnterprisePanel = ({ user }) => {
     }
     setEnterpriseActionStatus(lang === 'en' ? 'Sending invitation...' : 'Enviando invitación...')
     try {
-      const { data: existingUser } = await supabase
-        .from('usuarios')
-        .select('id_usuario')
-        .eq('email', inviteEmail.trim())
-        .maybeSingle()
-
-      // Verificar si ya es miembro de esta empresa
-      if (existingUser?.id_usuario) {
-        const { data: alreadyMember } = await supabase
-          .from('usuarios')
-          .select('company_id')
-          .eq('id_usuario', existingUser.id_usuario)
-          .maybeSingle()
-        if (alreadyMember?.company_id === user.id) {
-          setEnterpriseActionStatus(lang === 'en' ? 'This user is already a member.' : 'Este usuario ya es miembro.')
-          return
-        }
-
-        // Verificar si ya tiene una invitación pendiente o aceptada
-        const { data: existingInvite } = await supabase
-          .from('team_invitations')
-          .select('id, status')
-          .eq('company_id', user.id)
-          .eq('user_id', existingUser.id_usuario)
-          .in('status', ['pending', 'accepted', 'requested'])
-          .maybeSingle()
-        if (existingInvite) {
-          const msg = existingInvite.status === 'pending'
-            ? (lang === 'en' ? 'An invitation is already pending for this user.' : 'Ya hay una invitación pendiente para este usuario.')
-            : existingInvite.status === 'accepted'
-              ? (lang === 'en' ? 'This user is already a member.' : 'Este usuario ya es miembro.')
-              : (lang === 'en' ? 'This user already requested to join.' : 'Este usuario ya solicitó unirse.')
-          setEnterpriseActionStatus(msg)
-          return
-        }
-      }
-
-      const payload = {
-        company_id: user.id,
-        user_email: inviteEmail.trim(),
-        user_id: existingUser?.id_usuario || null,
-        status: 'pending',
-        message: inviteMessage.trim(),
-      }
-
-      const { error } = await supabase.from('team_invitations').insert([payload])
-      if (error) throw error
-
-      const companyName = companyData?.company_name || user.user_metadata?.nombre_display || user.email
-      const joinUrl = existingUser?.id_usuario
-        ? `https://promptool.app/?join=${user.id}`
-        : `https://promptool.app/?invite=${user.id}&email=${encodeURIComponent(inviteEmail.trim())}`
-
-      try {
-        await api.post('/email/invite', {
-          recipientEmail: inviteEmail.trim(),
-          companyName,
-          inviterName: companyName,
-          joinUrl,
-          isExistingUser: !!existingUser?.id_usuario,
-        })
-      } catch (err) {
-        console.error('[email/invite] error:', err.message)
-      }
+      // El backend resuelve si el email ya tiene cuenta, chequea duplicados y
+      // manda el mail de invitación server-side (awaited) — reemplaza el
+      // insert directo a Supabase + la llamada aparte a /email/invite.
+      await api.post('/enterprise/invitaciones', {
+        email: inviteEmail.trim(),
+        mensaje: inviteMessage.trim(),
+      })
 
       setInviteEmail('')
       setInviteMessage('')
       setEnterpriseActionStatus(lang === 'en' ? 'Invitation sent.' : 'Invitación enviada.')
       fetchEnterpriseRequests()
-    } catch {
-      setEnterpriseActionStatus(lang === 'en' ? 'Could not send invitation.' : 'No se pudo enviar la invitación.')
+    } catch (err) {
+      const msg = err?.status === 409
+        ? (lang === 'en' ? 'An invitation is already active for this user.' : 'Ya existe una invitación activa para ese usuario.')
+        : (lang === 'en' ? 'Could not send invitation.' : 'No se pudo enviar la invitación.')
+      setEnterpriseActionStatus(msg)
     }
   }
 

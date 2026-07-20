@@ -59,34 +59,12 @@ const EnterpriseOnboarding = ({ user, onDone }) => {
     setSaving(true)
     const email = inviteEmail.trim()
 
-    const { data: existingUser } = await supabase
-      .from('usuarios')
-      .select('id_usuario')
-      .eq('email', email)
-      .maybeSingle()
-
-    await supabase.from('team_invitations').insert([{
-      company_id: user.id,
-      user_email: email,
-      status: 'pending',
-    }])
-
-    const companyName = user.user_metadata?.nombre_display || user.user_metadata?.nombre || user.email
-    const joinUrl = existingUser?.id_usuario
-      ? `https://promptool.app/?join=${user.id}`
-      : `https://promptool.app/?invite=${user.id}&email=${encodeURIComponent(email)}`
-
     try {
-      // El endpoint nuevo requiere sesión: el apiClient adjunta el Bearer solo
-      await api.post('/email/invite', {
-        recipientEmail: email,
-        companyName,
-        inviterName: companyName,
-        joinUrl,
-        isExistingUser: !!existingUser?.id_usuario,
-      })
+      // El backend resuelve si el email ya tiene cuenta, chequea duplicados y
+      // manda el mail de invitación server-side (awaited).
+      await api.post('/enterprise/invitaciones', { email })
     } catch (err) {
-      console.error('[email/invite] error:', err.message)
+      console.error('[enterprise/invitaciones] error:', err.message)
     }
 
     setSaving(false)
