@@ -29,8 +29,10 @@ export const config = {
         process.env.VERCEL_BRANCH_URL && `https://${process.env.VERCEL_BRANCH_URL}`,
         process.env.VERCEL_PROJECT_PRODUCTION_URL && `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`,
     ].filter(Boolean),
-    databaseUrl: process.env.DATABASE_URL,
-    supabaseJwtSecret: process.env.SUPABASE_JWT_SECRET,
+    // .trim(): en Vercel algunas env vars llegaron con espacios al final (p.ej.
+    // SUPABASE_URL), lo que rompe la conexión. Se limpia por las dudas.
+    databaseUrl: (process.env.DATABASE_URL || '').trim(),
+    supabaseJwtSecret: (process.env.SUPABASE_JWT_SECRET || '').trim(),
     groqApiKey: process.env.GROQ_API_KEY,
     geminiApiKey: process.env.GEMINI_API_KEY || null,
     isProduction: process.env.NODE_ENV === 'production',
