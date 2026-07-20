@@ -9,7 +9,7 @@
 ## Resumen
 
 - **Backend:** completo en su mayor parte — 8 fases de desarrollo (núcleo de intentos, feed/leaderboard/registro/admin, tickets/preferencias/reportes, mailing, anti-cheat, social/notificaciones, enterprise, storage), más la fusión al monorepo con adaptación a Vercel serverless.
-- **Frontend:** apenas empezado. Existe `src/lib/apiClient.js` (cliente HTTP central con Bearer de `supabase.auth`) y **4 archivos** ya migrados a los endpoints de email nuevos (`AuthModal.jsx`, `useAuth.js`, `EnterprisePanel.jsx`, `EnterpriseOnboarding.jsx`). Pero **quedan 17 archivos** en `src/` con llamadas directas `supabase.from/rpc/storage` sin migrar — es la mayor parte del trabajo de frontend, incluido el núcleo de scoring/ELO (`App.jsx`).
+- **Frontend:** en curso. Existe `src/lib/apiClient.js` (cliente HTTP central con Bearer de `supabase.auth`). Ya **migrados por completo** (cero `supabase.from/rpc/storage`): `useAuth.js` (perfil + welcome server-side), `AuthModal.jsx`, `LangContext.jsx`, `ConfigModal.jsx`, `SupportApp.jsx`, `Header.jsx`, `LeaderboardApp.jsx`. **Faltan los grandes:** `App.jsx` (núcleo scoring/ELO/feed/reveal), `UsuarioApp.jsx`, `AdminApp.jsx` + `hooks/useAdmin.js`/`useDev.js`, `EnterprisePanel.jsx`, `CompanyPanel.jsx`, `EnterpriseGuideContent.jsx`, y los services ya portados a vaciar (`plagiarismService`, `aiDetectionService`, `rateLimitService`). Ver "Falta hacer".
 - **RLS / rotación de keys en Supabase:** no hecho todavía (fuera del alcance del código).
 
 ---
@@ -38,6 +38,18 @@
 - **`authMiddleware.js` no verificaba tokens reales — bug mucho más grave que el mailing.** El proyecto de Supabase ya migró a **JWT Signing Keys** asimétricas (este proyecto expone una sola key `ES256` en `${SUPABASE_URL}/auth/v1/.well-known/jwks.json`), pero el middleware solo sabía verificar `HS256` contra el `SUPABASE_JWT_SECRET` clásico. Resultado: **todo endpoint que requiere sesión rechazaba con 401 el 100% de los tokens reales** — `/api/email/welcome`, `/api/email/invite`, `/api/intentos`, `/api/usuarios/me`, `/api/enterprise/*`, todos. Confirmado en producción con una cuenta de prueba: se creó bien (el alta pasa por Supabase/RLS directo, no por este middleware) pero `welcome_email_sent` quedó en `false` porque la llamada a `/api/email/welcome` fallaba en silencio.
   - Fix: `authMiddleware`/`optionalAuthMiddleware` ahora decodifican el header del JWT y, si el algoritmo no es `HS256`, resuelven la clave pública desde el JWKS del proyecto (cacheado 10 min, con reintento si el `kid` rotó) usando `crypto.createPublicKey({ format: 'jwk' })` — sin agregar dependencias nuevas. Se mantiene el camino `HS256` por compatibilidad con sesiones viejas que aún no rotaron.
   - Verificado end-to-end con un token real: se creó una cuenta descartable vía la API de Supabase, se le pasó el `access_token` (firmado `ES256`) por el middleware nuevo dentro de la app Express real, y la request pasó la verificación de firma (llegó a la lógica de negocio en vez de cortar en 401). Cuenta de prueba borrada al terminar.
+
+### Infra de producción (Vercel) — env vars rotas que tenían caído todo el backend
+
+Al arreglar la verificación de JWT quedó expuesto que **el backend estaba efectivamente caído en producción** (invisible porque el frontend aún hablaba con Supabase directo y los endpoints con auth cortaban antes en 401). Tres problemas de env vars en Vercel, encadenados:
+
+1. **`SUPABASE_URL` con un espacio al final.** Se detectó porque el redirect de `/api/auth/confirm` en prod apuntaba a `…supabase.co/%20/auth/v1/verify` (ese `%20` es el espacio). Rompía **dos** cosas: los links de confirmación de los mails de auth (URL inválida) y el fetch del JWKS para verificar los tokens `ES256` (mismo string con espacio → fetch fallido → 401 en todo endpoint autenticado).
+   - Fix en código (no se puede editar la env desde acá): (a) `config.storage.supabaseUrl` ahora hace `.trim()` + strip de barras finales; (b) **el middleware deriva la URL del JWKS del claim `iss` del propio token** (`https://<ref>.supabase.co/auth/v1`), validado a host `*.supabase.co` (y pineado al proyecto configurado si existe), en vez de depender de `SUPABASE_URL`. Así funciona aunque la env venga sucia. Verificado con token `ES256` real incluso con `SUPABASE_URL` vacía.
+
+2. **`DATABASE_URL` mal en Vercel → el backend no conectaba a Postgres.** Todo endpoint que toca la DB (`/api/leaderboard`, `/api/usuarios/me`, `/api/intentos`, etc.) devolvía **500**, con el 500 rápido (~0.3s, no timeout) y **sin error en los logs de Postgres** (la query nunca llegaba a la DB) → conexión rechazada/credencial inválida, no red. Desde local, el pooler (`aws-1-us-east-1.pooler.supabase.com`, usuario `postgres.<ref>`) conecta bien en 5432 y 6543, así que el problema era puramente el valor en Vercel (espacios, host directo IPv6, o usuario sin el `.ref`).
+   - Fix de código: `.trim()` de `DATABASE_URL` y `SUPABASE_JWT_SECRET` en config (endurecimiento anti-espacios). **El fix real es de operaciones**: en Vercel, `DATABASE_URL` debe ser el **transaction pooler** (`…pooler.supabase.com:6543`, usuario `postgres.<ref>`, sin espacios) — NO el host directo `db.<ref>.supabase.co` (IPv6, inalcanzable desde Vercel). Corregido por el dueño del proyecto; verificado en prod (`/api/leaderboard` → 200, `/api/usuarios/me` con token real → 404 de negocio, no 401/500).
+
+3. **`waitUntil` no ejecuta confiable el trabajo post-respuesta en este deployment.** El envío de bienvenida (y en general los fire-and-forget con `waitUntil` de `@vercel/functions`) no corría: el claim del flag `welcome_email_sent` quedaba en `false` a los 25s en prod. Se rediseñó el flujo de bienvenida para que sea **awaited** (el claim + envío ocurren ANTES de responder al alta; agrega ~0.5s solo la primera vez, el claim corta en logins siguientes). ⚠️ **Pendiente:** el mail de **invitación enterprise** (`enterpriseService.invitarAsync`) sigue usando `fireAndForget`/`waitUntil` — si `waitUntil` está roto, ese mail tampoco sale y hay que pasarlo a awaited también.
 
 ### Anti-cheat server-side
 - `plagiarismService.js` y `aiDetectionService.js` portados e integrados **dentro de** `POST /api/intentos` (antes el cliente se flageaba a sí mismo). Señales autoritativas: tiempo vs. score, similitud con intentos previos, patrones de texto de IA, ráfagas. Escalera de suspensión (2→warned, 5→suspended 7 días, 10→banned) en la misma transacción del intento. La respuesta nunca expone las razones de detección.
@@ -77,16 +89,18 @@ Esto es nuevo respecto al informe anterior del backend standalone:
 - Endpoint con whitelist para la config JSONB de empresa (`training_config`, `dashboard_filters`, `performance_metrics`) — hoy el panel enterprise sigue editando esas columnas directo.
 
 ### Frontend (el grueso del trabajo pendiente)
-**17 archivos** en `src/` todavía llaman a Supabase directo (`.from/.rpc/.storage`) en vez de a la API. Los más importantes por impacto de seguridad:
-1. **`App.jsx`** — el núcleo de scoring/ELO/feed/reveal sigue sin cablear a `/api/intentos`, `/api/imagenes`, etc. Es el archivo más crítico: mientras no se migre, el cliente sigue pudiendo escribir su propio ELO y leer `prompt_original` directo.
-2. **`UsuarioApp.jsx`, `LeaderboardApp.jsx`** — perfil, stats, leaderboard.
-3. **`AdminApp.jsx`**, `hooks/useAdmin.js`, `hooks/useDev.js` — admin todavía resuelve autorización contra `user_metadata` en el cliente.
-4. **`plagiarismService.js`, `aiDetectionService.js`, `rateLimitService.js`, `geminiService.js`, `aiChallengeService.js`** — servicios que ya tienen equivalente server-side (fases 5/7) y deberían vaciarse o borrarse.
-5. **`SupportApp.jsx`, `ConfigModal.jsx`, `Header.jsx`** — tickets, preferencias/reportes, notificaciones ya tienen endpoint.
-6. **`CompanyPanel.jsx`**, resto de componentes de guías (`GuidesApp.jsx`, `GuidesSection.jsx`, `EnterpriseGuideContent.jsx`).
-7. **`TournamentsApp.jsx`** — bajo impacto (feature no activa).
 
-Sugerido: correr `grep -rlE "supabase\.(from|rpc|storage)" src/` para la lista exacta y priorizar por el orden de arriba (scoring/ELO primero, después admin, después el resto).
+**Ya migrados (sesión 2026-07-20):** `useAuth.js`, `AuthModal.jsx`, `LangContext.jsx`, `ConfigModal.jsx`, `SupportApp.jsx`, `Header.jsx`, `LeaderboardApp.jsx` — cero `supabase.from/rpc/storage`; `supabase.auth.*` (login/signup/logout) permanece en el cliente a propósito. En `LeaderboardApp` además se **eliminó** un agujero: el cliente escribía `rank_anterior` de **todos** los jugadores y su propio `ranked_count` (ahora los mantiene el backend: contador en `/api/intentos` + snapshot por cron). En `useAuth` el alta de perfil pasó a `POST /api/usuarios` (que además dispara la bienvenida server-side, con `adminstate` ya NO seteado por el cliente).
+
+**Faltan** (llaman a Supabase directo), en orden de impacto:
+1. **`App.jsx`** — el núcleo de scoring/ELO/feed/reveal sigue sin cablear a `/api/intentos`, `/api/imagenes`, etc. Es el archivo más crítico y el más delicado: hay que reescribir el submit para delegar el scoring+ELO en `POST /api/intentos` (el cliente deja de calcular su propio ELO y de leer `prompt_original`). Ojo con el sync de intentos de invitado (`sessionStorage`) y el link de join enterprise (`join_company_by_link`).
+2. **`UsuarioApp.jsx`** (~31 call sites) — perfil, stats, follows → `/api/usuarios/*`.
+3. **`AdminApp.jsx`**, `hooks/useAdmin.js`, `hooks/useDev.js` — admin todavía resuelve autorización contra `user_metadata` en el cliente → `/api/admin/*`.
+4. **`plagiarismService.js`, `aiDetectionService.js`, `rateLimitService.js`, `geminiService.js`, `aiChallengeService.js`** — ya tienen equivalente server-side (fases 5/7); vaciarse/borrarse. (`rateLimitService` es delicado: el rate-limit de login/signup hoy es client-side contra la tabla `auth_rate_limit`, y el login va directo a Supabase Auth, no al backend.)
+5. **`CompanyPanel.jsx`**, `EnterprisePanel.jsx` (resto de sus llamadas), componentes de guías (`GuidesApp.jsx`, `GuidesSection.jsx`, `EnterpriseGuideContent.jsx`).
+6. **`TournamentsApp.jsx`** — bajo impacto (feature no activa).
+
+Nota: `grep -rlE "supabase\.(from|rpc|storage)" src/` da la lista exacta, pero **subcuenta** los call sites reales porque los chains multilínea (`await supabase\n.from(...)`) no matchean en una sola línea.
 
 ### Fuera del código (dependencias transversales)
 1. **RLS en Supabase**: revocar escritura del cliente sobre columnas sensibles (`elo_rating`, `adminstate`, `suspension_*`, contadores), ocultar `prompt_original`/`eval_instructions`, **borrar la función `exec_sql`**. Sin esto, aunque el frontend deje de usarlas, la anon key todavía puede llamarlas directo.
