@@ -11,76 +11,34 @@ import {
 } from '../utils/inputSanitizer'
 
 /**
- * Envía el mail de bienvenida UNA sola vez por cuenta, de forma race-safe.
+ * Asegura el perfil del usuario y dispara la bienvenida "una vez por cuenta",
+ * TODO server-side vía POST /api/usuarios. El backend crea el perfil de forma
+ * idempotente y hace el claim atómico + envío del mail (ver usuarioService).
+ * Reemplaza el upsert/select/update directo a `usuarios` que vivía acá.
  *
- * El "claim" atómico (welcome_email_sent: false → true, condicionado con
- * .eq('welcome_email_sent', false)) garantiza que solo el primer llamado que
- * gane la carrera dispara el envío, aunque el alta y el SIGNED_IN corran en
- * paralelo o haya varias pestañas abiertas. Si el envío falla, se revierte el
- * flag para reintentar en el próximo login (entrega al-menos-una-vez).
- *
- * Requiere la columna usuarios.welcome_email_sent (boolean not null default false).
+ * Cubre altas nuevas (email y Google) y cuentas viejas cuyo welcome_email_sent
+ * sigue en false (lo reciben en su próximo login). Idempotente: se puede llamar
+ * en cada SIGNED_IN sin duplicar el mail.
  */
-const sendWelcomeOnce = async (userId, { nombre, email, userType, lang }) => {
-  const { data: claimed, error } = await supabase
-    .from('usuarios')
-    .update({ welcome_email_sent: true })
-    .eq('id_usuario', userId)
-    .eq('welcome_email_sent', false)
-    .select('id_usuario')
-  if (error || !claimed?.length) return // ya se envió, o lo ganó otro llamado
-
-  try {
-    await api.post('/email/welcome', { nombre, email, userType, lang })
-  } catch (err) {
-    console.error('[email/welcome] error:', err.message)
-    // Revertir el claim para reintentar la próxima vez
-    await supabase.from('usuarios').update({ welcome_email_sent: false }).eq('id_usuario', userId)
-  }
-}
-
 const ensureUserProfile = async (u) => {
   if (!u) return
   try {
-    const { data: existing } = await supabase
-      .from('usuarios')
-      .select('id_usuario, welcome_email_sent')
-      .eq('id_usuario', u.id)
-      .maybeSingle()
-
     const nombre = u.user_metadata?.full_name || u.user_metadata?.nombre || u.email?.split('@')[0] || 'Usuario'
     const userType = u.user_metadata?.userType || 'individual'
+    const companyName = u.user_metadata?.companyName || null
     const lang = localStorage.getItem('lang') || 'es'
 
-    if (!existing) {
-      const companyName = u.user_metadata?.companyName || null
-
-      const profileData = {
-        id_usuario: u.id,
-        nombre,
-        email: u.email,
-        idioma_preferido: 'es',
-        adminstate: false,
-        user_type: userType,
-      }
-
-      if (userType === 'enterprise') {
-        profileData.company_name = companyName || nombre
-        profileData.nombre_display = companyName || nombre
-      }
-
-      // upsert con ignoreDuplicates evita el 409 si dos llamadas concurrentes llegan al mismo tiempo
-      await supabase.from('usuarios').upsert([profileData], { onConflict: 'id_usuario', ignoreDuplicates: true })
-    }
-
-    // Bienvenida "una vez por cuenta": cubre altas nuevas (Google y email) y
-    // también cuentas que ya existían antes de esta feature (su flag arranca en
-    // false por el default de la columna, así que lo reciben en su próximo login).
-    if (!existing || existing.welcome_email_sent === false) {
-      await sendWelcomeOnce(u.id, { nombre, email: u.email, userType, lang })
-    }
-  } catch {
-    // profile creation failed silently
+    await api.post('/usuarios', {
+      nombre,
+      nombre_display: userType === 'enterprise' ? (companyName || nombre) : nombre,
+      user_type: userType,
+      company_name: userType === 'enterprise' ? (companyName || nombre) : null,
+      idioma_preferido: 'es',
+      lang,
+    })
+  } catch (err) {
+    // Perfil ya existente o error transitorio: no romper el flujo de sesión.
+    console.error('[ensureUserProfile]', err.message)
   }
 }
 
@@ -137,13 +95,15 @@ export const useAuth = () => {
         throw new Error(usernameResult.error)
       }
       
-      const { data } = await supabase
-        .from('usuarios')
-        .select('email')
-        .ilike('username', usernameResult.sanitized)
-        .maybeSingle()
-      if (!data?.email) throw new Error('Username not found')
-      loginEmail = data.email
+      try {
+        const { email } = await api.get(
+          `/usuarios/email-por-username?u=${encodeURIComponent(usernameResult.sanitized)}`,
+          { auth: false }
+        )
+        loginEmail = email
+      } catch {
+        throw new Error('Username not found')
+      }
     } else {
       // Sanitize email
       const emailResult = sanitizeEmail(email)
@@ -222,29 +182,9 @@ export const useAuth = () => {
     if (error) throw error
 
     if (data.user) {
-      const profileData = {
-        id_usuario: data.user.id,
-        nombre: nombreResult.sanitized,
-        username: usernameResult.sanitized || null,
-        email: emailResult.sanitized,
-        idioma_preferido: 'es',
-        adminstate: false,
-        user_type: userType || 'individual',
-        accepted_terms: !!acceptedTerms,
-        email_marketing: !!emailMarketing,
-      }
-
-      // Si es empresa, agregar campos específicos
-      if (userType === 'enterprise') {
-        profileData.company_name = sanitizedCompanyName || nombreResult.sanitized
-        profileData.nombre_display = sanitizedCompanyName || nombreResult.sanitized
-      }
-
-      const { error: dbError } = await supabase.from('usuarios').insert([profileData])
-      if (dbError) throw dbError
-
-      // Auto-login después del registro — no pedir que inicie sesión por separado
-      // Si la sesión ya está activa (confirmación de email desactivada), esto la refresca
+      // Auto-login primero: el alta de perfil pega a POST /api/usuarios, que
+      // requiere sesión (Bearer). Si la confirmación de email está desactivada,
+      // signUp ya deja sesión y esto la refresca.
       if (!data.session) {
         const { error: loginError } = await supabase.auth.signInWithPassword({
           email: emailResult.sanitized,
@@ -253,15 +193,19 @@ export const useAuth = () => {
         if (loginError) throw loginError
       }
 
-      // Email de bienvenida "una vez por cuenta". Va después del auto-login
-      // porque el endpoint (y el claim del flag) requieren sesión. Comparte el
-      // claim atómico con ensureUserProfile: si el SIGNED_IN del auto-login corre
-      // en paralelo, solo uno de los dos gana y se manda un único mail.
+      // Alta de perfil + mail de bienvenida, TODO server-side (antes: insert
+      // directo a `usuarios` + sendWelcomeOnce con supabase.from()). El backend
+      // hace el claim atómico del flag, así que si el SIGNED_IN del auto-login
+      // dispara ensureUserProfile en paralelo, se manda un único mail.
       const lang = localStorage.getItem('lang') || 'es'
-      await sendWelcomeOnce(data.user.id, {
+      await api.post('/usuarios', {
         nombre: nombreResult.sanitized,
-        email: emailResult.sanitized,
-        userType: userType || 'individual',
+        username: usernameResult.sanitized || null,
+        user_type: userType || 'individual',
+        company_name: userType === 'enterprise' ? (sanitizedCompanyName || nombreResult.sanitized) : null,
+        idioma_preferido: 'es',
+        accepted_terms: !!acceptedTerms,
+        email_marketing: !!emailMarketing,
         lang,
       })
     }

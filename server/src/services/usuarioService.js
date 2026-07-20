@@ -1,5 +1,7 @@
 import UsuarioRepository from '../repositories/usuarioRepository.js'
 import FollowRepository from '../repositories/followRepository.js'
+import EmailService from './emailService.js'
+import { fireAndForget } from '../helpers/backgroundTask.js'
 import { throwError } from '../helpers/httpError.js'
 import { isValidString, isValidHexColor, isValidUsername, isValidHttpsUrl } from '../helpers/validatorHelper.js'
 import { LIMITES } from '../constants/index.js'
@@ -24,6 +26,7 @@ export default class UsuarioService {
     constructor() {
         this.repo = new UsuarioRepository()
         this.followRepo = new FollowRepository()
+        this.emailService = new EmailService()
     }
 
     getPerfilAsync = async (idUsuario) => {
@@ -33,9 +36,11 @@ export default class UsuarioService {
     }
 
     /**
-     * Crea el perfil tras el signup. El id y el email vienen del JWT (params
-     * confiables), no del body. Idempotente: si ya existe, no falla.
-     * Reemplaza el upsert/insert de `usuarios` que hacía useAuth.js.
+     * Crea el perfil tras el signup (email/Google). El id y el email vienen del
+     * JWT (params confiables), no del body. Idempotente: si ya existe, no falla.
+     * Reemplaza el upsert/insert de `usuarios` Y el sendWelcomeOnce que hacía
+     * useAuth.js con supabase directo: además del alta, dispara el mail de
+     * bienvenida "una vez por cuenta" server-side (race-safe + fire-and-forget).
      */
     crearPerfilAsync = async ({ idUsuario, email, body = {} }) => {
         if (body.username !== undefined && body.username !== null && !isValidUsername(body.username)) {
@@ -48,15 +53,57 @@ export default class UsuarioService {
                 throwError('Ese nombre de usuario ya está en uso.', 409)
             }
         }
+
+        const esEnterprise = body.user_type === 'enterprise'
+        const nombreDisplay = body.nombre_display ?? (esEnterprise ? body.company_name : null) ?? body.nombre ?? null
         await this.repo.crearPerfilSiNoExisteAsync({
             id_usuario: idUsuario,
             email,
             nombre: body.nombre ?? null,
-            nombre_display: body.nombre_display ?? body.nombre ?? null,
+            nombre_display: nombreDisplay,
             username: body.username ?? null,
             avatar_url: body.avatar_url ?? null,
+            user_type: esEnterprise ? 'enterprise' : 'individual',
+            company_name: esEnterprise ? (body.company_name ?? body.nombre ?? null) : null,
+            idioma_preferido: ['es', 'en'].includes(body.idioma_preferido) ? body.idioma_preferido : 'es',
+            accepted_terms: !!body.accepted_terms,
+            email_marketing: !!body.email_marketing,
         })
+
+        this._enviarBienvenidaUnaVez(idUsuario, body.lang)
         return await this.repo.getPerfilPublicoAsync(idUsuario)
+    }
+
+    /**
+     * Envía el mail de bienvenida UNA sola vez por cuenta, de forma race-safe.
+     * El claim atómico (welcome_email_sent false→true) garantiza un único envío
+     * aunque el alta y el SIGNED_IN corran en paralelo o haya varias pestañas.
+     * Fire-and-forget: no bloquea la respuesta. Si el envío falla, revierte el
+     * flag para reintentar en el próximo login (entrega al-menos-una-vez).
+     */
+    _enviarBienvenidaUnaVez = async (idUsuario, lang) => {
+        try {
+            const claimed = await this.repo.claimWelcomeEmailAsync(idUsuario)
+            if (!claimed) return // ya se envió, o lo ganó otro llamado
+
+            const u = await this.repo.getByIdAsync(idUsuario)
+            if (!u?.email) {
+                await this.repo.revertWelcomeEmailAsync(idUsuario)
+                return
+            }
+            const nombre = u.nombre_display || u.nombre || u.email.split('@')[0]
+            const idioma = ['es', 'en'].includes(lang) ? lang : (u.idioma_preferido || 'es')
+
+            const envio = this.emailService
+                .sendWelcomeAsync({ nombre, email: u.email, userType: u.user_type || 'individual', lang: idioma })
+                .catch(async (err) => {
+                    console.error('[welcome-email] falló, revierto flag:', err?.message)
+                    await this.repo.revertWelcomeEmailAsync(idUsuario).catch(() => {})
+                })
+            fireAndForget(envio, 'welcome-email')
+        } catch (err) {
+            console.error('[welcome-email] error en el claim:', err?.message)
+        }
     }
 
     /** Chequeo de disponibilidad de username (registro). */

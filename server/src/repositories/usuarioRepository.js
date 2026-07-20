@@ -63,12 +63,24 @@ export default class UsuarioRepository {
      * Crea el perfil si no existe (idempotente vía ON CONFLICT DO NOTHING).
      * El id y el email salen del JWT verificado, no del body del cliente.
      * Reemplaza el upsert/insert de perfil que hacía useAuth.js en el cliente.
+     * `adminstate` se OMITE a propósito: nunca lo setea el cliente (lo deja en su
+     * default), a diferencia del insert viejo del frontend que lo mandaba.
      */
     crearPerfilSiNoExisteAsync = async (perfil) => {
+        // ON CONFLICT DO UPDATE (no DO NOTHING): el perfil puede haberse creado
+        // recién sin username (ensureUserProfile del SIGNED_IN corre en paralelo,
+        // sin username) y esta llamada de signup sí lo trae. Se rellenan SOLO los
+        // campos que corresponde completar una vez, sin pisar lo que el usuario ya
+        // tenga: username solo si estaba vacío; los flags de consentimiento solo
+        // suben de false a true. nombre/nombre_display NO se tocan en conflicto.
         const result = await pool.query(
-            `INSERT INTO usuarios (id_usuario, email, nombre, nombre_display, username, avatar_url)
-             VALUES ($1, $2, $3, $4, $5, $6)
-             ON CONFLICT (id_usuario) DO NOTHING
+            `INSERT INTO usuarios (id_usuario, email, nombre, nombre_display, username, avatar_url,
+                                   user_type, company_name, idioma_preferido, accepted_terms, email_marketing)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+             ON CONFLICT (id_usuario) DO UPDATE SET
+                username        = COALESCE(usuarios.username, EXCLUDED.username),
+                accepted_terms  = COALESCE(usuarios.accepted_terms, false) OR EXCLUDED.accepted_terms,
+                email_marketing = COALESCE(usuarios.email_marketing, false) OR EXCLUDED.email_marketing
              RETURNING id_usuario`,
             [
                 perfil.id_usuario,
@@ -77,10 +89,39 @@ export default class UsuarioRepository {
                 perfil.nombre_display ?? null,
                 perfil.username ?? null,
                 perfil.avatar_url ?? null,
+                perfil.user_type ?? 'individual',
+                perfil.company_name ?? null,
+                perfil.idioma_preferido ?? 'es',
+                perfil.accepted_terms ?? false,
+                perfil.email_marketing ?? false,
             ]
         )
         // rowCount 0 = ya existía (no es error): devolvemos el existente
         return result.rows[0]?.id_usuario ?? perfil.id_usuario
+    }
+
+    /**
+     * Claim atómico del envío de bienvenida "una vez por cuenta". Devuelve la
+     * fila si ESTE llamado ganó la carrera (welcome_email_sent pasó de false a
+     * true), o null si ya estaba en true / lo ganó otro. Reemplaza el claim que
+     * hacía useAuth.js con supabase.from(...).update() desde el cliente.
+     */
+    claimWelcomeEmailAsync = async (idUsuario) => {
+        const result = await pool.query(
+            `UPDATE usuarios SET welcome_email_sent = true
+             WHERE id_usuario = $1 AND welcome_email_sent = false
+             RETURNING id_usuario`,
+            [idUsuario]
+        )
+        return result.rows[0] ?? null
+    }
+
+    /** Revierte el claim si el envío del mail falló (entrega al-menos-una-vez). */
+    revertWelcomeEmailAsync = async (idUsuario) => {
+        await pool.query(
+            `UPDATE usuarios SET welcome_email_sent = false WHERE id_usuario = $1`,
+            [idUsuario]
+        )
     }
 
     isAdminAsync = async (idUsuario) => {
