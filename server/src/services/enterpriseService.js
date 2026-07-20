@@ -5,7 +5,6 @@ import UsuarioRepository from '../repositories/usuarioRepository.js'
 import EmailService from './emailService.js'
 import { config } from '../config/env.js'
 import { throwError } from '../helpers/httpError.js'
-import { fireAndForget } from '../helpers/backgroundTask.js'
 import { isValidString, isValidUUID, isValidHexColor, isValidHttpsUrl, clampInt } from '../helpers/validatorHelper.js'
 import { nowAR } from '../helpers/dateHelper.js'
 
@@ -153,19 +152,26 @@ export default class EnterpriseService {
             fecha: nowAR(),
         })
 
-        // Email de invitación: no frena la operación si falla. En Vercel se
-        // registra con waitUntil para que sobreviva al freeze post-respuesta.
+        // Email de invitación: se ESPERA (no fire-and-forget) porque el trabajo
+        // post-respuesta con waitUntil no es confiable en este entorno serverless
+        // (mismo motivo que el mail de bienvenida). Agrega ~0.5s a la respuesta
+        // del invite, pero garantiza el envío. Si falla, NO frena la operación:
+        // la invitación ya quedó creada en la BD.
         const base = config.email.appBaseUrl
         const joinUrl = existente?.id_usuario
             ? `${base}/?join=${usuario.id}`
             : `${base}/?invite=${usuario.id}&email=${encodeURIComponent(cleanEmail)}`
-        fireAndForget(this.emailService.sendInviteAsync({
-            recipientEmail: cleanEmail,
-            companyName: empresa.company_name || empresa.nombre_display || 'PrompTool',
-            inviterName: empresa.nombre_display || null,
-            joinUrl,
-            isExistingUser: !!existente,
-        }), 'enterprise-invite')
+        try {
+            await this.emailService.sendInviteAsync({
+                recipientEmail: cleanEmail,
+                companyName: empresa.company_name || empresa.nombre_display || 'PrompTool',
+                inviterName: empresa.nombre_display || null,
+                joinUrl,
+                isExistingUser: !!existente,
+            })
+        } catch (err) {
+            console.error('[enterprise-invite] email falló:', err?.message)
+        }
 
         return invitacion
     }
