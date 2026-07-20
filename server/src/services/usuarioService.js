@@ -1,7 +1,6 @@
 import UsuarioRepository from '../repositories/usuarioRepository.js'
 import FollowRepository from '../repositories/followRepository.js'
 import EmailService from './emailService.js'
-import { fireAndForget } from '../helpers/backgroundTask.js'
 import { throwError } from '../helpers/httpError.js'
 import { isValidString, isValidHexColor, isValidUsername, isValidHttpsUrl } from '../helpers/validatorHelper.js'
 import { LIMITES } from '../constants/index.js'
@@ -70,11 +69,12 @@ export default class UsuarioService {
             email_marketing: !!body.email_marketing,
         })
 
-        // Se envuelve TODO el flujo (claim + envío) en fireAndForget/waitUntil:
-        // en Vercel la función se congela al mandar la respuesta, así que si el
-        // claim (UPDATE del flag) no queda registrado, no se ejecuta y el mail
-        // nunca sale. No se hace await para no bloquear la respuesta del alta.
-        fireAndForget(this._enviarBienvenidaUnaVez(idUsuario, body.lang), 'welcome-once')
+        // AWAITED (no fire-and-forget): en este entorno serverless el trabajo
+        // post-respuesta (waitUntil) no corre confiable, así que el claim del
+        // flag no quedaba seteado y el mail no salía. Se espera todo el flujo
+        // antes de responder — agrega ~0.5s solo la PRIMERA vez (el claim corta
+        // en los logins siguientes). No frena el alta si el envío falla.
+        await this._enviarBienvenidaUnaVez(idUsuario, body.lang)
         return await this.repo.getPerfilPublicoAsync(idUsuario)
     }
 
@@ -83,27 +83,32 @@ export default class UsuarioService {
      * El claim atómico (welcome_email_sent false→true) garantiza un único envío
      * aunque el alta y el SIGNED_IN corran en paralelo o haya varias pestañas.
      * Si el envío falla, revierte el flag para reintentar en el próximo login
-     * (entrega al-menos-una-vez). El caller lo corre vía fireAndForget.
+     * (entrega al-menos-una-vez). Toda excepción se traga: la bienvenida nunca
+     * debe hacer fallar el alta del perfil.
      */
     _enviarBienvenidaUnaVez = async (idUsuario, lang) => {
-        const claimed = await this.repo.claimWelcomeEmailAsync(idUsuario)
-        if (!claimed) return // ya se envió, o lo ganó otro llamado
-
-        const u = await this.repo.getByIdAsync(idUsuario)
-        if (!u?.email) {
-            await this.repo.revertWelcomeEmailAsync(idUsuario)
-            return
-        }
-        const nombre = u.nombre_display || u.nombre || u.email.split('@')[0]
-        const idioma = ['es', 'en'].includes(lang) ? lang : (u.idioma_preferido || 'es')
-
         try {
-            await this.emailService.sendWelcomeAsync({
-                nombre, email: u.email, userType: u.user_type || 'individual', lang: idioma,
-            })
+            const claimed = await this.repo.claimWelcomeEmailAsync(idUsuario)
+            if (!claimed) return // ya se envió, o lo ganó otro llamado
+
+            const u = await this.repo.getByIdAsync(idUsuario)
+            if (!u?.email) {
+                await this.repo.revertWelcomeEmailAsync(idUsuario)
+                return
+            }
+            const nombre = u.nombre_display || u.nombre || u.email.split('@')[0]
+            const idioma = ['es', 'en'].includes(lang) ? lang : (u.idioma_preferido || 'es')
+
+            try {
+                await this.emailService.sendWelcomeAsync({
+                    nombre, email: u.email, userType: u.user_type || 'individual', lang: idioma,
+                })
+            } catch (err) {
+                console.error('[welcome-email] falló, revierto flag:', err?.message)
+                await this.repo.revertWelcomeEmailAsync(idUsuario).catch(() => {})
+            }
         } catch (err) {
-            console.error('[welcome-email] falló, revierto flag:', err?.message)
-            await this.repo.revertWelcomeEmailAsync(idUsuario).catch(() => {})
+            console.error('[welcome-email] error inesperado:', err?.message)
         }
     }
 
