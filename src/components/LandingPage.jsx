@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, lazy, Suspense } from 'react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { SplitText } from 'gsap/SplitText'
+import { ScrambleTextPlugin } from 'gsap/ScrambleTextPlugin'
 import Lenis from 'lenis'
 import 'lenis/dist/lenis.css'
 import { landingEditorial } from '../data/siteContent'
@@ -9,9 +11,12 @@ import { scrollBus } from './landing/scrollBus'
 import CommunitySlideshow from './landing/CommunitySlideshow'
 import InteractiveDemo from './landing/InteractiveDemo'
 import PromptTypingField from './landing/PromptTypingField'
-import { AnimatedStats, StatsChart, OrgIcon, GLASS, FOCUS } from './landing/widgets'
+import { AnimatedStats, StatsChart, OrgIcon, GLASS, FOCUS, useTilt, MagneticButton, CountUp } from './landing/widgets'
 
-gsap.registerPlugin(ScrollTrigger)
+// WebGL aurora is code-split so three/R3F stay out of the initial landing chunk.
+const AuroraCanvas = lazy(() => import('./landing/AuroraCanvas'))
+
+gsap.registerPlugin(ScrollTrigger, SplitText, ScrambleTextPlugin)
 
 const SECTION_IDS = ['hero', 'how', 'progress', 'community', 'tournaments', 'guides', 'teams', 'profiles', 'start']
 
@@ -32,17 +37,20 @@ const Tag = ({ children }) => (
 )
 
 // Mock app-window chrome — echoes the floating prompt cards in the background
-const WindowCard = ({ label, children, className = '' }) => (
-  <div className={`overflow-hidden rounded-2xl ${GLASS} ${className}`}>
-    <div className="flex items-center gap-1.5 border-b border-slate-900/[0.06] bg-white/60 px-4 py-2.5">
-      <span className="h-2 w-2 rounded-full bg-rose-300" aria-hidden="true" />
-      <span className="h-2 w-2 rounded-full bg-amber-300" aria-hidden="true" />
-      <span className="h-2 w-2 rounded-full bg-emerald-300" aria-hidden="true" />
-      <span className="ml-2 font-mono text-[10px] font-semibold uppercase tracking-widest text-slate-400">{label}</span>
+const WindowCard = ({ label, children, className = '' }) => {
+  const tiltRef = useTilt()
+  return (
+    <div ref={tiltRef} className={`overflow-hidden rounded-2xl ${GLASS} ${className}`}>
+      <div className="flex items-center gap-1.5 border-b border-slate-900/[0.06] bg-white/60 px-4 py-2.5">
+        <span className="h-2 w-2 rounded-full bg-rose-300" aria-hidden="true" />
+        <span className="h-2 w-2 rounded-full bg-amber-300" aria-hidden="true" />
+        <span className="h-2 w-2 rounded-full bg-emerald-300" aria-hidden="true" />
+        <span className="ml-2 font-mono text-[10px] font-semibold uppercase tracking-widest text-slate-400">{label}</span>
+      </div>
+      <div className="p-5 sm:p-6">{children}</div>
     </div>
-    <div className="p-5 sm:p-6">{children}</div>
-  </div>
-)
+  )
+}
 
 const CheckItem = ({ children, small = false }) => (
   <li data-reveal className={`flex items-start gap-3 leading-relaxed ${small ? 'text-sm' : 'text-base'}`}>
@@ -74,6 +82,8 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
   const rootRef = useRef(null)
   const sectionRefs = useRef([])
   const lenisRef = useRef(null)
+  const heroCardTilt = useTilt({ enabled: !reducedMotion })
+  const profileCardTilt = useTilt({ enabled: !reducedMotion })
   const c = copy[lang]
   const ed = landingEditorial[lang] || landingEditorial.es
 
@@ -134,6 +144,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
 
   // ── ScrollTriggers: active-section tracking, reveals, numeral parallax ───
   useEffect(() => {
+    const splits = [] // SplitText instances to revert on cleanup / re-run
     const ctx = gsap.context(() => {
       sectionRefs.current.forEach((el, i) => {
         if (!el) return
@@ -150,7 +161,8 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
         })
         if (!reducedMotion) {
           if (i > 0) {
-            const items = el.querySelectorAll('[data-reveal]')
+            // Generic reveal — split headings are excluded (they animate below).
+            const items = el.querySelectorAll('[data-reveal]:not([data-split-heading])')
             if (items.length) {
               gsap.fromTo(items,
                 { opacity: 0, y: 36 },
@@ -159,6 +171,23 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                   scrollTrigger: { trigger: el, start: 'top 70%', toggleActions: 'play none none reverse' },
                 }
               )
+            }
+
+            // Kinetic heading — word-masked reveal, reverted to clean DOM on complete.
+            const heading = el.querySelector('[data-split-heading]')
+            if (heading) {
+              const split = new SplitText(heading, { type: 'lines,words', linesClass: 'split-line' })
+              splits.push(split)
+              split.lines.forEach((l) => { l.style.overflow = 'hidden' })
+              gsap.from(split.words, {
+                yPercent: 115, opacity: 0, duration: 0.7, ease: 'power3.out', stagger: 0.05,
+                scrollTrigger: { trigger: el, start: 'top 72%', once: true },
+                onComplete: () => {
+                  split.revert()
+                  const idx = splits.indexOf(split)
+                  if (idx > -1) splits.splice(idx, 1)
+                },
+              })
             }
           }
           const num = el.querySelector('[data-numeral]')
@@ -171,13 +200,22 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
         }
       })
 
-      // Hero intro: masked line reveal + staggered fade
+      // Hero intro: masked line slide + on-brand "decode" scramble + staggered fade.
       if (!reducedMotion) {
-        gsap.fromTo('[data-hero-line]', { yPercent: 110 }, { yPercent: 0, duration: 0.9, ease: 'power3.out', stagger: 0.1, delay: 0.15 })
+        const heroLines = gsap.utils.toArray('[data-hero-line]')
+        gsap.fromTo(heroLines, { yPercent: 110 }, { yPercent: 0, duration: 0.85, ease: 'power3.out', stagger: 0.12, delay: 0.1 })
+        heroLines.forEach((line, i) => {
+          gsap.to(line, {
+            duration: 1.0,
+            delay: 0.28 + i * 0.16,
+            ease: 'none',
+            scrambleText: { text: line.textContent, chars: '01<>/[]{}#*!?', speed: 0.55, revealDelay: 0.15 },
+          })
+        })
         gsap.fromTo('[data-hero-fade]', { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.8, ease: 'power2.out', stagger: 0.1, delay: 0.55 })
       }
     }, rootRef)
-    return () => ctx.revert()
+    return () => { splits.forEach((s) => s.revert()); ctx.revert() }
   }, [reducedMotion])
 
   const goTo = (id) => {
@@ -205,6 +243,13 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
             'radial-gradient(50% 45% at 85% 90%, rgba(124,58,237,0.10), transparent 60%)',
         }}
       />
+
+      {/* ── Layer 0a2: WebGL aurora (lazy, motion-only) over the static tint ── */}
+      {!reducedMotion && (
+        <Suspense fallback={null}>
+          <AuroraCanvas isMobile={isMobile} />
+        </Suspense>
+      )}
 
       {/* ── Layer 0b: floating prompts typing themselves ── */}
       <PromptTypingField lang={lang} animate={!reducedMotion} isMobile={isMobile} />
@@ -235,6 +280,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
         {/* ── 01 · HERO ── */}
         <section id="hero" ref={setSectionRef(0)} className="relative flex min-h-[100svh] items-center overflow-hidden px-6 py-16 lg:px-8">
           <Numeral n="01" side="left" />
+          <div aria-hidden="true" className="landing-grid-bg pointer-events-none absolute inset-0" />
           <div className="mx-auto w-full max-w-6xl">
             <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
               <div className="space-y-6 lg:space-y-8">
@@ -250,7 +296,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                 </h1>
                 <p data-hero-fade className="max-w-md text-base leading-relaxed text-slate-600 lg:text-lg">{c.sub}</p>
                 <div data-hero-fade className="flex flex-wrap gap-3 lg:gap-4">
-                  <button type="button" onClick={onTryApp} className={BTN_PRIMARY}>{c.cta1}</button>
+                  <MagneticButton type="button" onClick={onTryApp} className={BTN_PRIMARY} enabled={!reducedMotion}>{c.cta1}</MagneticButton>
                   <button type="button" onClick={onOpenAuth} className={BTN_GHOST}>{c.cta2}</button>
                 </div>
                 <div data-hero-fade className="flex items-center gap-3 pt-1">
@@ -271,7 +317,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                   <div className="h-px flex-1 bg-slate-900/10" aria-hidden="true" />
                 </div>
               </div>
-              <div data-hero-fade className={`relative hidden overflow-hidden rounded-2xl p-6 lg:block lg:h-[520px] ${GLASS}`}>
+              <div ref={heroCardTilt} data-hero-fade className={`relative hidden overflow-hidden rounded-2xl p-6 lg:block lg:h-[520px] ${GLASS}`}>
                 <div className="relative h-full">
                   <CommunitySlideshow lang={lang} />
                 </div>
@@ -298,7 +344,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
           <div className="mx-auto w-full max-w-6xl">
             <div className="mb-8 text-center lg:mb-10">
               <Tag>{c.howTag}</Tag>
-              <h2 data-reveal className="mb-3 text-3xl font-bold lg:text-4xl">{c.howTitle}</h2>
+              <h2 data-reveal data-split-heading className="mb-3 text-3xl font-bold lg:text-4xl">{c.howTitle}</h2>
               <p data-reveal className="mx-auto max-w-2xl text-base leading-relaxed text-slate-600 lg:text-lg">{c.howDesc}</p>
             </div>
             <div data-reveal>
@@ -322,7 +368,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
           <div className="mx-auto grid w-full max-w-6xl items-center gap-10 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
             <div>
               <Tag>{c.progressTag}</Tag>
-              <h2 data-reveal className="mb-4 text-3xl font-bold lg:text-4xl">{c.progressTitle}</h2>
+              <h2 data-reveal data-split-heading className="mb-4 text-3xl font-bold lg:text-4xl">{c.progressTitle}</h2>
               <p data-reveal className="mb-8 text-base leading-relaxed text-slate-600 lg:text-lg">{c.progressDesc}</p>
               <div data-reveal className="flex flex-wrap gap-2">
                 {c.statsLabels.map(label => (
@@ -357,7 +403,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
           <div className="mx-auto grid w-full max-w-6xl items-center gap-10 lg:grid-cols-2 lg:gap-20">
             <div>
               <Tag>{c.communityTag}</Tag>
-              <h2 data-reveal className="mb-4 text-3xl font-bold lg:text-4xl">{c.communityTitle}</h2>
+              <h2 data-reveal data-split-heading className="mb-4 text-3xl font-bold lg:text-4xl">{c.communityTitle}</h2>
               <p data-reveal className="mb-6 text-base leading-relaxed text-slate-600 lg:text-lg">{c.communityDesc}</p>
               <ul className="space-y-4">
                 {c.communityItems.map(item => (
@@ -376,13 +422,13 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-baseline justify-between gap-3">
                           <p className="truncate text-sm font-semibold text-slate-900">{name}</p>
-                          <p className="shrink-0 text-xs font-bold tabular-nums text-cyan-700">{score}%</p>
+                          <p className="shrink-0 text-xs font-bold tabular-nums text-cyan-700"><CountUp value={`${score}%`} /></p>
                         </div>
                         <div className="mt-1.5 flex items-center gap-2.5">
                           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-900/[0.06]" aria-hidden="true">
                             <div className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-violet-500" style={{ width: `${score}%` }} />
                           </div>
-                          <span className="shrink-0 text-[11px] tabular-nums text-slate-500">{elo} ELO</span>
+                          <span className="shrink-0 text-[11px] tabular-nums text-slate-500"><CountUp value={`${elo} ELO`} /></span>
                         </div>
                       </div>
                     </li>
@@ -419,13 +465,13 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                       <div key={l} className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-gradient-to-br from-cyan-500/20 to-violet-500/20 text-xs font-bold text-cyan-700">{l}</div>
                     ))}
                   </div>
-                  <span className="text-xs text-slate-500">+48 {c.tourParticipants}</span>
+                  <span className="text-xs text-slate-500"><CountUp value="+48" /> {c.tourParticipants}</span>
                 </div>
               </div>
             </div>
             <div>
               <Tag>{c.tourTag}</Tag>
-              <h2 data-reveal className="mb-4 text-3xl font-bold lg:text-4xl">{c.tourTitle}</h2>
+              <h2 data-reveal data-split-heading className="mb-4 text-3xl font-bold lg:text-4xl">{c.tourTitle}</h2>
               <p data-reveal className="mb-6 text-base leading-relaxed text-slate-600 lg:text-lg">{c.tourDesc}</p>
               <ul className="space-y-4">
                 {c.tourItems.map(item => (
@@ -442,7 +488,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
           <div className="mx-auto grid w-full max-w-6xl items-center gap-10 lg:grid-cols-2 lg:gap-16">
             <div>
               <Tag>{c.guidesTag}</Tag>
-              <h2 data-reveal className="mb-4 text-3xl font-bold">{c.guidesTitle}</h2>
+              <h2 data-reveal data-split-heading className="mb-4 text-3xl font-bold">{c.guidesTitle}</h2>
               <p data-reveal className="mb-6 text-base leading-7 text-slate-600">{c.guidesDesc}</p>
               <ul className="mb-6 space-y-3">
                 {c.guidesItems.map(item => (
@@ -487,7 +533,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
           <div className="mx-auto w-full max-w-6xl">
             <div className="mb-8 max-w-2xl lg:mb-12">
               <Tag>{c.orgTag}</Tag>
-              <h2 data-reveal className="mb-3 text-2xl font-bold lg:text-3xl">{c.orgTitle}</h2>
+              <h2 data-reveal data-split-heading className="mb-3 text-2xl font-bold lg:text-3xl">{c.orgTitle}</h2>
               <p data-reveal className="text-sm leading-7 text-slate-600 lg:text-base">{c.orgDesc}</p>
             </div>
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
@@ -510,7 +556,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
           <div className="mx-auto grid w-full max-w-6xl items-center gap-10 lg:grid-cols-2 lg:gap-16">
             <div>
               <Tag>{c.profileTag}</Tag>
-              <h2 data-reveal className="mb-4 text-3xl font-bold">{c.profileTitle}</h2>
+              <h2 data-reveal data-split-heading className="mb-4 text-3xl font-bold">{c.profileTitle}</h2>
               <p data-reveal className="mb-6 text-base leading-7 text-slate-600">{c.profileDesc}</p>
               <ul className="space-y-3">
                 {c.profileItems.map(item => (
@@ -518,7 +564,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                 ))}
               </ul>
             </div>
-            <div data-reveal className={`overflow-hidden rounded-2xl ${GLASS}`}>
+            <div ref={profileCardTilt} data-reveal className={`overflow-hidden rounded-2xl ${GLASS}`}>
               <div className="h-20 bg-gradient-to-r from-cyan-500/25 via-sky-400/15 to-violet-500/25" aria-hidden="true" />
               <div className="px-6 pb-6">
                 <div className="-mt-7 mb-4 flex items-end gap-4">
@@ -536,7 +582,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                 <div className="mb-5 grid grid-cols-3 gap-3">
                   {[['1420', 'ELO'], ['81%', lang === 'en' ? 'Avg' : 'Prom.'], ['14d', lang === 'en' ? 'Streak' : 'Racha']].map(([v, l]) => (
                     <div key={l} className="rounded-xl border border-slate-900/[0.06] bg-white/70 p-3 text-center">
-                      <p className="text-lg font-black tabular-nums text-cyan-700">{v}</p>
+                      <p className="text-lg font-black tabular-nums text-cyan-700"><CountUp value={v} /></p>
                       <p className="text-[11px] text-slate-500">{l}</p>
                     </div>
                   ))}
@@ -567,7 +613,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                 </h2>
                 <p className="mx-auto max-w-md text-base text-slate-600 sm:text-lg">{c.ctaDesc}</p>
                 <div className="flex flex-wrap justify-center gap-4 pt-2">
-                  <button type="button" onClick={onTryApp} className={BTN_PRIMARY}>{c.ctaPlay}</button>
+                  <MagneticButton type="button" onClick={onTryApp} className={BTN_PRIMARY} enabled={!reducedMotion}>{c.ctaPlay}</MagneticButton>
                   <button type="button" onClick={onOpenAuth} className={BTN_GHOST}>{c.ctaSignup}</button>
                   <button
                     type="button"

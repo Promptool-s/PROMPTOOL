@@ -11,8 +11,10 @@ const InteractiveDemo = ({ lang }) => {
   const [isVisible, setIsVisible] = useState(false)
   const demoRef = useRef(null)
 
-  // Foto: gato naranja de Andrew McCarthy alcanzando la Vía Láctea
-  const demoImage = 'https://petapixel.com/2025/10/13/astrophotographer-andrew-mccarthy-adds-his-adorable-cat-to-far-out-space-photos/spicy-star/'
+  // Imagen real opcional del desafío. Por defecto queda vacía → se muestra un
+  // placeholder cósmico autocontenido (el valor anterior era un link a un
+  // artículo, no una imagen, así que nunca se veía nada). Poné una URL real acá.
+  const demoImage = ''
   const userPrompt = lang === 'es'
     ? 'Generame un gato naranja en el espacio agarrando la via lactea, que sea gigante'
     : 'Generate a giant orange cat in space grabbing the Milky Way'
@@ -129,16 +131,49 @@ const InteractiveDemo = ({ lang }) => {
               {lang === 'en' ? 'Daily' : 'Diario'}
             </span>
           </div>
-          <div className="relative aspect-[3/4] rounded-xl overflow-hidden border border-slate-900/10 bg-gradient-to-br from-slate-100 to-slate-200 max-h-72 lg:max-h-80 mx-auto">
-            <img
-              src={demoImage}
-              alt=""
-              className="w-full h-full object-cover object-center"
-              loading="lazy"
-              decoding="async"
-              style={{ objectPosition: '50% 30%' }}
-              onError={e => { e.currentTarget.style.display = 'none' }}
+          <div
+            className="relative aspect-[3/4] rounded-xl overflow-hidden border border-slate-900/10 max-h-72 lg:max-h-80 mx-auto"
+            style={{
+              background:
+                'radial-gradient(120% 80% at 28% 18%, rgba(251,146,60,0.45), transparent 55%),' +
+                'radial-gradient(100% 90% at 78% 88%, rgba(124,58,237,0.5), transparent 60%),' +
+                'linear-gradient(160deg, #0b1026, #1e1b4b 55%, #0b1026)',
+            }}
+          >
+            {/* Campo de estrellas + banda de Vía Láctea — CSS puro, siempre renderiza */}
+            <div
+              aria-hidden="true"
+              className="absolute inset-0"
+              style={{
+                backgroundImage:
+                  'radial-gradient(1.5px 1.5px at 18% 24%, #fff, transparent),' +
+                  'radial-gradient(1px 1px at 62% 38%, rgba(255,255,255,0.9), transparent),' +
+                  'radial-gradient(1.5px 1.5px at 42% 72%, #fff, transparent),' +
+                  'radial-gradient(1px 1px at 82% 62%, rgba(255,255,255,0.8), transparent),' +
+                  'radial-gradient(1px 1px at 30% 54%, rgba(255,255,255,0.85), transparent),' +
+                  'radial-gradient(1.5px 1.5px at 72% 20%, #fff, transparent),' +
+                  'radial-gradient(1px 1px at 54% 88%, rgba(255,255,255,0.8), transparent)',
+              }}
             />
+            <div
+              aria-hidden="true"
+              className="absolute inset-0"
+              style={{ background: 'linear-gradient(115deg, transparent 42%, rgba(199,210,254,0.18) 50%, transparent 58%)' }}
+            />
+            <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/35 px-2 py-0.5 text-[10px] font-semibold text-white/90 backdrop-blur-sm">
+              <span className="h-1.5 w-1.5 rounded-full bg-cyan-300" aria-hidden="true" /> IA
+            </span>
+            {demoImage && (
+              <img
+                src={demoImage}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
+                style={{ objectPosition: '50% 30%' }}
+                onError={e => { e.currentTarget.style.display = 'none' }}
+              />
+            )}
           </div>
         </div>
 

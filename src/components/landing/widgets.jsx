@@ -1,9 +1,126 @@
 import { useEffect, useState, useRef } from 'react'
+import gsap from 'gsap'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
 // Shared glass-card class for the light hybrid theme
 export const GLASS = 'border border-slate-900/10 bg-white/70 backdrop-blur-md shadow-sm shadow-slate-900/[0.03]'
 export const FOCUS = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600 focus-visible:outline-offset-2'
+
+const prefersReduced = () =>
+  typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+const pointerFine = () =>
+  typeof window !== 'undefined' && window.matchMedia('(pointer: fine)').matches
+
+// ── CountUp ────────────────────────────────────────────────────────────────
+// Animates a numeric value up from 0 while preserving its prefix/suffix
+// (e.g. '74%', '#38', '+48', '1420'). Drives textContent via a ref so React
+// never re-renders per frame. Starts at 0, counts up once `active` is true.
+const parseValue = (raw) => {
+  const m = String(raw).match(/^(\D*?)(-?[\d.]+)(\D*)$/)
+  if (!m) return null
+  return { prefix: m[1], num: parseFloat(m[2]), suffix: m[3], decimals: (m[2].split('.')[1] || '').length }
+}
+
+export const CountUp = ({ value, active, duration = 1.3, className }) => {
+  const ref = useRef(null)
+  const [selfActive, setSelfActive] = useState(false)
+  const controlled = active !== undefined
+  const parsed = parseValue(value)
+  const reduce = prefersReduced()
+  const initial = !parsed || reduce ? value : parsed.prefix + '0' + parsed.suffix
+
+  // Self-trigger on viewport enter when `active` isn't supplied by the parent.
+  useEffect(() => {
+    if (controlled || reduce || !parsed) return
+    const el = ref.current
+    if (!el) return
+    const io = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { setSelfActive(true); io.disconnect() }
+    }, { threshold: 0.4 })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [controlled, reduce]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const isActive = controlled ? active : selfActive
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el || !parsed || reduce) return
+    const { prefix, num, suffix, decimals } = parsed
+    const render = (n) => { el.textContent = prefix + (decimals ? n.toFixed(decimals) : Math.round(n)) + suffix }
+    if (!isActive) { render(0); return }
+    const obj = { n: 0 }
+    const tween = gsap.to(obj, { n: num, duration, ease: 'power2.out', onUpdate: () => render(obj.n) })
+    return () => tween.kill()
+  }, [value, isActive, duration]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  return <span ref={ref} className={className}>{initial}</span>
+}
+
+// ── useTilt ──────────────────────────────────────────────────────────────
+// Subtle pointer-reactive 3D tilt for showcase cards. quickTo caches the
+// tweens so there is zero per-frame allocation. Pointer-fine + motion only.
+export const useTilt = ({ max = 6, enabled = true } = {}) => {
+  const ref = useRef(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || !enabled || !pointerFine() || prefersReduced()) return
+    gsap.set(el, { transformPerspective: 900, transformStyle: 'preserve-3d', willChange: 'transform' })
+    const rotX = gsap.quickTo(el, 'rotationX', { duration: 0.5, ease: 'power2.out' })
+    const rotY = gsap.quickTo(el, 'rotationY', { duration: 0.5, ease: 'power2.out' })
+    const onMove = (e) => {
+      const r = el.getBoundingClientRect()
+      rotY(((e.clientX - r.left) / r.width - 0.5) * max)
+      rotX(-((e.clientY - r.top) / r.height - 0.5) * max)
+    }
+    const onLeave = () => { rotX(0); rotY(0) }
+    el.addEventListener('pointermove', onMove)
+    el.addEventListener('pointerleave', onLeave)
+    return () => {
+      el.removeEventListener('pointermove', onMove)
+      el.removeEventListener('pointerleave', onLeave)
+      gsap.set(el, { clearProps: 'transform,transformPerspective,transformStyle,willChange' })
+    }
+  }, [max, enabled])
+  return ref
+}
+
+// ── useMagnetic + MagneticButton ─────────────────────────────────────────
+// Element eases toward the cursor and springs back on leave. Applied to a
+// wrapper span so the button keeps its own hover/active transforms.
+export const useMagnetic = ({ strength = 0.3, max = 14, enabled = true } = {}) => {
+  const ref = useRef(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || !enabled || !pointerFine() || prefersReduced()) return
+    const xTo = gsap.quickTo(el, 'x', { duration: 0.45, ease: 'power3.out' })
+    const yTo = gsap.quickTo(el, 'y', { duration: 0.45, ease: 'power3.out' })
+    const clamp = (v) => Math.max(-max, Math.min(max, v))
+    const onMove = (e) => {
+      const r = el.getBoundingClientRect()
+      xTo(clamp((e.clientX - (r.left + r.width / 2)) * strength))
+      yTo(clamp((e.clientY - (r.top + r.height / 2)) * strength))
+    }
+    const onLeave = () => { xTo(0); yTo(0) }
+    el.addEventListener('pointermove', onMove)
+    el.addEventListener('pointerleave', onLeave)
+    return () => {
+      el.removeEventListener('pointermove', onMove)
+      el.removeEventListener('pointerleave', onLeave)
+      gsap.set(el, { clearProps: 'transform' })
+    }
+  }, [strength, max, enabled])
+  return ref
+}
+
+export const MagneticButton = ({ children, className, enabled = true, ...props }) => {
+  const ref = useMagnetic({ enabled })
+  return (
+    <span ref={ref} className="inline-flex will-change-transform">
+      <button className={className} {...props}>{children}</button>
+    </span>
+  )
+}
 
 // ── Animated Stats Component ──────────────────────────────────────────────
 export const AnimatedStats = ({ stats }) => {
@@ -37,7 +154,7 @@ export const AnimatedStats = ({ stats }) => {
           }`}
           style={{ animationDelay: `${i * 100}ms`, animationDuration: '600ms', animationFillMode: 'both' }}
         >
-          <p className={`text-2xl font-black tabular-nums ${stat.color}`}>{stat.value}</p>
+          <p className={`text-2xl font-black tabular-nums ${stat.color}`}><CountUp value={stat.value} active={isVisible} /></p>
           <p className="mt-1 text-xs font-medium text-slate-500">{stat.label}</p>
           <span className="sr-only">{stat.desc}</span>
         </div>
