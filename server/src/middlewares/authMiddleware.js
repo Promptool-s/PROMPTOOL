@@ -26,30 +26,60 @@ function extractToken(req) {
     return null
 }
 
-// Cache en memoria del JWKS del proyecto (proceso serverless de corta vida,
-// así que el TTL es sobre todo para no refetchear en cada invocación cálida).
-let jwksCache = { keys: [], fetchedAt: 0 }
+// Cache en memoria del JWKS por origen (proceso serverless de corta vida, el TTL
+// es sobre todo para no refetchear en cada invocación cálida).
+const jwksCache = new Map() // origin -> { keys, fetchedAt }
 const JWKS_TTL_MS = 10 * 60 * 1000
 
-async function fetchJwks() {
-    const supabaseUrl = config.storage.supabaseUrl
-    if (!supabaseUrl) return []
-    const res = await fetch(`${supabaseUrl}/auth/v1/.well-known/jwks.json`)
+const EXPECTED_ORIGIN = (() => {
+    try {
+        return config.storage.supabaseUrl ? new URL(config.storage.supabaseUrl).origin : null
+    } catch {
+        return null
+    }
+})()
+
+/**
+ * Deriva la URL del JWKS del claim `iss` del propio token (ej.
+ * "https://<ref>.supabase.co/auth/v1"), NO de una env var. Motivo: en Vercel
+ * SUPABASE_URL llegó con espacios/inconsistente y armaba una URL inválida. El
+ * `iss` viene firmado por Supabase y es la fuente canónica. Se valida que el
+ * host sea `*.supabase.co` (y, si hay un proyecto configurado, que coincida)
+ * para no fetchear JWKS de un host arbitrario. La seguridad real la da la
+ * verificación de firma contra esas claves públicas.
+ */
+function jwksUrlFromIss(iss) {
+    let u
+    try {
+        u = new URL(iss)
+    } catch {
+        return null
+    }
+    if (u.protocol !== 'https:' || !u.hostname.endsWith('.supabase.co')) return null
+    if (EXPECTED_ORIGIN && u.origin !== EXPECTED_ORIGIN) return null
+    return `${u.origin}/auth/v1/.well-known/jwks.json`
+}
+
+async function fetchJwks(jwksUrl) {
+    const res = await fetch(jwksUrl)
     if (!res.ok) return []
     const { keys } = await res.json()
     return keys || []
 }
 
-async function getSigningKey(kid) {
-    const stale = Date.now() - jwksCache.fetchedAt > JWKS_TTL_MS
-    if (stale || !jwksCache.keys.length) {
-        jwksCache = { keys: await fetchJwks(), fetchedAt: Date.now() }
-    }
-    let jwk = jwksCache.keys.find((k) => k.kid === kid)
+async function getSigningKey(jwksUrl, kid) {
+    const origin = new URL(jwksUrl).origin
+    const cached = jwksCache.get(origin)
+    const stale = !cached || Date.now() - cached.fetchedAt > JWKS_TTL_MS
+    let keys = stale ? await fetchJwks(jwksUrl) : cached.keys
+    if (stale) jwksCache.set(origin, { keys, fetchedAt: Date.now() })
+
+    let jwk = keys.find((k) => k.kid === kid)
     if (!jwk) {
         // La key pudo haber rotado desde el último fetch: reintenta una vez.
-        jwksCache = { keys: await fetchJwks(), fetchedAt: Date.now() }
-        jwk = jwksCache.keys.find((k) => k.kid === kid)
+        keys = await fetchJwks(jwksUrl)
+        jwksCache.set(origin, { keys, fetchedAt: Date.now() })
+        jwk = keys.find((k) => k.kid === kid)
     }
     if (!jwk) return null
     return crypto.createPublicKey({ key: jwk, format: 'jwk' })
@@ -67,7 +97,9 @@ async function verifyToken(token) {
         return { id: payload.sub, email: payload.email || null }
     }
 
-    const key = await getSigningKey(decoded?.header?.kid)
+    const jwksUrl = jwksUrlFromIss(decoded?.payload?.iss)
+    if (!jwksUrl) throw new Error('Issuer del token no permitido.')
+    const key = await getSigningKey(jwksUrl, decoded?.header?.kid)
     if (!key) throw new Error('No se encontró la clave pública para verificar el token.')
     const payload = jwt.verify(token, key, { algorithms: [alg], audience: 'authenticated' })
     return {

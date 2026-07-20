@@ -64,7 +64,10 @@ export const config = {
      */
     storage: {
         // Supabase Dashboard → Project Settings → API → Project URL
-        supabaseUrl: (process.env.SUPABASE_URL || '').replace(/\/$/, '') || null,
+        // .trim(): en Vercel el valor llegó con espacios al final, lo que producía
+        // URLs inválidas (".../%20/auth/v1/...") tanto en el redirect de auth como
+        // en el fetch del JWKS. Se limpian espacios y barras finales.
+        supabaseUrl: (process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '') || null,
         // Supabase Dashboard → Project Settings → API → service_role (¡SECRETA!)
         serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || null,
     },
