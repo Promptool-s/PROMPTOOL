@@ -10,18 +10,49 @@ import {
   sanitizeCompanyName
 } from '../utils/inputSanitizer'
 
+/**
+ * Envía el mail de bienvenida UNA sola vez por cuenta, de forma race-safe.
+ *
+ * El "claim" atómico (welcome_email_sent: false → true, condicionado con
+ * .eq('welcome_email_sent', false)) garantiza que solo el primer llamado que
+ * gane la carrera dispara el envío, aunque el alta y el SIGNED_IN corran en
+ * paralelo o haya varias pestañas abiertas. Si el envío falla, se revierte el
+ * flag para reintentar en el próximo login (entrega al-menos-una-vez).
+ *
+ * Requiere la columna usuarios.welcome_email_sent (boolean not null default false).
+ */
+const sendWelcomeOnce = async (userId, { nombre, email, userType, lang }) => {
+  const { data: claimed, error } = await supabase
+    .from('usuarios')
+    .update({ welcome_email_sent: true })
+    .eq('id_usuario', userId)
+    .eq('welcome_email_sent', false)
+    .select('id_usuario')
+  if (error || !claimed?.length) return // ya se envió, o lo ganó otro llamado
+
+  try {
+    await api.post('/email/welcome', { nombre, email, userType, lang })
+  } catch (err) {
+    console.error('[email/welcome] error:', err.message)
+    // Revertir el claim para reintentar la próxima vez
+    await supabase.from('usuarios').update({ welcome_email_sent: false }).eq('id_usuario', userId)
+  }
+}
+
 const ensureUserProfile = async (u) => {
   if (!u) return
   try {
     const { data: existing } = await supabase
       .from('usuarios')
-      .select('id_usuario')
+      .select('id_usuario, welcome_email_sent')
       .eq('id_usuario', u.id)
       .maybeSingle()
 
+    const nombre = u.user_metadata?.full_name || u.user_metadata?.nombre || u.email?.split('@')[0] || 'Usuario'
+    const userType = u.user_metadata?.userType || 'individual'
+    const lang = localStorage.getItem('lang') || 'es'
+
     if (!existing) {
-      const nombre = u.user_metadata?.full_name || u.user_metadata?.nombre || u.email?.split('@')[0] || 'Usuario'
-      const userType = u.user_metadata?.userType || 'individual'
       const companyName = u.user_metadata?.companyName || null
 
       const profileData = {
@@ -40,12 +71,13 @@ const ensureUserProfile = async (u) => {
 
       // upsert con ignoreDuplicates evita el 409 si dos llamadas concurrentes llegan al mismo tiempo
       await supabase.from('usuarios').upsert([profileData], { onConflict: 'id_usuario', ignoreDuplicates: true })
+    }
 
-      // Email de bienvenida — fire and forget. Cubre el alta vía Google OAuth,
-      // que no pasa por signUpWithEmail (ese flujo ya manda el suyo aparte).
-      const lang = localStorage.getItem('lang') || 'es'
-      api.post('/email/welcome', { nombre, email: u.email, userType, lang })
-        .catch((err) => console.error('[email/welcome] error:', err.message))
+    // Bienvenida "una vez por cuenta": cubre altas nuevas (Google y email) y
+    // también cuentas que ya existían antes de esta feature (su flag arranca en
+    // false por el default de la columna, así que lo reciben en su próximo login).
+    if (!existing || existing.welcome_email_sent === false) {
+      await sendWelcomeOnce(u.id, { nombre, email: u.email, userType, lang })
     }
   } catch {
     // profile creation failed silently
@@ -221,15 +253,17 @@ export const useAuth = () => {
         if (loginError) throw loginError
       }
 
-      // Email de bienvenida — fire and forget. Va después del auto-login porque
-      // el endpoint requiere sesión (el apiClient adjunta el Bearer solo).
+      // Email de bienvenida "una vez por cuenta". Va después del auto-login
+      // porque el endpoint (y el claim del flag) requieren sesión. Comparte el
+      // claim atómico con ensureUserProfile: si el SIGNED_IN del auto-login corre
+      // en paralelo, solo uno de los dos gana y se manda un único mail.
       const lang = localStorage.getItem('lang') || 'es'
-      api.post('/email/welcome', {
+      await sendWelcomeOnce(data.user.id, {
         nombre: nombreResult.sanitized,
         email: emailResult.sanitized,
         userType: userType || 'individual',
         lang,
-      }).catch((err) => console.error('[email/welcome] error:', err.message))
+      })
     }
 
     return data

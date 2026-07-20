@@ -814,8 +814,12 @@ export default class EmailService {
         if (!isValidEmail(recipientEmail)) throwError('Email inválido.', 400)
 
         // Anti open-redirect / phishing: joinUrl debe apuntar a un origen propio.
-        const allowedOrigins = config.corsOrigins
-        const joinUrlValid = allowedOrigins.some((base) => joinUrl.startsWith(base + '/'))
+        // Se incluye appBaseUrl (la base con la que SE ARMA el link, más abajo en
+        // enterpriseService) además de corsOrigins: en producción CORS_ORIGINS
+        // puede no incluir el dominio público, y sin esto la validación fallaba
+        // en silencio (fire-and-forget) y el mail de invitación nunca se enviaba.
+        const allowedOrigins = [config.email.appBaseUrl, ...config.corsOrigins].filter(Boolean)
+        const joinUrlValid = allowedOrigins.some((base) => joinUrl.startsWith(base.replace(/\/$/, '') + '/'))
         if (!joinUrlValid) throwError('La URL de invitación no es válida.', 400)
 
         const safeCompany = sanitizeText(companyName, 100)
