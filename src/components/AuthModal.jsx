@@ -57,8 +57,13 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
       return
     }
     
-    const { data } = await supabase.from('usuarios').select('id_usuario').ilike('username', val).maybeSingle()
-    setUsernameStatus(data ? 'taken' : 'ok')
+    try {
+      const { disponible } = await api.get(`/usuarios/username-disponible?u=${encodeURIComponent(val)}`, { auth: false })
+      setUsernameStatus(disponible ? 'ok' : 'taken')
+    } catch {
+      // No bloquear por un error transitorio; el alta valida la unicidad server-side (409).
+      setUsernameStatus('ok')
+    }
   }
 
   const handleUsernameChange = (e) => {

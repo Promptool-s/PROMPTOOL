@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import Header from './components/Header'
 import Footer from './components/Footer'
-import { supabase } from './supabaseClient'
+import { api } from './lib/apiClient'
 import { useLang } from './contexts/LangContext'
 import { useAuth } from './hooks/useAuth'
 import { getRank } from './services/eloService'
@@ -65,57 +65,30 @@ function LeaderboardApp() {
   useEffect(() => {
     const fetchLeaderboard = async () => {
       setLoading(true)
-      // Sincronizar ranked_count del usuario logueado
-      if (user) {
-        const { count } = await supabase
-          .from('intentos')
-          .select('id_intento', { count: 'exact', head: true })
-          .eq('id_usuario', user.id)
-          .eq('is_ranked', true)
-        if (count !== null) {
-          await supabase.from('usuarios').update({ ranked_count: count }).eq('id_usuario', user.id)
-        }
+      // El ranked_count y el snapshot diario de rank_anterior los mantiene el
+      // backend (contador en /api/intentos, snapshot por cron). El cliente solo
+      // lee; antes hacía UPDATEs a su propio ranked_count y al rank_anterior de
+      // TODOS los jugadores (esto último, un agujero de seguridad).
+      let list = []
+      try {
+        list = (await api.get(`/leaderboard?sort=${encodeURIComponent(sortBy)}&limit=100`, { auth: false })) || []
+      } catch {
+        list = []
       }
-
-      const { data } = await supabase
-        .from('usuarios')
-        .select('id_usuario, nombre, nombre_display, username, avatar_url, promedio_score, mejor_score, total_intentos, porcentaje_aprobacion, racha_actual, rank_anterior, elo_rating')
-        .eq('adminstate', false)
-        .gte('ranked_count', 5)
-        .order(sortBy, { ascending: false })
-        .limit(100)
-
-      const list = data || []
       setPlayers(list)
-
-      // Actualizar rank_anterior solo una vez por día para que el delta sea visible
-      if (list.length > 0) {
-        const today = new Date().toDateString()
-        const lastUpdate = localStorage.getItem('rankUpdateDate')
-        if (lastUpdate !== today) {
-          localStorage.setItem('rankUpdateDate', today)
-          for (let i = 0; i < list.length; i++) {
-            const p = list[i]
-            const newRank = i + 1
-            if (p.rank_anterior !== newRank) {
-              supabase.from('usuarios').update({ rank_anterior: newRank }).eq('id_usuario', p.id_usuario)
-            }
-          }
-        }
-      }
 
       if (user) {
         const idx = list.findIndex(p => p.id_usuario === user.id)
         setMyRank(idx >= 0 ? idx + 1 : null)
 
-        // Si no aparece en la tabla, contar intentos rankeados directamente
+        // Si no aparece en la tabla, tomar su ranked_count del perfil propio.
         if (idx < 0) {
-          const { count } = await supabase
-            .from('intentos')
-            .select('id_intento', { count: 'exact', head: true })
-            .eq('id_usuario', user.id)
-            .eq('is_ranked', true)
-          setMyAttempts(count ?? 0)
+          try {
+            const me = await api.get('/usuarios/me')
+            setMyAttempts(me?.ranked_count ?? 0)
+          } catch {
+            setMyAttempts(0)
+          }
         } else {
           setMyAttempts(null)
         }

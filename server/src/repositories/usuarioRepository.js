@@ -20,7 +20,7 @@ export default class UsuarioRepository {
             `SELECT id_usuario, nombre, nombre_display, username, avatar_url, bio,
                     accent_color, elo_rating, total_intentos, ranked_count,
                     promedio_score, mejor_score, porcentaje_aprobacion, racha_actual,
-                    verified, company_name, show_company_badge
+                    verified, company_name, show_company_badge, idioma_preferido
              FROM usuarios WHERE id_usuario = $1`,
             [idUsuario]
         )

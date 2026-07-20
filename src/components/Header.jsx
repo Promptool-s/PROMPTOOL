@@ -5,6 +5,7 @@ import { useDev } from '../hooks/useDev'
 import { useTheme } from '../contexts/ThemeContext'
 import { useLang } from '../contexts/LangContext'
 import { supabase } from '../supabaseClient'
+import { api } from '../lib/apiClient'
 import AuthModal from './AuthModal'
 import CompanyPanel from './CompanyPanel'
 import SettingsModal from './SettingsModal'
@@ -289,11 +290,9 @@ const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
   const markNotificationRead = async (item) => {
     if (!user || !item || item.read) return
     try {
-      await supabase.from('notification_reads').upsert([{
-        user_id: user.id,
-        source_type: item.sourceType,
-        source_id: item.sourceId,
-      }], { onConflict: 'user_id,source_type,source_id' })
+      await api.post('/notificaciones/leidas', {
+        items: [{ source_type: item.sourceType, source_id: item.sourceId }],
+      })
       setNotifications(prev => prev.map(n => n.id === item.id ? { ...n, read: true } : n))
     } catch {
       // mark read failed silently
@@ -305,10 +304,9 @@ const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
     const unread = notifications.filter(n => !n.read)
     if (!unread.length) return
     try {
-      await supabase.from('notification_reads').upsert(
-        unread.map(n => ({ user_id: user.id, source_type: n.sourceType, source_id: n.sourceId })),
-        { onConflict: 'user_id,source_type,source_id' },
-      )
+      await api.post('/notificaciones/leidas', {
+        items: unread.map(n => ({ source_type: n.sourceType, source_id: n.sourceId })),
+      })
       setNotifications(prev => prev.map(n => ({ ...n, read: true })))
     } catch {
       // mark all read failed silently
@@ -322,18 +320,10 @@ const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
       const invitation = item.invitation
 
       if (status === 'accepted') {
-        // Usar RPC con SECURITY DEFINER — maneja el update de status y company_id
-        const isCompanyAccepting = invitation.company_id === user.id
-        const rpcName = isCompanyAccepting ? 'accept_team_invitation' : 'accept_company_invite'
-        const { error: rpcError } = await supabase.rpc(rpcName, { invitation_id: invitation.id })
-        if (rpcError) throw rpcError
+        // El backend elige la RPC correcta (empresa vs receptor) server-side.
+        await api.post(`/enterprise/invitaciones/${invitation.id}/aceptar`)
       } else {
-        // Rechazar: update directo (solo cambia status, no necesita SECURITY DEFINER)
-        const { error } = await supabase
-          .from('team_invitations')
-          .update({ status })
-          .eq('id', invitation.id)
-        if (error) throw error
+        await api.patch(`/enterprise/invitaciones/${invitation.id}`, { status })
       }
 
       setNotifications(prev => prev.map(n => n.id === item.id

@@ -3,8 +3,7 @@ import Header from './components/Header'
 import Footer from './components/Footer'
 import { useAuth } from './hooks/useAuth'
 import { useLang } from './contexts/LangContext'
-import { supabase } from './supabaseClient'
-import { nowAR } from './utils/dateAR'
+import { api } from './lib/apiClient'
 import { CloseIcon } from './components/Icons'
 import PublicFaqBanner from './components/PublicFaqBanner'
 
@@ -36,22 +35,23 @@ function SupportApp() {
 
   const fetchTickets = async () => {
     setLoadingTickets(true)
-    const { data } = await supabase
-      .from('tickets')
-      .select('*')
-      .eq('id_usuario', user.id)
-      .order('updated_at', { ascending: false })
-    setTickets(data || [])
-    setLoadingTickets(false)
+    try {
+      const data = await api.get('/tickets')
+      setTickets(data || [])
+    } catch {
+      setTickets([])
+    } finally {
+      setLoadingTickets(false)
+    }
   }
 
   const fetchMessages = async (id_ticket) => {
-    const { data } = await supabase
-      .from('ticket_mensajes')
-      .select('*, usuarios(nombre, nombre_display, avatar_url)')
-      .eq('id_ticket', id_ticket)
-      .order('created_at', { ascending: true })
-    setMessages(data || [])
+    try {
+      const data = await api.get(`/tickets/${id_ticket}/mensajes`)
+      setMessages(data || [])
+    } catch {
+      setMessages([])
+    }
   }
 
   const createTicket = async (e) => {
@@ -59,20 +59,8 @@ function SupportApp() {
     if (!newSubject.trim() || !newMessage.trim()) return
     setCreating(true)
     try {
-      const { data: ticket, error } = await supabase
-        .from('tickets')
-        .insert([{ id_usuario: user.id, asunto: newSubject }])
-        .select()
-        .single()
-      if (error) throw error
-
-      await supabase.from('ticket_mensajes').insert([{
-        id_ticket: ticket.id_ticket,
-        id_usuario: user.id,
-        mensaje: newMessage,
-        es_admin: false,
-      }])
-
+      // El backend crea ticket + primer mensaje en una transacción y devuelve el ticket.
+      const ticket = await api.post('/tickets', { asunto: newSubject, mensaje: newMessage })
       setNewSubject('')
       setNewMessage('')
       await fetchTickets()
@@ -89,13 +77,8 @@ function SupportApp() {
     if (!newMessage.trim() || !selectedTicket) return
     setSending(true)
     try {
-      await supabase.from('ticket_mensajes').insert([{
-        id_ticket: selectedTicket.id_ticket,
-        id_usuario: user.id,
-        mensaje: newMessage,
-        es_admin: false,
-      }])
-      await supabase.from('tickets').update({ updated_at: nowAR() }).eq('id_ticket', selectedTicket.id_ticket)
+      // es_admin y updated_at los resuelve el backend.
+      await api.post(`/tickets/${selectedTicket.id_ticket}/mensajes`, { mensaje: newMessage })
       setNewMessage('')
       fetchMessages(selectedTicket.id_ticket)
     } catch (err) {

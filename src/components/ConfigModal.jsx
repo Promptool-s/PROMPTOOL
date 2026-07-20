@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useLang } from '../contexts/LangContext'
-import { supabase } from '../supabaseClient'
+import { api } from '../lib/apiClient'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../contexts/ThemeContext'
 
@@ -39,14 +39,11 @@ const loadGeneral = () => {
 export const loadVisualMode = () => localStorage.getItem('pt_visual_mode') || 'default'
 export const saveVisualMode  = (m) => localStorage.setItem('pt_visual_mode', m)
 
-// ── Sync to Supabase ───────────────────────────────────────────────────────
+// ── Sync al backend (antes: upsert directo a user_preferences) ───────────────
 const syncPrefsToDb = async (userId, prefs) => {
   if (!userId) return
   try {
-    await supabase.from('user_preferences').upsert(
-      [{ user_id: userId, ...prefs, updated_at: new Date().toISOString() }],
-      { onConflict: 'user_id' }
-    )
+    await api.put('/usuarios/me/preferencias', prefs)
   } catch { /* localStorage is source of truth */ }
 }
 
@@ -201,12 +198,8 @@ const ConfigModal = ({
   // ── Load prefs from DB on open ──
   useEffect(() => {
     if (!open || !user?.id) return
-    supabase
-      .from('user_preferences')
-      .select('hide_from_ranking, incognito_mode, no_prompt_history, visual_mode')
-      .eq('user_id', user.id)
-      .maybeSingle()
-      .then(({ data }) => {
+    api.get('/usuarios/me/preferencias')
+      .then((data) => {
         if (!data) return
         const p = {
           hideFromRanking: data.hide_from_ranking ?? false,
@@ -221,6 +214,7 @@ const ConfigModal = ({
           applyVisualMode(data.visual_mode)
         }
       })
+      .catch(() => { /* sin prefs guardadas o error transitorio */ })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, user?.id])
 
@@ -234,13 +228,11 @@ const ConfigModal = ({
     if (!reportReason) return
     setReportStatus('sending')
     try {
-      const { error } = await supabase.from('user_reports').insert([{
-        reporter_id: user?.id || null,
+      await api.post('/reportes', {
         target_type: reportTarget,
         target_id: reportTarget === 'image' ? (imageId || null) : null,
         reason: reportReason,
-      }])
-      if (error) throw error
+      })
     } catch {
       const pending = JSON.parse(localStorage.getItem('pt_pending_reports') || '[]')
       pending.push({ reporter_id: user?.id || null, target_type: reportTarget, target_id: imageId || null, reason: reportReason, ts: Date.now() })

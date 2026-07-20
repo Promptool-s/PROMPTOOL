@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
+import { api } from '../lib/apiClient'
 
 const translations = {
   es: {
@@ -308,11 +309,7 @@ export const LangProvider = ({ children }) => {
     localStorage.setItem('lang', l)
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        await supabase.from('usuarios')
-          .update({ idioma_preferido: l })
-          .eq('id_usuario', user.id)
-      }
+      if (user) await api.put('/usuarios/me', { idioma_preferido: l })
     } catch (_) {}
   }
 
@@ -321,14 +318,10 @@ export const LangProvider = ({ children }) => {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
-        const { data } = await supabase
-          .from('usuarios')
-          .select('idioma_preferido')
-          .eq('id_usuario', user.id)
-          .maybeSingle()
-        if (data?.idioma_preferido && ['es', 'en'].includes(data.idioma_preferido)) {
-          setLang(data.idioma_preferido)
-          localStorage.setItem('lang', data.idioma_preferido)
+        const me = await api.get('/usuarios/me')
+        if (me?.idioma_preferido && ['es', 'en'].includes(me.idioma_preferido)) {
+          setLang(me.idioma_preferido)
+          localStorage.setItem('lang', me.idioma_preferido)
         }
       } catch (_) {}
     }
