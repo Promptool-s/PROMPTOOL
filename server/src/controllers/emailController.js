@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import { Router } from 'express'
 import EmailService from '../services/emailService.js'
 import { authMiddleware } from '../middlewares/authMiddleware.js'
@@ -46,21 +47,72 @@ router.post('/invite', authMiddleware, async (req, res) => {
     res.status(200).json(data)
 })
 
+const timingSafeEqualStr = (a, b) => {
+    const bufA = Buffer.from(String(a))
+    const bufB = Buffer.from(String(b))
+    return bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB)
+}
+
 /**
- * POST /api/email/auth-hook — invocado por el Auth Hook de Supabase.
- * No pasa por authMiddleware (lo llama Supabase, no un usuario): se protege con
- * el secreto compartido SUPABASE_AUTH_HOOK_SECRET en el header Authorization.
+ * Verifica la firma del Auth Hook de Supabase según la Standard Webhooks Spec
+ * (https://www.standardwebhooks.com/). Supabase manda tres headers —
+ * `webhook-id`, `webhook-timestamp`, `webhook-signature` — y firma
+ * `${id}.${timestamp}.${body}` con HMAC-SHA256 usando el secreto
+ * `v1,whsec_<base64>`. La firma se compara sobre los BYTES CRUDOS del body
+ * (req.rawBody), no sobre el JSON re-serializado.
  */
-router.post('/auth-hook', async (req, res) => {
+function verifyStandardWebhook(req, secret) {
+    const id = req.headers['webhook-id']
+    const timestamp = req.headers['webhook-timestamp']
+    const sigHeader = req.headers['webhook-signature']
+    const rawBody = req.rawBody
+    if (!id || !timestamp || !sigHeader || !rawBody) return false
+
+    // Anti-replay: la firma sólo es válida dentro de una ventana de 5 minutos.
+    const ts = Number.parseInt(timestamp, 10)
+    if (!Number.isFinite(ts) || Math.abs(Math.floor(Date.now() / 1000) - ts) > 300) return false
+
+    // El secreto es "v1,whsec_<base64>"; la clave HMAC son esos bytes base64 decodificados.
+    const b64Secret = String(secret).replace(/^v1,/, '').replace(/^whsec_/, '')
+    const key = Buffer.from(b64Secret, 'base64')
+    const signed = Buffer.concat([Buffer.from(`${id}.${timestamp}.`), rawBody])
+    const expected = crypto.createHmac('sha256', key).update(signed).digest('base64')
+
+    // El header es una lista separada por espacios de "v1,<firma-base64>".
+    return String(sigHeader)
+        .split(' ')
+        .some((part) => {
+            const sig = part.includes(',') ? part.split(',')[1] : part
+            return sig && timingSafeEqualStr(sig, expected)
+        })
+}
+
+/**
+ * Handler del Auth Hook de Supabase (Send Email Hook). Se exporta aparte para
+ * poder montarlo tanto en POST /api/email/auth-hook (endpoint nuevo) como en el
+ * alias retrocompatible POST /api/send-auth-email (la URL vieja del hook, que
+ * antes resolvía un serverless de Resend ya retirado — ver app.js).
+ *
+ * No pasa por authMiddleware (lo llama Supabase, no un usuario). Se autoriza con
+ * SUPABASE_AUTH_HOOK_SECRET, aceptando dos esquemas:
+ *   1. Firma Standard Webhooks (lo que manda Supabase en producción).
+ *   2. Authorization: Bearer <secret> (compat: pruebas manuales / setups propios).
+ * Si el secreto no está configurado, no se verifica (dev / hook sin secreto).
+ */
+export async function authHookHandler(req, res) {
     const secret = config.email.authHookSecret
     if (secret) {
         const header = req.headers.authorization || ''
-        const provided = header.startsWith('Bearer ') ? header.slice(7).trim() : ''
-        if (provided !== secret) throwError('No autorizado.', 401)
+        const bearer = header.startsWith('Bearer ') ? header.slice(7).trim() : ''
+        const authorized = verifyStandardWebhook(req, secret) || (bearer && timingSafeEqualStr(bearer, secret))
+        if (!authorized) throwError('No autorizado.', 401)
     }
     const { user, email_data } = req.body ?? {}
     const data = await svc.sendAuthEmailAsync({ user, email_data })
     res.status(200).json(data)
-})
+}
+
+/** POST /api/email/auth-hook — invocado por el Auth Hook de Supabase. */
+router.post('/auth-hook', authHookHandler)
 
 export default router

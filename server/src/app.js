@@ -11,7 +11,7 @@ import leaderboardController from './controllers/leaderboardController.js'
 import adminController from './controllers/adminController.js'
 import ticketController from './controllers/ticketController.js'
 import reporteController from './controllers/reporteController.js'
-import emailController from './controllers/emailController.js'
+import emailController, { authHookHandler } from './controllers/emailController.js'
 import notificacionController from './controllers/notificacionController.js'
 import enterpriseController from './controllers/enterpriseController.js'
 import cronController from './controllers/cronController.js'
@@ -45,7 +45,13 @@ app.use(cors({
     },
     credentials: false, // se usa Bearer token, no cookies
 }))
-app.use(express.json({ limit: '25kb' }))
+// Se guarda el body crudo (req.rawBody) además de parsearlo: la verificación de
+// firma del Auth Hook de Supabase (Standard Webhooks, en emailController) necesita
+// los bytes exactos recibidos, no el JSON re-serializado.
+app.use(express.json({
+    limit: '25kb',
+    verify: (req, _res, buf) => { req.rawBody = buf },
+}))
 
 // El proxy de imágenes va ANTES del rate limit general: es tráfico de <img>
 // de alto volumen y ya tiene sus propias protecciones (allowlist + SSRF).
@@ -64,6 +70,12 @@ app.use('/api/admin', adminController)
 app.use('/api/tickets', ticketController)
 app.use('/api/reportes', reporteController)
 app.use('/api/email', emailController)
+// Alias retrocompatible del Auth Hook de Supabase: la config vieja del hook
+// apuntaba a /api/send-auth-email (un serverless de Resend, ya retirado). Se
+// mapea al mismo handler que /api/email/auth-hook (Mailtrap) para que los mails
+// de auth (signup, recovery, magic link, email change) funcionen igual aunque
+// el hook todavía no se haya repuntado al endpoint nuevo.
+app.post('/api/send-auth-email', authHookHandler)
 app.use('/api/notificaciones', notificacionController)
 app.use('/api/enterprise', enterpriseController)
 app.use('/api/cron', cronController)

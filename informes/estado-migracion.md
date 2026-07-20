@@ -33,6 +33,8 @@
 
 ### Mailing (Mailtrap)
 - Consolidado en `emailService.js`, expuesto por `/api/email/*` (otp, otp/verify, welcome, invite, auth-hook). Reemplazó los 4 serverless de Resend que vivían en `api/` (`send-otp`, `send-welcome`, `send-invite`, `verify-otp` — **borrados** en el commit de fusión).
+- **`api/send-auth-email.js`** (el 5º serverless de Resend, que había sobrevivido) fue **retirado**: por la precedencia de ruteo de Vercel (filesystem antes que los rewrites) interceptaba `/api/send-auth-email` con la lógica vieja de Resend y, sin `RESEND_API_KEY`, devolvía 500 en todos los mails de auth. Ahora `POST /api/send-auth-email` es un **alias** hacia el mismo handler que `/api/email/auth-hook` (Mailtrap), así funciona apunte donde apunte el hook de Supabase.
+- **Verificación del Auth Hook** reescrita a **Standard Webhooks** (`webhook-id/timestamp/signature`, HMAC-SHA256 sobre el body crudo con el secreto `v1,whsec_…`), que es como Supabase firma los HTTP hooks. El check anterior comparaba `Authorization: Bearer <secret>`, esquema que Supabase **no** usa, por lo que con el secreto configurado habría rechazado con 401 todas las llamadas reales. Se mantiene el Bearer como camino de compat para pruebas manuales.
 
 ### Anti-cheat server-side
 - `plagiarismService.js` y `aiDetectionService.js` portados e integrados **dentro de** `POST /api/intentos` (antes el cliente se flageaba a sí mismo). Señales autoritativas: tiempo vs. score, similitud con intentos previos, patrones de texto de IA, ráfagas. Escalera de suspensión (2→warned, 5→suspended 7 días, 10→banned) en la misma transacción del intento. La respuesta nunca expone las razones de detección.
@@ -87,6 +89,7 @@ Sugerido: correr `grep -rlE "supabase\.(from|rpc|storage)" src/` para la lista e
 1. **RLS en Supabase**: revocar escritura del cliente sobre columnas sensibles (`elo_rating`, `adminstate`, `suspension_*`, contadores), ocultar `prompt_original`/`eval_instructions`, **borrar la función `exec_sql`**. Sin esto, aunque el frontend deje de usarlas, la anon key todavía puede llamarlas directo.
 2. **Rotar las keys** de Groq y Gemini (viajaron en el bundle del frontend antes de esta migración → deben considerarse comprometidas).
 3. Confirmar en producción las variables nuevas: `MAILTRAP_API_TOKEN`, `OTP_SECRET`, `SUPABASE_AUTH_HOOK_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`, `CRON_SECRET`, credenciales de Upstash Redis.
+4. **Auth Hook de Supabase (Send Email Hook)**: en el dashboard (Authentication → Hooks) apuntarlo a `https://promptool.app/api/email/auth-hook` (o la URL vieja `…/api/send-auth-email`, que ahora también funciona por el alias), tipo HTTPS, y que el secreto generado ahí (`v1,whsec_…`) sea **el mismo** que `SUPABASE_AUTH_HOOK_SECRET` en Vercel. Con esto la verificación de firma valida y salen los mails de signup/recovery/magic-link/email-change.
 
 ---
 
