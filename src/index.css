@@ -806,11 +806,44 @@ html {
   box-shadow: 0 12px 32px -12px rgba(15, 23, 42, 0.18);
 }
 
+/* ── Hero (landing) ─────────────────────────────────────────────────────── */
+
+/* Gradiente que fluye dentro del texto — para la palabra que rota en el h1.
+   Necesita background-size > 100% para tener recorrido que animar. */
+@keyframes hero-word-flow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+.hero-word-flow {
+  background-image: linear-gradient(100deg, #0891b2, #7c3aed 35%, #0ea5e9 65%, #0891b2);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: hero-word-flow 7s linear infinite;
+}
+
+/* Brillo que barre el badge cada tanto */
+@keyframes hero-badge-sheen {
+  0%, 65% { transform: translateX(-120%); }
+  100% { transform: translateX(220%); }
+}
+
+.hero-badge-sheen {
+  animation: hero-badge-sheen 4.5s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-gradient-x,
   .text-gradient-animate,
-  .text-gradient-violet {
+  .text-gradient-violet,
+  .hero-word-flow,
+  .hero-badge-sheen {
     animation: none;
+  }
+  .hero-badge-sheen {
+    opacity: 0;
   }
   .card-lift:hover {
     transform: none;
