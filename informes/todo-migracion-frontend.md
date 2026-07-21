@@ -2,7 +2,7 @@
 
 Checklist de continuación. Contexto completo y el porqué de la migración están en [`estado-migracion.md`](./estado-migracion.md); acá solo la lista accionable, con archivo/línea/endpoint destino para no tener que re-investigar.
 
-Última actualización: 2026-07-20 (commit `9b755c9`).
+Última actualización: 2026-07-21.
 
 Comando para recontar sitios pendientes en cualquier momento:
 ```
@@ -17,28 +17,30 @@ grep -rlE "supabase\.(from|rpc|storage)" src/ | xargs -I{} sh -c 'echo -n "{}: "
 - [x] `useAuth.js`, `AuthModal.jsx`, `LangContext.jsx`, `ConfigModal.jsx`, `SupportApp.jsx`, `Header.jsx`, `LeaderboardApp.jsx` — cero `supabase.from/rpc/storage`.
 - [x] `EnterprisePanel.jsx` → `sendEnterpriseInvite` y `EnterpriseOnboarding.jsx` → `sendInvite`: migrados a `POST /api/enterprise/invitaciones` (commit `9b755c9`). Sacó ~21 sitios.
 - [x] `supabase.auth.*` (login/signup/logout/session) se deja a propósito en el cliente en todos los archivos — no migrar.
+- [x] **`src/App.jsx` — parte de bajo riesgo (2026-07-21)**: feed de imágenes (daily/random/prefetch/dificultades/`handleNewRandom`) → `GET /api/imagenes`; `join_company_by_link` → `POST /api/enterprise/unirse`; `user_onboarded` → `PUT /api/usuarios/me`; reveal manual (`handleRevealOriginalPrompt`) → `POST /api/imagenes/:id/revelar` **solo para usuarios logueados** (gating server-side real: requiere sesión + intento previo en `intentos`; los guests siguen con el read directo porque sus intentos aún no están persistidos — ver abajo). De paso se arreglaron dos bugs de backend que esto dejó expuestos: (1) `imagenRepository.listarAsync` seleccionaba columnas que no existen (`theme`, `modo`) y no filtraba `company_id IS NULL` — el endpoint estaba roto de origen, nadie lo usaba; ahora soporta `daily`/`before`/`excludeMastered` y usa las columnas reales (`image_theme`, `seed`, `fecha`). (2) `imagen.eval_instructions` no existía como columna (es `challenge_eval_instructions`) — `getPublicaAsync` no lo estaba filtrando (se filtraba a la respuesta pública) y `intentoService` nunca le pasaba las instrucciones custom al evaluador. Ambos corregidos y verificados con una query real contra la BD de prod (ver detalle en `estado-migracion.md`).
 
 ## 🔴 Pendiente — por impacto
 
-### 1. `src/App.jsx` (21 sitios) — EL MÁS CRÍTICO Y RIESGOSO
+### 1. `src/App.jsx` — resto: el flujo de submit (scoring/ELO/anti-cheat) — EL MÁS CRÍTICO Y RIESGOSO, todavía sin tocar
 
-Núcleo de scoring/ELO/feed/reveal. Dos vectores de trampa activos hoy:
+Decisión tomada con el usuario (2026-07-21): esta parte se migra en una sesión aparte, revisada despacio — no se puede probar interactivamente en un browser desde acá, y es el núcleo del juego. También se decidió que los intentos de guest van a dejar de tener "carry-over" al registrarse (ver nota abajo) en vez de construir un mecanismo de reclamo — más simple, se puede mejorar después.
 
-- **Línea ~492**: `supabase.from('intentos').insert([{ ...attempt, id_usuario: user.id }])` — el cliente arma el intento entero.
-- **Líneas ~1038-1061**: el cliente **calcula su propio ELO** (`supabase.from('usuarios').select('elo_rating')...update({ elo_rating: newElo })`) — un usuario deshonesto puede escribir cualquier ELO desde la consola del browser.
-- **Línea ~931**: `supabase.from('imagenes_ia').select('prompt_original')` — lee la respuesta correcta directo, sin gating server-side.
-- Líneas 580, 594, 604, 635, 1165, 1186: lecturas de `imagenes_ia` (feed/dificultades/random).
-- Línea 335: `supabase.rpc('join_company_by_link', ...)`.
-- Línea 1953: `supabase.from('usuarios').update({ user_onboarded: true })`.
+Dos vectores de trampa activos hoy (sin cambios):
+- **Línea ~925** (era ~492): `supabase.from('intentos').insert(...)` — el cliente arma el intento entero.
+- **Líneas ~1002-1025** (era ~1038-1061): el cliente **calcula su propio ELO** (`supabase.from('usuarios').select('elo_rating')...update({ elo_rating: newElo })`) — un usuario deshonesto puede escribir cualquier ELO desde la consola del browser.
+- **Línea ~895** (era ~931): `supabase.from('imagenes_ia').select('prompt_original')` — auto-reveal del demo de guest tras 4 intentos, lee la respuesta directo.
+- **Línea ~812** (era ~848): fetch de `prompt_original` en el momento del submit, para el scoring client-side con `comparePrompts` (Groq desde el cliente).
+- **Líneas ~463-498** (era ~456-512): migración de intentos de guest desde `sessionStorage` al loguearse — queda obsoleta cuando el submit pase a ser server-authoritative (ver nota).
+- **Línea ~912** (era ~948): chequeo de `isImprovement` contra el mejor score previo.
+- Guest fallback en `handleRevealOriginalPrompt` (línea ~1190): intencional por ahora, ver nota.
 
 **Reemplazo:**
-- Todo el submit → `POST /api/intentos` (body: `id_imagen, prompt_usuario, modo, elapsed_seconds, attempt_number, lang, challenge_id, typing_report, focus_report, clip_report`; el server hace eval IA + scoring + ELO + contadores en una transacción y devuelve el resultado completo — ver `server/src/services/intentoService.js` o equivalente).
-- Feed/dificultades/random → `GET /api/imagenes`.
-- Reveal → `POST /api/imagenes/:id/revelar` (gating server-side de `prompt_original`, ya existe).
-- `user_onboarded` → `PUT /api/usuarios/me`.
-- `join_company_by_link` → `POST /api/enterprise/unirse` (`unirsePorLinkAsync` en `enterpriseService.js`, ya existe).
+- Todo el submit → `POST /api/intentos` (body: `id_imagen, prompt_usuario, modo, elapsed_seconds, attempt_number, lang, challenge_id, typing_report, focus_report, clip_report`; el server hace eval IA + scoring + ELO + contadores + anti-cheat en una transacción y devuelve el resultado completo — ver `server/src/services/intentoService.js`, ya existe y funciona, verificado con SQL directo).
+- Esto también resuelve de una **los puntos 12 y 13 (plagiarismService/aiDetectionService client-side)** — `POST /api/intentos` YA corre esa detección server-side dentro de la misma transacción, así que al migrar el submit esos dos archivos del cliente quedan puramente para borrar, no para reimplementar.
 
-⚠️ Cuidado con: sync de intentos de invitado en `sessionStorage` (flujo de usuario no logueado que juega y después crea cuenta), y que el cliente deje de necesitar `prompt_original` en ningún momento antes del reveal.
+⚠️ **Nota de producto (decidida 2026-07-21, no revertir sin volver a hablarlo)**: hoy el guest juega y sus intentos se guardan en `sessionStorage`, recién insertándose en la BD (atribuidos a su usuario) cuando se registra. Con scoring server-side eso deja de ser posible tal cual — el score hay que calcularlo en el momento del submit, así que el intento del guest queda guardado enseguida pero **sin usuario** (`id_usuario: null`), y no se re-atribuye al crear la cuenta. Se decidió aceptar esa pérdida de "carry-over" en vez de construir un guest-session-token para reclamarlos después (queda como mejora futura si se quiere). Como consecuencia, todo el bloque de migración de `sessionStorage` (líneas ~463-498) pasa a ser código muerto a **borrar**, no a migrar, en el mismo pase que se toque el submit.
+
+⚠️ Cuidado también con: el auto-reveal de guest a los 4 intentos y el reveal manual para guests van a seguir sin poder usar `POST /api/imagenes/:id/revelar` (ese endpoint exige sesión + intento ya persistido) — mismo problema de fondo que el punto anterior. Si el submit de guest deja de persistir nada hasta el registro, hay que decidir de nuevo cómo el guest ve el prompt tras 4 intentos (hoy lee `prompt_original` directo, que ya es el status quo, no empeora).
 
 ### 2. `src/UsuarioApp.jsx` (31 sitios)
 

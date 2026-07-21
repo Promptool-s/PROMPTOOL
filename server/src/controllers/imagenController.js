@@ -8,21 +8,26 @@ const router = Router()
 const svc = new ImagenService()
 
 /**
- * GET /api/imagenes — feed público (sin prompt_original).
- * Query: dificultad, modo, random=true, exclude (csv de ids), limit, offset.
+ * GET /api/imagenes — feed público (sin prompt_original). Siempre excluye
+ * desafíos de empresa (company_id no nulo).
+ * Query: dificultad, random=true, daily=true (+before), excludeMastered=true
+ * (requiere sesión — saca imágenes ya superadas por el usuario), exclude
+ * (csv de ids), limit, offset.
  * Reemplaza los SELECT directos a `imagenes_ia` del frontend.
  */
-router.get('', async (req, res) => {
-    const { dificultad, modo, random, exclude } = req.query
+router.get('', optionalAuthMiddleware, async (req, res) => {
+    const { dificultad, random, exclude, daily, before, excludeMastered } = req.query
     const excludeIds = typeof exclude === 'string' && exclude.length
         ? exclude.split(',').map((s) => s.trim()).filter(Boolean)
         : []
 
     const data = await svc.listarAsync({
         dificultad: typeof dificultad === 'string' ? dificultad : null,
-        modo: typeof modo === 'string' ? modo : null,
         excludeIds,
         random: random === 'true' || random === '1',
+        daily: daily === 'true' || daily === '1',
+        before: typeof before === 'string' ? before : null,
+        excludeMasteredFor: (excludeMastered === 'true' || excludeMastered === '1') ? (req.usuario?.id ?? null) : null,
         limit: clampInt(req.query.limit, 1, 100, 20),
         offset: clampInt(req.query.offset, 0, 100_000, 0),
     })

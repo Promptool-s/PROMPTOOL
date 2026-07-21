@@ -99,7 +99,7 @@ export default class IntentoService {
             originalPrompt: imagen.prompt_original,
             difficulty,
             appLang,
-            evalInstructions: imagen.eval_instructions || null,
+            evalInstructions: imagen.challenge_eval_instructions || null,
         })
 
         const finalScore = clamp(evaluacion.score - timePenalty.penalty)

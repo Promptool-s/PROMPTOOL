@@ -18,7 +18,7 @@ export default class ImagenService {
     getPublicaAsync = async (idImagen) => {
         const imagen = await this.repo.getByIdAsync(idImagen)
         if (!imagen) throwError('La imagen no existe.', 404)
-        const { prompt_original, eval_instructions, ...publica } = imagen
+        const { prompt_original, challenge_eval_instructions, ...publica } = imagen
         return publica
     }
 

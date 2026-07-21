@@ -13,6 +13,7 @@ import { calculateElo } from './services/eloService'
 import { getRecommendedGuides } from './data/guides'
 import { getProgressiveTime } from './components/PromptInput'
 import { supabase } from './supabaseClient'
+import { api } from './lib/apiClient'
 import { useAuth } from './hooks/useAuth'
 import { useLang } from './contexts/LangContext'
 import { useWindowFocus } from './hooks/useWindowFocus'
@@ -332,20 +333,16 @@ function App() {
     const joinCompany = async () => {
       setInviteState('loading')
       try {
-        const { error } = await supabase.rpc('join_company_by_link', { p_company_id: inviteCompanyId })
-        if (error) {
-          if (error.message?.includes('Already member')) {
-            setInviteState('already')
-          } else {
-            setInviteState('error')
-          }
-        } else {
-          setInviteState('joined')
-          // Limpiar URL sin recargar
-          window.history.replaceState({}, '', '/')
-        }
+        await api.post('/enterprise/unirse', { company_id: inviteCompanyId })
+        setInviteState('joined')
+        // Limpiar URL sin recargar
+        window.history.replaceState({}, '', '/')
       } catch (e) {
-        setInviteState('error')
+        if (e.message?.includes('Already member')) {
+          setInviteState('already')
+        } else {
+          setInviteState('error')
+        }
       }
     }
     joinCompany()
@@ -514,15 +511,11 @@ function App() {
   // Fetch inicial: extrae las dificultades disponibles en la BD
   useEffect(() => {
     const fetchFilters = async () => {
-      const { data } = await supabase
-        .from('imagenes_ia')
-        .select('image_diff')
-        .is('company_id', null)
-
-      if (!data) return
-      const diffOrder = ['Easy', 'Medium', 'Hard']
-      const found = [...new Set(data.map((r) => r.image_diff).filter(Boolean))]
-      setAvailableDiffs(diffOrder.filter((d) => found.includes(d)))
+      try {
+        const found = await api.get('/imagenes/dificultades')
+        const diffOrder = ['Easy', 'Medium', 'Hard']
+        setAvailableDiffs(diffOrder.filter((d) => found.includes(d)))
+      } catch { /* silencioso */ }
     }
     fetchFilters()
   }, [])
@@ -577,38 +570,22 @@ function App() {
             // Daily: misma imagen del día que para usuarios registrados
             const hoy = new Date()
             hoy.setHours(23, 59, 59, 999)
-            const { data, error } = await supabase.from('imagenes_ia')
-              .select('id_imagen, url_image, seed, fecha, image_diff, image_theme, company_id')
-              .is('company_id', null)
-              .lte('fecha', hoy.toISOString())
-              .order('fecha', { ascending: false })
-              .limit(1)
-              .maybeSingle()
-            if (error) throw error
-            row = data
+            const rows = await api.get(`/imagenes?daily=true&before=${encodeURIComponent(hoy.toISOString())}&limit=1`)
+            row = rows?.[0] ?? null
           } else {
             // Random: imagen Easy aleatoria, persistida en sessionStorage para
             // que no cambie si el usuario recarga dentro de la misma sesión
             const savedId = sessionStorage.getItem('guestImageId')
             if (savedId) {
-              const { data, error } = await supabase.from('imagenes_ia')
-                .select('id_imagen, url_image, seed, fecha, image_diff, image_theme, company_id')
-                .eq('id_imagen', savedId)
-                .is('company_id', null)
-                .maybeSingle()
-              if (error) throw error
-              row = data
+              try {
+                const data = await api.get(`/imagenes/${savedId}`)
+                if (data && !data.company_id) row = data
+              } catch { /* imagen borrada o inválida — elegir una nueva abajo */ }
             }
             if (!row) {
               // Sin imagen guardada (primera visita o sesión nueva): elegir una Easy al azar
-              const { data: rows, error } = await supabase.from('imagenes_ia')
-                .select('id_imagen, url_image, seed, fecha, image_diff, image_theme, company_id')
-                .eq('image_diff', 'Easy')
-                .is('company_id', null)
-              if (error) throw error
-              if (rows && rows.length > 0) {
-                row = rows[Math.floor(Math.random() * rows.length)]
-              }
+              const rows = await api.get('/imagenes?dificultad=Easy&random=true&limit=1')
+              if (rows && rows.length > 0) row = rows[0]
             }
             if (row) sessionStorage.setItem('guestImageId', row.id_imagen)
           }
@@ -632,24 +609,17 @@ function App() {
 
       try {
         // No traer prompt_original en la carga inicial — se fetcha al submit
-        let query = supabase.from('imagenes_ia')
-          .select('id_imagen, url_image, seed, fecha, image_diff, image_theme, company_id')
-          .is('company_id', null)
-
+        let qs = ''
         if (mode === 'daily') {
           const hoy = new Date()
           hoy.setHours(23, 59, 59, 999)
-          query = query
-            .lte('fecha', hoy.toISOString())
-            .order('fecha', { ascending: false })
-            .limit(1)
+          qs = `daily=true&before=${encodeURIComponent(hoy.toISOString())}&limit=1`
         } else {
-          if (difficulty) query = query.eq('image_diff', difficulty)
+          qs = difficulty ? `dificultad=${encodeURIComponent(difficulty)}&limit=100` : 'limit=100'
         }
 
-        const { data, error } = await query
+        const data = await api.get(`/imagenes?${qs}`)
         if (cancelled) return
-        if (error) throw error
 
         if (!data || data.length === 0) {
           setImageStatus('empty')
@@ -708,13 +678,7 @@ function App() {
         const manana = new Date()
         manana.setDate(manana.getDate() + 1)
         manana.setHours(23, 59, 59, 999)
-        const { data } = await supabase
-          .from('imagenes_ia')
-          .select('url_image')
-          .is('company_id', null)
-          .lte('fecha', manana.toISOString())
-          .order('fecha', { ascending: false })
-          .limit(2) // limit 2: [0] = hoy, [1] = mañana
+        const data = await api.get(`/imagenes?daily=true&before=${encodeURIComponent(manana.toISOString())}&limit=2`)
         const nextUrl = data?.[1]?.url_image
         if (nextUrl) {
           const img = new Image()
@@ -1162,10 +1126,7 @@ function App() {
         sessionStorage.removeItem('guestImageId')
         ;(async () => {
           try {
-            const { data: rows } = await supabase.from('imagenes_ia')
-              .select('id_imagen, url_image, seed, fecha, image_diff, image_theme, company_id')
-              .eq('image_diff', 'Easy')
-              .is('company_id', null)
+            const rows = await api.get('/imagenes?dificultad=Easy&limit=100')
             if (!rows || rows.length === 0) { setImageStatus('error'); return }
             // Evitar repetir la imagen anterior si hay más de una disponible
             const candidates = rows.length > 1 ? rows.filter(r => r.id_imagen !== prevId) : rows
@@ -1183,11 +1144,10 @@ function App() {
       // Usuario logueado: lógica normal con filtros avanzados
       const fetchRandom = async () => {
         try {
-          let query = supabase.from('imagenes_ia')
-            .select('id_imagen, url_image, seed, fecha, image_diff, image_theme, company_id')
-            .is('company_id', null)
-          if (difficulty) query = query.eq('image_diff', difficulty)
-          const { data } = await query
+          const qs = difficulty
+            ? `dificultad=${encodeURIComponent(difficulty)}&excludeMastered=true&limit=100`
+            : 'excludeMastered=true&limit=100'
+          const data = await api.get(`/imagenes?${qs}`)
           if (!data || data.length === 0) { setImageStatus('empty'); return }
           let rows = data.map(normalizeImageData)
 
@@ -1195,18 +1155,6 @@ function App() {
           const dailyId = [...rows].sort((a, b) => new Date(b.fecha) - new Date(a.fecha))[0]?.id_imagen
           const withoutDaily = rows.filter(r => r.id_imagen !== dailyId)
           if (withoutDaily.length > 0) rows = withoutDaily
-
-          // Excluir dominadas
-          try {
-            const { data: mastered } = await supabase
-              .from('intentos').select('id_imagen')
-              .eq('id_usuario', user.id).gt('puntaje_similitud', 93)
-            if (mastered?.length) {
-              const masteredIds = new Set(mastered.map(i => i.id_imagen))
-              const filtered = rows.filter(r => !masteredIds.has(r.id_imagen))
-              if (filtered.length > 0) rows = filtered
-            }
-          } catch { /* fail open */ }
 
           const selected = rows[Math.floor(Math.random() * rows.length)]
           setImageData(selected)
@@ -1232,12 +1180,20 @@ function App() {
   const handleRevealOriginalPrompt = async () => {
     // Fetch puntual — el prompt nunca estuvo en el estado antes de este momento
     try {
-      const { data } = await supabase
-        .from('imagenes_ia')
-        .select('prompt_original')
-        .eq('id_imagen', imageData.id_imagen)
-        .maybeSingle()
-      setRevealedPromptText(data?.prompt_original ?? '')
+      if (user) {
+        // Gating server-side: requiere sesión y al menos un intento propio sobre la imagen
+        const data = await api.post(`/imagenes/${imageData.id_imagen}/revelar`)
+        setRevealedPromptText(data?.prompt_original ?? '')
+      } else {
+        // Guests: sin intentos persistidos todavía (se migran recién al registrarse),
+        // así que el endpoint gateado no aplica — mismo comportamiento que antes.
+        const { data } = await supabase
+          .from('imagenes_ia')
+          .select('prompt_original')
+          .eq('id_imagen', imageData.id_imagen)
+          .maybeSingle()
+        setRevealedPromptText(data?.prompt_original ?? '')
+      }
     } catch { /* silencioso */ }
     setPromptRevealed(true)
     setRevealPrompt(false)
@@ -1950,7 +1906,7 @@ function App() {
         <Suspense fallback={null}>
           <UserOnboarding onDone={async () => {
             if (user) {
-              await supabase.from('usuarios').update({ user_onboarded: true }).eq('id_usuario', user.id)
+              try { await api.put('/usuarios/me', { user_onboarded: true }) } catch { /* silencioso */ }
             } else {
               localStorage.setItem('user_onboarded_guest', '1')
             }
