@@ -47,6 +47,15 @@ const RotatingWord = ({
         index = (index + 1) % items.length
         const next = items[index]
         tl?.kill()
+        // If a previous cycle's tween got interrupted mid-flight (killed
+        // before reaching opacity 0 — e.g. a dropped frame, or React
+        // StrictMode's dev-only double-invoke racing an earlier instance),
+        // an idle word can be left stuck at partial opacity. Snap everything
+        // that isn't part of this transition back to fully hidden before
+        // animating, so stale words can never show through.
+        items.forEach((el) => {
+          if (el !== current && el !== next) gsap.set(el, { yPercent: 115, opacity: 0 })
+        })
         tl = gsap.timeline()
         tl.to(wrap, { width: widthOf(next), duration: 0.55, ease: 'power3.inOut' }, 0)
           .to(current, { yPercent: -115, opacity: 0, duration: 0.45, ease: 'power3.in' }, 0)
@@ -79,6 +88,10 @@ const RotatingWord = ({
         <span
           key={word}
           ref={(el) => { itemsRef.current[i] = el }}
+          // Pre-JS: only the first word is visible, so there's no flash of all
+          // words stacked before GSAP takes over (and it degrades gracefully
+          // to a single static word if JS never runs).
+          style={{ opacity: i === 0 ? 1 : 0 }}
           className={`absolute left-0 top-0 whitespace-nowrap ${wordClassName}`}
         >
           {word}

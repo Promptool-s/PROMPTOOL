@@ -806,6 +806,14 @@ html {
   box-shadow: 0 12px 32px -12px rgba(15, 23, 42, 0.18);
 }
 
+/* ── Landing polish ─────────────────────────────────────────────────────── */
+
+/* Selección de texto on-brand (solo dentro de la landing) */
+.landing-root ::selection {
+  background-color: rgba(34, 211, 238, 0.28);
+  color: #0f172a;
+}
+
 /* ── Hero (landing) ─────────────────────────────────────────────────────── */
 
 /* Gradiente que fluye dentro del texto — para la palabra que rota en el h1.
