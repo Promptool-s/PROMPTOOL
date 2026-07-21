@@ -6,19 +6,15 @@ import ImageCard from './components/ImageCard'
 import PromptInput from './components/PromptInput'
 import ResultPanel from './components/ResultPanel'
 import SplashScreen from './components/SplashScreen'
-import { comparePrompts } from './services/geminiService'
-import { analyzePlagiarism, checkSuspension } from './services/plagiarismService'
-import { detectAIGenerated, checkClipboardForGameImage } from './services/aiDetectionService'
-import { calculateElo } from './services/eloService'
+import { checkSuspension } from './services/plagiarismService'
+import { checkClipboardForGameImage } from './services/aiDetectionService'
 import { getRecommendedGuides } from './data/guides'
-import { getProgressiveTime } from './components/PromptInput'
 import { supabase } from './supabaseClient'
 import { api } from './lib/apiClient'
 import { useAuth } from './hooks/useAuth'
 import { useLang } from './contexts/LangContext'
 import { useWindowFocus } from './hooks/useWindowFocus'
 import { proxyImg } from './utils/imgProxy'
-import { nowAR } from './utils/dateAR'
 
 // Lazy load de componentes pesados que no se usan inmediatamente
 const LandingPage = lazy(() => import('./components/LandingPage'))
@@ -59,29 +55,6 @@ const normalizeImageData = (row) => {
 }
 
 const normalizeDifficulty = (difficulty = 'Medium') => difficulty.toLowerCase()
-
-const formatDuration = (seconds = 0) => {
-  const safe = Math.max(0, Math.floor(seconds))
-  const mins = Math.floor(safe / 60)
-  const secs = safe % 60
-  return `${mins}:${String(secs).padStart(2, '0')}`
-}
-
-const getTimePenalty = ({ elapsedSeconds = 0, recommendedSeconds = 0 }, difficulty = 'Medium', mode = 'random') => {
-  if (!recommendedSeconds || elapsedSeconds <= recommendedSeconds) {
-    return { penalty: 0, message: '' }
-  }
-  const overtimeSeconds = elapsedSeconds - recommendedSeconds
-  const overtimeRatio = overtimeSeconds / Math.max(recommendedSeconds, 1)
-  const nd = normalizeDifficulty(difficulty)
-  const difficultyFactor = nd === 'easy' ? 0.85 : nd === 'hard' ? 1.2 : 1.05
-  const modeFactor = mode === 'daily' ? 1.12 : 0.95
-  const penalty = Math.min(30, Math.max(4, Math.round((overtimeRatio * 22 + overtimeSeconds / 18) * difficultyFactor * modeFactor)))
-  return {
-    penalty,
-    message: `Tardaste demasiado (${formatDuration(overtimeSeconds)} extra). Se descontaron ${penalty} puntos por exceder el tiempo recomendado.`,
-  }
-}
 
 /**
  * Calcula tiempo recomendado personalizado basado en el historial del usuario
@@ -276,12 +249,11 @@ function App() {
     setImageStatus('loading')
     const loadChallenge = async () => {
       try {
-        const { data, error } = await supabase
-          .from('imagenes_ia')
-          .select('id_imagen, url_image, seed, fecha, image_diff, image_theme, company_id, challenge_eval_instructions')
-          .eq('id_imagen', challengeId)
-          .maybeSingle()
-        if (error || !data) { setImageStatus('error'); return }
+        // Público, gateado server-side: nunca trae prompt_original ni
+        // challenge_eval_instructions (el server ya no necesita que el
+        // cliente se los reenvíe — los usa internamente en POST /api/intentos).
+        const data = await api.get(`/imagenes/${challengeId}`, { auth: false })
+        if (!data) { setImageStatus('error'); return }
         setImageData(normalizeImageData(data))
         setDifficulty(data.image_diff || 'Medium')
         setMode('challenge')
@@ -289,12 +261,10 @@ function App() {
         startFocusTracking()
         // Cargar datos de la empresa
         if (data.company_id) {
-          const { data: co } = await supabase
-            .from('usuarios')
-            .select('company_name, nombre_display, avatar_url, verified')
-            .eq('id_usuario', data.company_id)
-            .maybeSingle()
-          setChallengeCompany(co || null)
+          try {
+            const co = await api.get(`/usuarios/${data.company_id}`, { auth: false })
+            setChallengeCompany(co || null)
+          } catch { setChallengeCompany(null) }
         }
       } catch (err) {
         setImageStatus('error')
@@ -450,61 +420,14 @@ function App() {
     })
   }, [showLanding])
 
-  // Cuando el usuario se loguea, migrar todos los intentos pendientes de guest
+  // Al loguearse, limpiar restos de sessionStorage de guest — ya no se migran
+  // intentos (el scoring es server-authoritative desde POST /api/intentos, así
+  // que un guest ya persiste su intento al momento de jugarlo, sin usuario
+  // asociado; no hay nada para re-atribuir al crear la cuenta).
   useEffect(() => {
     if (!user) return
-
-    // Array de intentos (formato actual)
-    const pendingList = sessionStorage.getItem('guestAttempts')
-    if (pendingList) {
-      try {
-        const attempts = JSON.parse(pendingList)
-        if (Array.isArray(attempts) && attempts.length > 0) {
-          supabase.from('intentos')
-            .insert(attempts.map(a => ({ ...a, id_usuario: user.id })))
-            .then(({ error }) => {
-              sessionStorage.removeItem('guestAttempts')
-              if (!error && attempts.length > 0) {
-                // Actualizar el contador total_intentos con los intentos migrados
-                supabase.from('usuarios')
-                  .select('total_intentos')
-                  .eq('id_usuario', user.id)
-                  .maybeSingle()
-                  .then(({ data }) => {
-                    supabase.from('usuarios')
-                      .update({ total_intentos: (data?.total_intentos ?? 0) + attempts.length })
-                      .eq('id_usuario', user.id)
-                  })
-              }
-            })
-        }
-      } catch { sessionStorage.removeItem('guestAttempts') }
-    }
-
-    // Compatibilidad con el formato viejo (un solo intento)
-    const pending = sessionStorage.getItem('pendingAttempt')
-    if (pending) {
-      try {
-        const attempt = JSON.parse(pending)
-        supabase.from('intentos').insert([{ ...attempt, id_usuario: user.id }])
-          .then(({ error }) => {
-            sessionStorage.removeItem('pendingAttempt')
-            if (!error) {
-              supabase.from('usuarios')
-                .select('total_intentos')
-                .eq('id_usuario', user.id)
-                .maybeSingle()
-                .then(({ data }) => {
-                  supabase.from('usuarios')
-                    .update({ total_intentos: (data?.total_intentos ?? 0) + 1 })
-                    .eq('id_usuario', user.id)
-                })
-            }
-          })
-      } catch { sessionStorage.removeItem('pendingAttempt') }
-    }
-
-    // Limpiar también la imagen guardada para el guest — ya no la necesita
+    sessionStorage.removeItem('guestAttempts')
+    sessionStorage.removeItem('pendingAttempt')
     sessionStorage.removeItem('guestImageId')
   }, [user?.id])
 
@@ -806,19 +729,8 @@ function App() {
     const submittedPrompt = promptUsuario.trim()
     if (!submittedPrompt || !hasImage) return
 
-    // Fetch del prompt original en el momento del submit
-    let promptReferencia = ''
-    try {
-      const { data: promptData } = await supabase
-        .from('imagenes_ia')
-        .select('prompt_original')
-        .eq('id_imagen', imageData.id_imagen)
-        .maybeSingle()
-      promptReferencia = promptData?.prompt_original ?? ''
-    } catch { /* silencioso */ }
-    if (!promptReferencia) return
-
-    // Verificar suspensión antes de procesar
+    // Verificar suspensión antes de procesar — chequeo proactivo para UX rápida;
+    // el backend igual la re-verifica y corta con 403 si hace falta.
     if (user) {
       const suspension = await checkSuspension(user.id)
       if (!suspension.allowed) { setSuspensionInfo(suspension); return }
@@ -829,231 +741,85 @@ function App() {
     setAiCheatDetected(null)
 
     try {
-      // ── Lanzar comparePrompts y clipCheck en paralelo ──────────────────
-      const timePenalty = getTimePenalty(timingData, imageData?.image_diff ?? difficulty, mode)
+      // Clipboard check — solo posible del lado cliente (compara píxeles contra
+      // la imagen del juego). Se manda como señal server-side, no decide nada acá.
+      const clipCheck = imageData?.url_image
+        ? await checkClipboardForGameImage(imageData.url_image).catch(() => ({ hasImage: false, similarToGame: false, similarity: 0 }))
+        : { hasImage: false, similarToGame: false, similarity: 0 }
 
-      const [result, clipCheck] = await Promise.all([
-        comparePrompts(submittedPrompt, promptReferencia, imageData?.image_diff ?? difficulty, lang, imageData?.challenge_eval_instructions || null),
-        // Clipboard check corre en paralelo con el LLM — falla silencioso
-        (imageData?.url_image
-          ? checkClipboardForGameImage(imageData.url_image).catch(() => ({ hasImage: false, similarToGame: false, similarity: 0 }))
-          : Promise.resolve({ hasImage: false, similarToGame: false, similarity: 0 })
-        ),
-      ])
+      // POST /api/intentos: el server evalúa con el LLM, calcula score + penalización
+      // de tiempo + ELO, corre anti-cheat (typing/focus/clipboard + historial) y
+      // persiste todo en una transacción. El cliente nunca ve prompt_original.
+      const result = await api.post('/intentos', {
+        id_imagen: imageData.id_imagen,
+        prompt_usuario: submittedPrompt,
+        modo: mode === 'challenge' ? 'challenge' : mode,
+        elapsed_seconds: timingData.elapsedSeconds,
+        attempt_number: imageAttempts + 1,
+        lang,
+        challenge_id: challengeId || null,
+        typing_report: typingReport ?? null,
+        focus_report: getFocusReport(),
+        clip_report: clipCheck,
+        ranked: isRanked,
+      })
 
-      // ── Detección de IA — usa resultados ya disponibles ──────────────
-      let aiPenalty = 0
-
-      // Resultado del clipboard check (ya resuelto arriba)
-      if (clipCheck.hasImage && clipCheck.similarToGame) {
-        aiPenalty = 40
-        setAiCheatDetected({ penalty: 40, severity: 'high', confidence: clipCheck.similarity })
-      }
-
-      // Detección por comportamiento — requiere usuario logueado
-      if (user) {
-        try {
-          const aiDetectionResult = await detectAIGenerated({
-            userId: user.id,
-            prompt: submittedPrompt,
-            elapsedSeconds: timingData.elapsedSeconds,
-            score: result.score ?? 0,
-            typingReport: typingReport ?? null,
-            focusReport: getFocusReport(),
-          })
-          if (aiDetectionResult.isAI && !aiPenalty) {
-            if (aiDetectionResult.severity === 'high')        aiPenalty = 40
-            else if (aiDetectionResult.severity === 'medium') aiPenalty = 20
-            else                                               aiPenalty = 10
-            setAiCheatDetected({
-              penalty: aiPenalty,
-              severity: aiDetectionResult.severity,
-              confidence: aiDetectionResult.confidence,
-            })
-          }
-        } catch (e) {
-          console.debug('[AI Detection] detectAIGenerated error:', e)
-        }
-      }
-
-      const finalScore = Math.max(0, (result.score ?? 0) - timePenalty.penalty - aiPenalty)
-
-      setScorePercent(finalScore)
+      setScorePercent(result.score)
       setAiExplanation(result.explanation)
       setSuggestions(result.suggestions)
       setStrengths(result.strengths ?? [])
       setImprovements(result.improvements ?? [])
-      setTimePenaltyMessage(timePenalty.message)
+      setTimePenaltyMessage(result.timePenalty?.message ?? '')
       setImageAttempts(prev => prev + 1)
+      if (result.aiCheat) setAiCheatDetected(result.aiCheat)
+      if (result.elo) setEloDelta(result.elo.delta)
+      if (result.moderacion) setSuspensionInfo({ reason: result.moderacion.mensaje })
+
       // Incrementar contador de intentos demo para guests
       if (!user) {
         const next = guestAttemptCount + 1
         setGuestAttemptCount(next)
         sessionStorage.setItem('guestDemoAttempts', String(next))
-        // Al llegar al último intento, pre-fetchear el prompt para mostrarlo si lo pide
+        // Al llegar al último intento, pre-fetchear el prompt para mostrarlo si lo pide.
+        // Los guests todavía no tienen intentos persistidos a su nombre (juegan sin
+        // sesión), así que el endpoint gateado de reveal no aplica acá — mismo
+        // comportamiento que tenía antes de esta migración.
         if (next >= GUEST_MAX_ATTEMPTS) {
           supabase.from('imagenes_ia').select('prompt_original')
             .eq('id_imagen', imageData.id_imagen).maybeSingle()
             .then(({ data }) => { if (data?.prompt_original) setRevealedPromptText(data.prompt_original) })
         }
       }
+
       setAttemptHistory(prev => [...prev, {
-        score: finalScore,
+        score: result.score,
         prompt: submittedPrompt,
         strengths: result.strengths ?? [],
         improvements: result.improvements ?? [],
       }])
 
-      // ── Verificar si es una mejora real respecto al mejor score previo ──
-      // Solo cuenta para estadísticas si supera el mejor score anterior en esta imagen
-      let isImprovement = true
-      if (user && imageData?.id_imagen) {
-        try {
-          const { data: bestData } = await supabase
-            .from('intentos')
-            .select('puntaje_similitud')
-            .eq('id_usuario', user.id)
-            .eq('id_imagen', imageData.id_imagen)
-            .order('puntaje_similitud', { ascending: false })
-            .limit(1)
-            .maybeSingle()
-          const bestPrev = bestData?.puntaje_similitud ?? -1
-          isImprovement = finalScore > bestPrev
-        } catch { /* fail open — asumir mejora */ }
-      }
-
-      const { error: dbError } = await supabase
-        .from('intentos')
-        .insert([{
-          prompt_usuario: submittedPrompt,
-          puntaje_similitud: finalScore,
-          id_imagen: imageData.id_imagen,
-          id_usuario: user?.id || null,
-          fecha_hora: nowAR(),
-          strengths: result.strengths ?? [],
-          improvements: result.improvements ?? [],
-          modo: mode === 'challenge' ? 'challenge' : mode,
-          elo_delta: null,
-          is_ranked: !challengeId && isRanked && isImprovement,
-          tiempo_respuesta: timingData.elapsedSeconds > 0 ? timingData.elapsedSeconds : null,
-          // ── Métricas de eficiencia del sistema progresivo ──
-          attempt_number: imageAttempts + 1,
-          tiempo_asignado: getProgressiveTime(imageAttempts + 1, imageData?.image_diff ?? difficulty),
-          eficiencia: timingData.elapsedSeconds > 0
-            ? Math.round((finalScore / timingData.elapsedSeconds) * 100) / 100
-            : null,
-        }])
-
-      if (dbError) { /* silencioso — el usuario igual ve el resultado */ }
-      else {
-        // Guardar intento en sessionStorage para guests (se asigna al registrarse)
-        if (!user) {
-          try {
-            const existing = JSON.parse(sessionStorage.getItem('guestAttempts') || '[]')
-            existing.push({
-              prompt_usuario: submittedPrompt,
-              puntaje_similitud: finalScore,
-              id_imagen: imageData.id_imagen,
-              fecha_hora: nowAR(),
-              strengths: result.strengths ?? [],
-              improvements: result.improvements ?? [],
-              modo: mode === 'challenge' ? 'challenge' : mode,
-              is_ranked: false, // guests no tienen ELO
-              tiempo_respuesta: timingData.elapsedSeconds > 0 ? timingData.elapsedSeconds : null,
-            })
-            sessionStorage.setItem('guestAttempts', JSON.stringify(existing))
-          } catch { /* silencioso */ }
+      if (mode === 'daily') {
+        if (user) {
+          setDailyDone(true)
+          localStorage.setItem(`dailyDoneDate_${user.id}`, new Date().toDateString())
+        } else {
+          sessionStorage.setItem('guestDailyDate', new Date().toDateString())
+          setGuestDailyDone(true)
         }
-        // Incrementar total_intentos (y ranked_count si aplica) — solo si es mejora real
-        if (user && isImprovement) {
-          supabase.from('usuarios')
-            .select('total_intentos, ranked_count')
-            .eq('id_usuario', user.id)
-            .maybeSingle()
-            .then(({ data }) => {
-              const updates = { total_intentos: (data?.total_intentos ?? 0) + 1 }
-              if (!challengeId && isRanked) {
-                updates.ranked_count = (data?.ranked_count ?? 0) + 1
-              }
-              supabase.from('usuarios').update(updates).eq('id_usuario', user.id)
-            })
-        }
-
-        if (mode === 'daily') {
-          if (user) {
-            setDailyDone(true)
-            localStorage.setItem(`dailyDoneDate_${user.id}`, new Date().toDateString())
-          }
-          else {
-            sessionStorage.setItem('guestDailyDate', new Date().toDateString())
-            setGuestDailyDone(true)
-            // NOTE: The attempt was already saved to guestAttempts[] above.
-            // Do NOT also write pendingAttempt here — that would double-migrate
-            // the same attempt when the guest later signs up.
-          }
-        }
-
-        // Actualizar ELO — fire-and-forget, solo si es mejora real
-        if (user && !challengeId && isRanked && isImprovement) {
-          ;(async () => {
-            try {
-              // Las dos queries de ELO corren en paralelo
-              const [{ data: userData }, { count: rankedCount }] = await Promise.all([
-                supabase.from('usuarios').select('elo_rating').eq('id_usuario', user.id).maybeSingle(),
-                supabase.from('intentos').select('id_intento', { count: 'exact', head: true }).eq('id_usuario', user.id).eq('is_ranked', true),
-              ])
-
-              const currentElo = userData?.elo_rating ?? 1000
-              const totalAttempts = rankedCount ?? 0
-
-              if (totalAttempts >= 5) {
-                const { newElo, delta } = calculateElo({
-                  userElo: currentElo,
-                  totalAttempts,
-                  score: finalScore,
-                  difficulty: imageData?.image_diff ?? difficulty,
-                  timing: {
-                    elapsedSeconds: timingData.elapsedSeconds,
-                    recommendedSeconds: timingData.recommendedSeconds,
-                    penaltyOvertimeSeconds: timingData.overtimeSeconds ?? 0,
-                  },
-                })
-
-                // Update ELO + delta del intento en paralelo
-                await Promise.all([
-                  supabase.from('usuarios').update({ elo_rating: newElo }).eq('id_usuario', user.id),
-                  supabase.from('intentos').update({ elo_delta: delta })
-                    .eq('id_usuario', user.id).eq('is_ranked', true)
-                    .order('fecha_hora', { ascending: false }).limit(1),
-                ])
-
-                setEloDelta(delta)
-              }
-            } catch {
-              // ELO update failed silently — not critical
-            }
-          })()
-        }
-      }
-
-      // Análisis antiplagio — async, no bloquea la UI
-      if (user) {
-        analyzePlagiarism({
-          userId: user.id,
-          prompt: submittedPrompt,
-          score: finalScore,
-          elapsedSeconds: timingData.elapsedSeconds,
-          difficulty,
-          imageId: imageData.id_imagen,
-        })
       }
     } catch (err) {
-      setScorePercent(0)
-      setAiExplanation('Hubo un error al analizar tu prompt.')
-      setSuggestions('')
-      setStrengths([])
-      setImprovements([])
-      setTimePenaltyMessage('')
+      if (err?.status === 403) {
+        // Suspendido/baneado — el backend cortó antes de evaluar.
+        setSuspensionInfo({ reason: err.message })
+        setSubmitted(false)
+      } else {
+        setScorePercent(0)
+        setAiExplanation('Hubo un error al analizar tu prompt.')
+        setSuggestions('')
+        setStrengths([])
+        setImprovements([])
+        setTimePenaltyMessage('')
+      }
     } finally {
       setAnalyzing(false)
     }

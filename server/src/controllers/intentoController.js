@@ -18,7 +18,7 @@ const svc = new IntentoService()
 router.post('', optionalAuthMiddleware, evaluationLimiter, async (req, res) => {
     const {
         id_imagen, prompt_usuario, modo, elapsed_seconds, attempt_number, lang, challenge_id,
-        typing_report, focus_report, clip_report,
+        typing_report, focus_report, clip_report, ranked,
     } = req.body
 
     if (!isValidPk(id_imagen)) throwError('id_imagen es requerido.', 400)
@@ -41,6 +41,7 @@ router.post('', optionalAuthMiddleware, evaluationLimiter, async (req, res) => {
         typingReport: typing_report ?? null,
         focusReport: focus_report ?? null,
         clipReport: clip_report ?? null,
+        ranked: ranked !== false,
     })
 
     res.status(201).json(resultado)

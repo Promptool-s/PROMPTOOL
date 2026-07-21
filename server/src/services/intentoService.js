@@ -77,6 +77,7 @@ export default class IntentoService {
         typingReport = null,
         focusReport = null,
         clipReport = null,
+        ranked = true,
     }) => {
         // ── 1. Cargar la imagen (el prompt original NUNCA viene del cliente) ──
         const imagen = await this.imagenRepo.getByIdAsync(idImagen)
@@ -102,7 +103,7 @@ export default class IntentoService {
             evalInstructions: imagen.challenge_eval_instructions || null,
         })
 
-        const finalScore = clamp(evaluacion.score - timePenalty.penalty)
+        const scoreAntesDeAntiCheat = clamp(evaluacion.score - timePenalty.penalty)
 
         // ── 4. Anti-cheat: antiplagio + detección de IA (server-side) ──
         // Análisis puro acá (fuera de la transacción); las escrituras de flags
@@ -110,13 +111,34 @@ export default class IntentoService {
         // Solo aplica a usuarios logueados: un guest no acumula historial ni ELO.
         let plagio = { suspicious: false, reasons: [], severity: 'none' }
         let deteccionIA = { isAI: false, confidence: 0, reasons: [], severity: 'none' }
+        let aiPenalty = 0
         const safeTyping = sanitizeTypingReport(typingReport)
         const safeFocus = sanitizeFocusReport(focusReport)
         const safeClip = sanitizeClipReport(clipReport)
+        let intentosPrevios = []
 
         if (idUsuario) {
-            const intentosPrevios = await this.intentoRepo.getUltimosAsync(idUsuario, { limit: 20 })
+            intentosPrevios = await this.intentoRepo.getUltimosAsync(idUsuario, { limit: 20 })
 
+            deteccionIA = this.aiDetectionService.analizar({
+                prompt: promptUsuario,
+                elapsedSeconds,
+                typingReport: safeTyping,
+                focusReport: safeFocus,
+                clipReport: safeClip,
+                intentosPrevios,
+            })
+            // Penalidad inmediata sobre el score de este intento, además del
+            // flag + escalada de suspensión (reemplaza el aiPenalty que antes
+            // calculaba y restaba el cliente).
+            if (deteccionIA.isAI) {
+                aiPenalty = deteccionIA.severity === 'high' ? 40 : deteccionIA.severity === 'medium' ? 20 : 10
+            }
+        }
+
+        const finalScore = clamp(scoreAntesDeAntiCheat - aiPenalty)
+
+        if (idUsuario) {
             plagio = this.plagiarismService.analizar({
                 prompt: promptUsuario,
                 score: finalScore,
@@ -126,18 +148,13 @@ export default class IntentoService {
                 esDesafioEmpresa: imagen.company_id != null,
                 intentosPrevios,
             })
-            deteccionIA = this.aiDetectionService.analizar({
-                prompt: promptUsuario,
-                elapsedSeconds,
-                typingReport: safeTyping,
-                focusReport: safeFocus,
-                clipReport: safeClip,
-                intentosPrevios,
-            })
         }
 
         // ── 5. Persistencia transaccional: intento + contadores + ELO + flags ──
-        const esRankeable = MODOS_RANKED.includes(modo) && !challengeId && !!idUsuario
+        // `ranked` es un opt-out del cliente (toggle "modo rankeado" del jugador):
+        // solo puede restar elegibilidad, nunca sumarla más allá de lo que ya
+        // permiten modo/challenge/usuario.
+        const esRankeable = MODOS_RANKED.includes(modo) && !challengeId && !!idUsuario && ranked !== false
 
         const client = await pool.connect()
         let idIntento = null
@@ -252,6 +269,9 @@ export default class IntentoService {
             timePenalty: { penalty: timePenalty.penalty, message: timePenalty.message },
             isImprovement,
             elo: eloResult, // null si no aplica (guest, challenge, <5 rankeados)
+            // No se exponen las razones/confianza de la detección — solo lo mínimo
+            // para que el cliente muestre el aviso de penalidad aplicada.
+            aiCheat: deteccionIA.isAI ? { penalty: aiPenalty, severity: deteccionIA.severity } : null,
             moderacion: suspensionEscalada
                 ? {
                     estado: suspensionEscalada,
