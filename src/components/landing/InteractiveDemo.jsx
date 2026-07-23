@@ -11,13 +11,12 @@ const InteractiveDemo = ({ lang }) => {
   const [isVisible, setIsVisible] = useState(false)
   const demoRef = useRef(null)
 
-  // Imagen real opcional del desafío. Por defecto queda vacía → se muestra un
-  // placeholder cósmico autocontenido (el valor anterior era un link a un
-  // artículo, no una imagen, así que nunca se veía nada). Poné una URL real acá.
-  const demoImage = ''
+  // Imagen del desafío. Si queda vacía, se muestra el placeholder cósmico
+  // autocontenido (starfield + gradiente) que hay debajo.
+  const demoImage = '/demo/challenge-demo.jpg'
   const userPrompt = lang === 'es'
-    ? 'Generame un gato naranja en el espacio agarrando la via lactea, que sea gigante'
-    : 'Generate a giant orange cat in space grabbing the Milky Way'
+    ? 'Un gato naranja sentado de noche, con luces cálidas desenfocadas de fondo, fotografía nocturna cinematográfica'
+    : 'A ginger cat sitting at night, with warm glowing bokeh lights behind, cinematic night photography'
   const targetScore = 73
 
   // Sugerencias de mejora

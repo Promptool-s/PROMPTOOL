@@ -16,11 +16,6 @@ import { GLASS, FOCUS } from './widgets'
 const AUTOPLAY_MS = 5000
 const SCORE = { off: 34, on: 96 }
 
-// Sitting-cat silhouette — the "subject" of the prompt, legible in both
-// treatments so the sharpness delta reads as the same image, not two images.
-const CAT_BODY = 'M50 93 C29 93 21 80 21 67 C21 55 27 47 33 43 L29 24 L42 35 C47 33 53 33 58 35 L71 24 L67 43 C73 47 79 55 79 67 C79 80 71 93 50 93 Z'
-const CAT_TAIL = 'M79 79 C91 78 95 65 88 56'
-
 const Artwork = ({ degraded }) => (
   <div
     className="absolute inset-0"
@@ -59,34 +54,18 @@ const Artwork = ({ degraded }) => (
           : 'linear-gradient(115deg, transparent 42%, rgba(199,210,254,0.28) 50%, transparent 58%)',
       }}
     />
-    <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full" preserveAspectRatio="xMidYMax meet">
-      <defs>
-        <linearGradient id={degraded ? 'catFillOff' : 'catFillOn'} x1="0" y1="0" x2="0.6" y2="1">
-          {degraded ? (
-            <>
-              <stop offset="0%" stopColor="#3b3552" />
-              <stop offset="100%" stopColor="#1b1930" />
-            </>
-          ) : (
-            <>
-              <stop offset="0%" stopColor="#fb923c" />
-              <stop offset="55%" stopColor="#c2410c" />
-              <stop offset="100%" stopColor="#3b1d55" />
-            </>
-          )}
-        </linearGradient>
-      </defs>
-      <g
-        transform="translate(50 78) scale(0.62) translate(-50 -60)"
-        fill={`url(#${degraded ? 'catFillOff' : 'catFillOn'})`}
-        stroke={degraded ? 'none' : 'rgba(196,181,253,0.85)'}
-        strokeWidth={degraded ? 0 : 1.6}
-        strokeLinejoin="round"
-      >
-        <path d={CAT_TAIL} fill="none" stroke={degraded ? '#2a2740' : 'rgba(196,181,253,0.85)'} strokeWidth={degraded ? 5 : 4.5} strokeLinecap="round" />
-        <path d={CAT_BODY} />
-      </g>
-    </svg>
+    {/* Render "real": foto cósmica para el resultado bueno, foto común para el
+        degradado (el wrapper le aplica blur/desaturación para el look fallido). */}
+    <img
+      src={degraded ? '/demo/result-cat.jpg' : '/demo/challenge-cat.jpg'}
+      alt=""
+      aria-hidden="true"
+      loading="lazy"
+      decoding="async"
+      className="absolute inset-0 h-full w-full object-cover"
+      style={{ objectPosition: degraded ? '50% 32%' : '58% 46%' }}
+      onError={e => { e.currentTarget.style.display = 'none' }}
+    />
   </div>
 )
 
