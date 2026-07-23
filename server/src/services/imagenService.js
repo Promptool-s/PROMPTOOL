@@ -29,6 +29,9 @@ export default class ImagenService {
      */
     listarAsync = async (filtros) => await this.repo.listarAsync(filtros)
 
+    /** Challenges de una empresa (panel de miembros de CompanyPanel). */
+    listByCompanyAsync = async (companyId, limit = 50) => await this.repo.listByCompanyAsync(companyId, limit)
+
     getDificultadesAsync = async () => await this.repo.getDificultadesAsync()
 
     /**
@@ -52,6 +55,25 @@ export default class ImagenService {
             throwError('Tenés que intentar esta imagen antes de ver el prompt.', 403)
         }
 
+        return { id_imagen: imagen.id_imagen, prompt_original: imagen.prompt_original ?? '' }
+    }
+
+    /**
+     * Revela el prompt para la DEMO de guests. Los guests no tienen intentos
+     * persistidos a su nombre, así que no pueden pasar por revelarPromptAsync;
+     * en su lugar el gating de la demo (contador de intentos) vive en el cliente.
+     * Para que esto no reabra el acceso libre a prompt_original, acá se restringe
+     * el reveal al POOL de la demo: imágenes Easy y sin empresa. Los desafíos de
+     * empresa y las dificultades superiores siguen protegidos por el endpoint
+     * gateado. Esto permite REVOCAR el SELECT de prompt_original al rol anon.
+     */
+    revelarDemoAsync = async (idImagen) => {
+        const imagen = await this.repo.getByIdAsync(idImagen)
+        if (!imagen) throwError('La imagen no existe.', 404)
+        const esEasy = String(imagen.image_diff ?? '').toLowerCase() === 'easy'
+        if (!esEasy || imagen.company_id != null) {
+            throwError('Esta imagen no está disponible en la demo.', 403)
+        }
         return { id_imagen: imagen.id_imagen, prompt_original: imagen.prompt_original ?? '' }
     }
 }

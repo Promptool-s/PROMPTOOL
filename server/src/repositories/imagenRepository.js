@@ -65,6 +65,22 @@ export default class ImagenRepository {
         return result.rows
     }
 
+    /**
+     * Challenges publicados por una empresa (panel de miembros). Ordenados por
+     * fecha. Devuelve image_theme/fecha que consume CompanyPanel.
+     */
+    listByCompanyAsync = async (companyId, limit = 50) => {
+        const result = await pool.query(
+            `SELECT id_imagen, url_image, image_diff, image_theme, fecha, company_id
+             FROM imagenes_ia
+             WHERE company_id = $1
+             ORDER BY fecha DESC NULLS LAST
+             LIMIT $2`,
+            [companyId, limit]
+        )
+        return result.rows
+    }
+
     /** Dificultades disponibles (para los filtros del feed). */
     getDificultadesAsync = async () => {
         const result = await pool.query(

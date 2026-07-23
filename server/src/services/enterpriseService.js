@@ -23,6 +23,11 @@ const DIFICULTADES = ['Easy', 'Medium', 'Hard']
 const EVAL_MODES = ['standard', 'strict', 'flexible']
 const INV_ESTADOS_RECHAZO = ['rejected', 'cancelled']
 
+// Columnas JSONB de `usuarios` que el panel edita sobre su PROPIA fila.
+// Solo estas: nada de elo/adminstate/contadores por esta vía.
+const CONFIG_JSONB_COLS = ['training_config', 'dashboard_filters', 'performance_metrics']
+const CONFIG_MAX_JSON_CHARS = 10_000
+
 export default class EnterpriseService {
     constructor() {
         this.empresaRepo = new EmpresaRepository()
@@ -117,6 +122,101 @@ export default class EnterpriseService {
     salirAsync = async (usuario) => {
         await this.rpcRepo.callAsUserAsync('leave_company', {}, usuario)
         return { ok: true }
+    }
+
+    // ── Settings del panel (fila propia de la empresa) ───────────────────────
+
+    getSettingsAsync = async (usuario) => {
+        await this._assertEmpresaAsync(usuario.id)
+        return await this.empresaRepo.getSettingsAsync(usuario.id)
+    }
+
+    /**
+     * Cierra el `usuarios.update({...})` del formulario de settings del panel.
+     * Whitelist estricta sobre la PROPIA fila enterprise: escalares validados +
+     * columnas JSONB serializadas con tope de tamaño.
+     * NOTA (esquema inferido): `settings_allowed_diffs`, `performance_metrics`,
+     * `training_config` y `dashboard_filters` se asumen columnas JSONB. Validar
+     * contra el esquema real de Supabase antes del E2E.
+     */
+    updateSettingsAsync = async (usuario, body) => {
+        await this._assertEmpresaAsync(usuario.id)
+        const fields = {}
+
+        if (body.company_name !== undefined) {
+            if (!isValidString(body.company_name, { min: 1, max: 100 })) throwError('El nombre de la empresa no es válido (máx. 100).', 400)
+            fields.company_name = body.company_name.trim()
+        }
+        if (body.bio !== undefined) {
+            fields.bio = isValidString(body.bio, { min: 1, max: 1000 }) ? body.bio.trim() : null
+        }
+        if (body.social_website !== undefined) {
+            if (body.social_website && !isValidHttpsUrl(body.social_website, { max: 300 })) throwError('social_website debe ser una URL https.', 400)
+            fields.social_website = body.social_website || null
+        }
+        if (body.industry_type !== undefined) {
+            if (!isValidString(String(body.industry_type ?? ''), { min: 0, max: 60 })) throwError('industry_type no es válido (máx. 60).', 400)
+            fields.industry_type = body.industry_type || null
+        }
+        if (body.tournament_enabled !== undefined) {
+            if (typeof body.tournament_enabled !== 'boolean') throwError('tournament_enabled debe ser booleano.', 400)
+            fields.tournament_enabled = body.tournament_enabled
+        }
+        if (body.default_challenge_type !== undefined) {
+            if (!isValidString(body.default_challenge_type, { min: 1, max: 40 })) throwError('default_challenge_type no es válido.', 400)
+            fields.default_challenge_type = body.default_challenge_type
+        }
+        if (body.default_challenge_mode !== undefined) {
+            if (!isValidString(body.default_challenge_mode, { min: 1, max: 40 })) throwError('default_challenge_mode no es válido.', 400)
+            fields.default_challenge_mode = body.default_challenge_mode
+        }
+
+        // JSONB (incluye settings_allowed_diffs, que es un array de dificultades)
+        for (const col of ['settings_allowed_diffs', 'performance_metrics', 'training_config', 'dashboard_filters']) {
+            if (body[col] === undefined) continue
+            if (body[col] === null) { fields[col] = null; continue }
+            if (typeof body[col] !== 'object') throwError(`${col} debe ser un objeto/array JSON (o null).`, 400)
+            const serialized = JSON.stringify(body[col])
+            if (serialized.length > CONFIG_MAX_JSON_CHARS) throwError(`${col} supera el tamaño máximo (${CONFIG_MAX_JSON_CHARS} caracteres).`, 400)
+            fields[col] = serialized
+        }
+
+        if (Object.keys(fields).length === 0) throwError('No hay campos de settings en la solicitud.', 400)
+        return await this.empresaRepo.updateSettingsAsync(usuario.id, fields)
+    }
+
+    // ── Config del panel (columnas JSONB de la propia fila) ──────────────────
+
+    getConfigAsync = async (usuario) => {
+        await this._assertEmpresaAsync(usuario.id)
+        return await this.empresaRepo.getConfigAsync(usuario.id)
+    }
+
+    /**
+     * Cierra el update directo `usuarios.update({ training_config: ... })` del
+     * panel: solo columnas JSONB de la whitelist, solo la propia fila, con tope
+     * de tamaño. `null` limpia la columna.
+     */
+    updateConfigAsync = async (usuario, body) => {
+        await this._assertEmpresaAsync(usuario.id)
+        const fields = {}
+        for (const col of CONFIG_JSONB_COLS) {
+            if (body[col] === undefined) continue
+            if (body[col] === null) {
+                fields[col] = null
+                continue
+            }
+            if (typeof body[col] !== 'object') {
+                throwError(`${col} debe ser un objeto JSON (o null para limpiar).`, 400)
+            }
+            const serialized = JSON.stringify(body[col])
+            if (serialized.length > CONFIG_MAX_JSON_CHARS) {
+                throwError(`${col} supera el tamaño máximo (${CONFIG_MAX_JSON_CHARS} caracteres).`, 400)
+            }
+            fields[col] = serialized
+        }
+        if (Object.keys(fields).length === 0) throwError('No hay campos de config en la solicitud.', 400)
+        return await this.empresaRepo.updateConfigAsync(usuario.id, fields)
     }
 
     // ── Invitaciones ─────────────────────────────────────────────────────────
@@ -254,6 +354,59 @@ export default class EnterpriseService {
         return { ok: true, guia: data }
     }
 
+    /** Lista de guías propias de la empresa (tabla enterprise_guides). */
+    getGuiasAsync = async (usuario) => {
+        await this._assertEmpresaAsync(usuario.id)
+        return await this.empresaRepo.getEnterpriseGuidesAsync(usuario.id)
+    }
+
+    /**
+     * Edita una guía propia. Whitelist de campos + verificación de ownership
+     * en BD (company_id), no se confía en el cliente.
+     */
+    actualizarGuiaAsync = async (usuario, guiaId, body) => {
+        await this._assertEmpresaAsync(usuario.id)
+        const existente = await this.empresaRepo.getEnterpriseGuideByIdAsync(guiaId)
+        if (!existente) throwError('La guía no existe.', 404)
+        if (existente.company_id !== usuario.id) throwError('No podés editar esta guía.', 403)
+
+        const fields = {}
+        if (body.titulo !== undefined) {
+            if (!isValidString(body.titulo, { min: 1, max: 150 })) throwError('El título es requerido (máx. 150).', 400)
+            fields.title = body.titulo.trim()
+        }
+        if (body.resumen !== undefined) {
+            fields.summary = isValidString(body.resumen, { min: 1, max: 500 }) ? body.resumen.trim() : null
+        }
+        if (body.accent !== undefined) {
+            fields.accent = isValidString(body.accent, { min: 1, max: 40 }) ? body.accent : null
+        }
+        if (body.contenido !== undefined) {
+            if (body.contenido !== null && typeof body.contenido !== 'object') throwError('contenido debe ser un objeto JSON (o null).', 400)
+            const serialized = body.contenido === null ? null : JSON.stringify(body.contenido)
+            if (serialized && serialized.length > CONFIG_MAX_JSON_CHARS) throwError(`contenido supera el tamaño máximo (${CONFIG_MAX_JSON_CHARS} caracteres).`, 400)
+            fields.content = serialized
+        }
+        if (body.keywords !== undefined) {
+            fields.keywords = Array.isArray(body.keywords)
+                ? JSON.stringify(body.keywords.filter((k) => isValidString(k, { max: 50 })).slice(0, 10))
+                : null
+        }
+        if (Object.keys(fields).length === 0) throwError('No hay campos editables en la solicitud.', 400)
+        fields.updated_at = nowAR()
+        const actualizado = await this.empresaRepo.updateEnterpriseGuideAsync(guiaId, usuario.id, fields)
+        return { ok: true, id: actualizado?.id ?? null }
+    }
+
+    eliminarGuiaAsync = async (usuario, guiaId) => {
+        await this._assertEmpresaAsync(usuario.id)
+        const existente = await this.empresaRepo.getEnterpriseGuideByIdAsync(guiaId)
+        if (!existente) throwError('La guía no existe.', 404)
+        if (existente.company_id !== usuario.id) throwError('No podés eliminar esta guía.', 403)
+        await this.empresaRepo.deleteEnterpriseGuideAsync(guiaId, usuario.id)
+        return { ok: true }
+    }
+
     /** Asigna una guía a miembros + inserta las notificaciones (carrier guide_suggestions). */
     asignarGuiaAsync = async (usuario, guiaId, { memberIds, dueDate, notas, titulo }) => {
         const empresa = await this._assertEmpresaAsync(usuario.id)
@@ -316,6 +469,30 @@ export default class EnterpriseService {
         return { ok: true, notificados: insertadas }
     }
 
+    /**
+     * Asignaciones de guías del miembro que llama (GuidesApp.jsx). Lee el
+     * `training_config.guide_assignments` de SU empresa y filtra las que le
+     * corresponden. Sin gate de empresa: es un endpoint del lado del usuario.
+     */
+    getMisAsignacionesGuiasAsync = async (usuario) => {
+        const row = await this.empresaRepo.getCompanyTrainingConfigForMemberAsync(usuario.id)
+        const all = row?.training_config?.guide_assignments || []
+        return all.filter((a) => !a.target_user_id || a.target_user_id === usuario.id)
+    }
+
+    /**
+     * Guías de empresa asignadas al miembro que llama (GuidesSection.jsx).
+     * Sin gate de empresa: es un endpoint del lado del usuario.
+     */
+    getGuiasAsignadasAsync = async (usuario) => {
+        return await this.empresaRepo.getAssignedEnterpriseGuidesAsync(usuario.id)
+    }
+
+    /** Lectura del progreso propio en una guía (EnterpriseGuideContent.jsx). */
+    getProgresoGuiaAsync = async (usuario, guiaId) => {
+        return await this.empresaRepo.getGuideProgressAsync(guiaId, usuario.id)
+    }
+
     /** Progreso de guía del propio usuario (EnterpriseGuideContent.jsx). */
     actualizarProgresoGuiaAsync = async (usuario, guiaId, { sectionId, completed, data }) => {
         if (!isValidString(String(sectionId ?? ''), { min: 1, max: 100 })) {
@@ -328,6 +505,44 @@ export default class EnterpriseService {
             data: JSON.stringify(data && typeof data === 'object' ? data : {}),
         }, usuario)
         return { ok: true }
+    }
+
+    // ── Analytics del panel ──────────────────────────────────────────────────
+
+    /** Intentos de miembros sobre los desafíos de la empresa, agrupados por desafío. */
+    getIntentosDesafiosAsync = async (usuario) => {
+        await this._assertEmpresaAsync(usuario.id)
+        const rows = await this.empresaRepo.getIntentosDesafiosAsync(usuario.id)
+        const grouped = {}
+        for (const row of rows) {
+            ;(grouped[row.id_imagen] ??= []).push(row)
+        }
+        return grouped
+    }
+
+    /** Progreso diario del equipo: intentos de los últimos `days` días. */
+    getIntentosDiariosAsync = async (usuario, days = 30) => {
+        await this._assertEmpresaAsync(usuario.id)
+        const d = clampInt(days, 1, 90, 30)
+        const since = new Date()
+        since.setDate(since.getDate() - (d - 1))
+        return await this.empresaRepo.getIntentosDiariosAsync(usuario.id, since.toISOString())
+    }
+
+    /** Estadísticas detalladas de un desafío propio. */
+    getChallengeStatsAsync = async (usuario, idImagen) => {
+        await this._assertEmpresaAsync(usuario.id)
+        return await this.empresaRepo.getChallengeStatsAsync(usuario.id, idImagen)
+    }
+
+    /** guide_progress por miembro (para el tablero de progreso de guías). */
+    getProgresoMiembrosAsync = async (usuario) => {
+        await this._assertEmpresaAsync(usuario.id)
+        const rows = await this.empresaRepo.getMiembrosTrainingConfigAsync(usuario.id)
+        return rows.map((r) => ({
+            id_usuario: r.id_usuario,
+            guide_progress: r.training_config?.guide_progress ?? {},
+        }))
     }
 
     // ── Desafíos de empresa ──────────────────────────────────────────────────

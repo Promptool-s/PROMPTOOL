@@ -27,4 +27,27 @@ export default class AdminService {
         if (!updated) throwError('Usuario no encontrado.', 404)
         return updated
     }
+
+    /**
+     * Sobrescritura manual de stats por un admin (override del panel de perfil).
+     * Whitelist estricta de columnas numéricas; nada de elo ni flags internos.
+     */
+    setStatsUsuarioAsync = async (idUsuario, body = {}) => {
+        const COLS = [
+            'total_intentos', 'promedio_score', 'mejor_score', 'peor_score',
+            'porcentaje_aprobacion', 'racha_actual',
+        ]
+        const stats = {}
+        for (const col of COLS) {
+            if (body[col] === undefined) continue
+            const n = Number.parseInt(body[col], 10)
+            if (!Number.isFinite(n) || n < 0) throwError(`${col} debe ser un entero ≥ 0.`, 400)
+            stats[col] = n
+        }
+        if (Object.keys(stats).length === 0) throwError('No hay stats para actualizar.', 400)
+
+        const updated = await this.usuarioRepo.adminSetStatsAsync(idUsuario, stats)
+        if (!updated) throwError('Usuario no encontrado.', 404)
+        return updated
+    }
 }

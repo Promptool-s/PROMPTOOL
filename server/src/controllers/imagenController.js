@@ -2,7 +2,7 @@ import { Router } from 'express'
 import ImagenService from '../services/imagenService.js'
 import { optionalAuthMiddleware } from '../middlewares/authMiddleware.js'
 import { throwError } from '../helpers/httpError.js'
-import { isValidPk, clampInt } from '../helpers/validatorHelper.js'
+import { isValidPk, isValidUUID, clampInt } from '../helpers/validatorHelper.js'
 
 const router = Router()
 const svc = new ImagenService()
@@ -40,6 +40,13 @@ router.get('/dificultades', async (req, res) => {
     res.status(200).json(data)
 })
 
+/** GET /api/imagenes/empresa/:companyId — challenges de una empresa (CompanyPanel). */
+router.get('/empresa/:companyId', async (req, res) => {
+    if (!isValidUUID(req.params.companyId)) throwError('El ID de empresa no es válido.', 400)
+    const data = await svc.listByCompanyAsync(req.params.companyId, clampInt(req.query.limit, 1, 100, 50))
+    res.status(200).json(data)
+})
+
 /**
  * GET /api/imagenes/:id — datos públicos de una imagen (SIN prompt_original).
  */
@@ -56,6 +63,18 @@ router.get('/:id', async (req, res) => {
 router.post('/:id/revelar', optionalAuthMiddleware, async (req, res) => {
     if (!isValidPk(req.params.id)) throwError('El ID de imagen no es válido.', 400)
     const data = await svc.revelarPromptAsync(req.params.id, req.usuario?.id ?? null)
+    res.status(200).json(data)
+})
+
+/**
+ * POST /api/imagenes/:id/revelar-demo — reveal para la demo de guests.
+ * Sin sesión: el gating por conteo de intentos vive en el cliente. Restringido
+ * al pool de la demo (Easy, sin empresa) para no reabrir el acceso a los prompts
+ * protegidos.
+ */
+router.post('/:id/revelar-demo', async (req, res) => {
+    if (!isValidPk(req.params.id)) throwError('El ID de imagen no es válido.', 400)
+    const data = await svc.revelarDemoAsync(req.params.id)
     res.status(200).json(data)
 })
 

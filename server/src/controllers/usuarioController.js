@@ -25,9 +25,9 @@ router.post('', authMiddleware, async (req, res) => {
     res.status(201).json(data)
 })
 
-/** GET /api/usuarios/me — perfil propio. */
+/** GET /api/usuarios/me — perfil propio COMPLETO (todas las columnas, sin secretos). */
 router.get('/me', authMiddleware, async (req, res) => {
-    const data = await svc.getPerfilAsync(req.usuario.id)
+    const data = await svc.getPerfilVistaAsync(req.usuario.id, req.usuario.id)
     res.status(200).json(data)
 })
 
@@ -53,6 +53,34 @@ router.post('/me/avatar', authMiddleware, express.raw({ type: 'image/*', limit: 
     const subida = await storageSvc.subirImagenAsync(req.body, 'avatars', req.usuario.id)
     const perfil = await svc.updatePerfilAsync(req.usuario.id, { avatar_url: subida.public_url })
     res.status(200).json({ avatar_url: subida.public_url, perfil })
+})
+
+/**
+ * POST /api/usuarios/me/banner — sube el banner del perfil (bucket avatars).
+ * Devuelve la URL; el cliente la persiste con PUT /me. Reemplaza el upload
+ * directo al bucket que hacía UsuarioApp.jsx.
+ */
+router.post('/me/banner', authMiddleware, express.raw({ type: 'image/*', limit: '3mb' }), async (req, res) => {
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+        throwError('Mandá la imagen como body binario con Content-Type image/*.', 400)
+    }
+    const subida = await storageSvc.subirImagenAsync(req.body, 'avatars', `${req.usuario.id}/banner`)
+    res.status(200).json(subida)
+})
+
+/** POST /api/usuarios/me/showcase — sube la imagen showcase del perfil. */
+router.post('/me/showcase', authMiddleware, express.raw({ type: 'image/*', limit: '3mb' }), async (req, res) => {
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+        throwError('Mandá la imagen como body binario con Content-Type image/*.', 400)
+    }
+    const subida = await storageSvc.subirImagenAsync(req.body, 'avatars', `${req.usuario.id}/showcase`)
+    res.status(200).json(subida)
+})
+
+/** GET /api/usuarios/me/suspension — estado de suspensión propio (banner de UX). */
+router.get('/me/suspension', authMiddleware, async (req, res) => {
+    const data = await svc.getEstadoSuspensionAsync(req.usuario.id)
+    res.status(200).json(data)
 })
 
 /** GET /api/usuarios/me/preferencias — preferencias de privacidad/visual. */
@@ -81,10 +109,35 @@ router.get('/email-por-username', async (req, res) => {
     res.status(200).json(data)
 })
 
-/** GET /api/usuarios/:id — perfil público de otro usuario. */
-router.get('/:id', async (req, res) => {
+/** GET /api/usuarios/id-por-username?u=<username> — resuelve /user/:username a id. */
+router.get('/id-por-username', async (req, res) => {
+    const u = typeof req.query.u === 'string' ? req.query.u : ''
+    const data = await svc.getIdPorUsernameAsync(u)
+    res.status(200).json(data)
+})
+
+/** GET /api/usuarios/buscar?q=<term> — búsqueda pública (comparar perfiles). */
+router.get('/buscar', async (req, res) => {
+    const q = typeof req.query.q === 'string' ? req.query.q : ''
+    const data = await svc.buscarAsync(q)
+    res.status(200).json(data)
+})
+
+/**
+ * GET /api/usuarios/:id — perfil de otro usuario (o el propio).
+ * Vista completa para el dueño/admin; vista pública filtrada para el resto.
+ * Reemplaza el `supabase.from('usuarios').select(...)` de UsuarioApp.jsx.
+ */
+router.get('/:id', optionalAuthMiddleware, async (req, res) => {
     if (!isValidUUID(req.params.id)) throwError('El ID de usuario no es válido.', 400)
-    const data = await svc.getPerfilAsync(req.params.id)
+    const data = await svc.getPerfilVistaAsync(req.params.id, req.usuario?.id ?? null)
+    res.status(200).json(data)
+})
+
+/** GET /api/usuarios/:id/miembros — roster público de una empresa. */
+router.get('/:id/miembros', async (req, res) => {
+    if (!isValidUUID(req.params.id)) throwError('El ID de empresa no es válido.', 400)
+    const data = await svc.getMiembrosPublicosAsync(req.params.id)
     res.status(200).json(data)
 })
 

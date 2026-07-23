@@ -67,6 +67,34 @@ router.delete('/roles/:nombre', async (req, res) => {
     res.status(200).json(data)
 })
 
+// ── Settings del panel (fila propia de la empresa) ──────────────────────────
+
+/** GET /api/enterprise/settings — fila completa de settings de la empresa. */
+router.get('/settings', async (req, res) => {
+    const data = await svc.getSettingsAsync(req.usuario)
+    res.status(200).json(data)
+})
+
+/** PUT /api/enterprise/settings — guardar settings (whitelist estricta). */
+router.put('/settings', async (req, res) => {
+    const data = await svc.updateSettingsAsync(req.usuario, req.body ?? {})
+    res.status(200).json(data)
+})
+
+// ── Config del panel (JSONB de la propia fila) ──────────────────────────────
+
+/** GET /api/enterprise/config — training_config / dashboard_filters / performance_metrics. */
+router.get('/config', async (req, res) => {
+    const data = await svc.getConfigAsync(req.usuario)
+    res.status(200).json(data)
+})
+
+/** PUT /api/enterprise/config — update con whitelist de columnas JSONB. */
+router.put('/config', async (req, res) => {
+    const data = await svc.updateConfigAsync(req.usuario, req.body ?? {})
+    res.status(200).json(data)
+})
+
 // ── Membresía (lado usuario) ────────────────────────────────────────────────
 
 /** POST /api/enterprise/unirse — unirse por link (?join=companyId). */
@@ -126,11 +154,32 @@ router.delete('/invitaciones/:id', async (req, res) => {
 
 // ── Guías ────────────────────────────────────────────────────────────────────
 
+/** GET /api/enterprise/guias — guías propias de la empresa (enterprise_guides). */
+router.get('/guias', async (req, res) => {
+    const data = await svc.getGuiasAsync(req.usuario)
+    res.status(200).json(data)
+})
+
 /** POST /api/enterprise/guias — crear guía (RPC create_enterprise_guide). */
 router.post('/guias', async (req, res) => {
     const { titulo, resumen, contenido, accent, keywords } = req.body ?? {}
     const data = await svc.crearGuiaAsync(req.usuario, { titulo, resumen, contenido, accent, keywords })
     res.status(201).json(data)
+})
+
+/** PUT /api/enterprise/guias/:id — editar guía propia. */
+router.put('/guias/:id', async (req, res) => {
+    if (!isValidPk(req.params.id)) throwError('El ID de guía no es válido.', 400)
+    const { titulo, resumen, contenido, accent, keywords } = req.body ?? {}
+    const data = await svc.actualizarGuiaAsync(req.usuario, req.params.id, { titulo, resumen, contenido, accent, keywords })
+    res.status(200).json(data)
+})
+
+/** DELETE /api/enterprise/guias/:id — eliminar guía propia. */
+router.delete('/guias/:id', async (req, res) => {
+    if (!isValidPk(req.params.id)) throwError('El ID de guía no es válido.', 400)
+    const data = await svc.eliminarGuiaAsync(req.usuario, req.params.id)
+    res.status(200).json(data)
 })
 
 /** POST /api/enterprise/guias/:id/asignar — asignar + notificar miembros. */
@@ -152,6 +201,25 @@ router.post('/guias/notificar', async (req, res) => {
     res.status(200).json(data)
 })
 
+/** GET /api/enterprise/mis-asignaciones — guías asignadas al miembro (training_config). */
+router.get('/mis-asignaciones', async (req, res) => {
+    const data = await svc.getMisAsignacionesGuiasAsync(req.usuario)
+    res.status(200).json(data)
+})
+
+/** GET /api/enterprise/guias-asignadas — enterprise_guides asignadas al miembro (tabla). */
+router.get('/guias-asignadas', async (req, res) => {
+    const data = await svc.getGuiasAsignadasAsync(req.usuario)
+    res.status(200).json(data)
+})
+
+/** GET /api/enterprise/guias/:id/progreso — progreso propio del usuario. */
+router.get('/guias/:id/progreso', async (req, res) => {
+    if (!isValidPk(req.params.id)) throwError('El ID de guía no es válido.', 400)
+    const data = await svc.getProgresoGuiaAsync(req.usuario, req.params.id)
+    res.status(200).json(data)
+})
+
 /** POST /api/enterprise/guias/:id/progreso — progreso propio (RPC update_guide_progress). */
 router.post('/guias/:id/progreso', async (req, res) => {
     if (!isValidPk(req.params.id)) throwError('El ID de guía no es válido.', 400)
@@ -162,11 +230,39 @@ router.post('/guias/:id/progreso', async (req, res) => {
     res.status(200).json(data)
 })
 
+// ── Analytics del panel ──────────────────────────────────────────────────────
+
+/** GET /api/enterprise/analytics/intentos — intentos de miembros por desafío (agrupados). */
+router.get('/analytics/intentos', async (req, res) => {
+    const data = await svc.getIntentosDesafiosAsync(req.usuario)
+    res.status(200).json(data)
+})
+
+/** GET /api/enterprise/analytics/intentos-diarios?days=30 — progreso diario del equipo. */
+router.get('/analytics/intentos-diarios', async (req, res) => {
+    const days = Number.parseInt(req.query.days, 10) || 30
+    const data = await svc.getIntentosDiariosAsync(req.usuario, days)
+    res.status(200).json(data)
+})
+
+/** GET /api/enterprise/analytics/progreso-miembros — guide_progress por miembro. */
+router.get('/analytics/progreso-miembros', async (req, res) => {
+    const data = await svc.getProgresoMiembrosAsync(req.usuario)
+    res.status(200).json(data)
+})
+
 // ── Desafíos ─────────────────────────────────────────────────────────────────
 
 /** GET /api/enterprise/desafios — desafíos de la empresa (con prompt: son suyos). */
 router.get('/desafios', async (req, res) => {
     const data = await svc.getDesafiosAsync(req.usuario)
+    res.status(200).json(data)
+})
+
+/** GET /api/enterprise/desafios/:id/stats — challenge_attempts_detailed de un desafío propio. */
+router.get('/desafios/:id/stats', async (req, res) => {
+    if (!isValidPk(req.params.id)) throwError('El ID de desafío no es válido.', 400)
+    const data = await svc.getChallengeStatsAsync(req.usuario, req.params.id)
     res.status(200).json(data)
 })
 

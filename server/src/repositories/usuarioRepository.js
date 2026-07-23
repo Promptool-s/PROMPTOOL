@@ -137,6 +137,12 @@ export default class UsuarioRepository {
     /** Flags booleanos que un admin puede togglear (whitelist anti-inyección). */
     static ADMIN_FLAGS = new Set(['adminstate', 'verified', 'devstate'])
 
+    /** Columnas de stats que un admin puede sobrescribir manualmente. */
+    static ADMIN_STAT_COLS = new Set([
+        'total_intentos', 'promedio_score', 'mejor_score', 'peor_score',
+        'porcentaje_aprobacion', 'racha_actual',
+    ])
+
     /**
      * Listado admin con búsqueda opcional por nombre/username/email.
      * Devuelve columnas de gestión (incluye flags internos, a diferencia del
@@ -175,6 +181,52 @@ export default class UsuarioRepository {
             `UPDATE usuarios SET ${campo} = $2 WHERE id_usuario = $1
              RETURNING id_usuario, ${campo}`,
             [idUsuario, valor]
+        )
+        return result.rows[0] ?? null
+    }
+
+    /** Búsqueda pública (comparar perfiles): nombre/username/display. */
+    searchPublicAsync = async (q, limit = 5) => {
+        const result = await pool.query(
+            `SELECT id_usuario, nombre, nombre_display, username, avatar_url
+             FROM usuarios
+             WHERE (username ILIKE $1 OR nombre_display ILIKE $1 OR nombre ILIKE $1)
+             ORDER BY nombre_display NULLS LAST
+             LIMIT $2`,
+            [`%${q}%`, limit]
+        )
+        return result.rows
+    }
+
+    /** Roster público de una empresa (miembros por company_id). */
+    getMiembrosPublicosAsync = async (companyId, limit = 24) => {
+        const result = await pool.query(
+            `SELECT id_usuario, nombre, nombre_display, username, avatar_url,
+                    elo_rating, total_intentos, promedio_score, porcentaje_aprobacion, company_role
+             FROM usuarios
+             WHERE company_id = $1
+             ORDER BY elo_rating DESC NULLS LAST
+             LIMIT $2`,
+            [companyId, limit]
+        )
+        return result.rows
+    }
+
+    /** Total de usuarios (stat pública de la landing). */
+    countAllAsync = async () => {
+        const result = await pool.query(`SELECT COUNT(*)::int AS total FROM usuarios`)
+        return result.rows[0]?.total ?? 0
+    }
+
+    /** Update de stats con whitelist estricta (solo columnas de ADMIN_STAT_COLS). */
+    adminSetStatsAsync = async (idUsuario, stats) => {
+        const keys = Object.keys(stats).filter((k) => UsuarioRepository.ADMIN_STAT_COLS.has(k))
+        if (keys.length === 0) return null
+        const setClause = keys.map((key, i) => `${key} = $${i + 2}`).join(', ')
+        const result = await pool.query(
+            `UPDATE usuarios SET ${setClause} WHERE id_usuario = $1
+             RETURNING id_usuario, ${keys.join(', ')}`,
+            [idUsuario, ...keys.map((k) => stats[k])]
         )
         return result.rows[0] ?? null
     }

@@ -38,6 +38,16 @@ router.patch('/usuarios/:id', async (req, res) => {
     res.status(200).json(data)
 })
 
+/**
+ * PATCH /api/admin/usuarios/:id/stats — override manual de stats del perfil.
+ * Body: { total_intentos, promedio_score, ... }. Whitelist estricta en el Service.
+ */
+router.patch('/usuarios/:id/stats', async (req, res) => {
+    if (!isValidUUID(req.params.id)) throwError('El ID de usuario no es válido.', 400)
+    const data = await svc.setStatsUsuarioAsync(req.params.id, req.body ?? {})
+    res.status(200).json(data)
+})
+
 // ── Reportes de usuarios/imágenes ──────────────────────────────────────────
 
 /** GET /api/admin/reportes — bandeja de reportes. */

@@ -17,6 +17,7 @@ import enterpriseController from './controllers/enterpriseController.js'
 import cronController from './controllers/cronController.js'
 import imgProxyController from './controllers/imgProxyController.js'
 import authController from './controllers/authController.js'
+import torneoController from './controllers/torneoController.js'
 
 // En serverless no corre server.js (que valida y aborta): check suave al cold
 // start para que el problema quede visible en los logs sin tirar la función.
@@ -80,6 +81,7 @@ app.use('/api/notificaciones', notificacionController)
 app.use('/api/enterprise', enterpriseController)
 app.use('/api/cron', cronController)
 app.use('/api/auth', authController)
+app.use('/api/torneos', torneoController)
 
 // ── Cierre ───────────────────────────────────────────────────────────────────
 app.use(notFoundHandler)

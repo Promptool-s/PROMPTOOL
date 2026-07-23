@@ -3,7 +3,7 @@ import IntentoService from '../services/intentoService.js'
 import { authMiddleware, optionalAuthMiddleware } from '../middlewares/authMiddleware.js'
 import { evaluationLimiter } from '../middlewares/rateLimiterMiddleware.js'
 import { throwError } from '../helpers/httpError.js'
-import { isValidString, isValidPk, clampInt } from '../helpers/validatorHelper.js'
+import { isValidString, isValidPk, isValidUUID, clampInt } from '../helpers/validatorHelper.js'
 import { MODOS_INTENTO, LIMITES } from '../constants/index.js'
 
 const router = Router()
@@ -47,11 +47,41 @@ router.post('', optionalAuthMiddleware, evaluationLimiter, async (req, res) => {
     res.status(201).json(resultado)
 })
 
+/** GET /api/intentos/comunidad — showcase público de la landing (mejores prompts). */
+router.get('/comunidad', async (req, res) => {
+    const data = await svc.getComunidadShowcaseAsync(10)
+    res.status(200).json(data)
+})
+
+/** GET /api/intentos/tiempo-personalizado?difficulty=Medium — tiempo recomendado por historial. */
+router.get('/tiempo-personalizado', authMiddleware, async (req, res) => {
+    const difficulty = typeof req.query.difficulty === 'string' ? req.query.difficulty : 'Medium'
+    const data = await svc.getTiempoPersonalizadoAsync(req.usuario.id, difficulty)
+    res.status(200).json(data)
+})
+
+/** GET /api/intentos/daily-hecho — ¿el usuario ya jugó el daily hoy? */
+router.get('/daily-hecho', authMiddleware, async (req, res) => {
+    const data = await svc.yaHizoDailyHoyAsync(req.usuario.id)
+    res.status(200).json(data)
+})
+
 /** GET /api/intentos/mios — historial del usuario autenticado. */
 router.get('/mios', authMiddleware, async (req, res) => {
     const limit = clampInt(req.query.limit, 1, 100, 50)
     const offset = clampInt(req.query.offset, 0, 100_000, 0)
     const data = await svc.getHistorialAsync(req.usuario.id, { limit, offset })
+    res.status(200).json(data)
+})
+
+/**
+ * GET /api/intentos/perfil/:id — historial para la página de perfil, con la
+ * imagen y la empresa dueña resueltas en SQL. Dueño/admin ven la historia
+ * completa con prompt_original; un visitante ve la ventana pública.
+ */
+router.get('/perfil/:id', optionalAuthMiddleware, async (req, res) => {
+    if (!isValidUUID(req.params.id)) throwError('El ID de usuario no es válido.', 400)
+    const data = await svc.getHistorialPerfilAsync(req.params.id, req.usuario?.id ?? null)
     res.status(200).json(data)
 })
 

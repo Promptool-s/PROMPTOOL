@@ -6,13 +6,13 @@
 > de seguridad de la anon-key y habilita revocar el `SELECT` de `anon` sobre
 > columnas sensibles (sobre todo `prompt_original`).
 
-Repos involucrados:
-- **Frontend:** `Promptool-s/PROMPTOOL` (rama `master`)
-- **Backend:** `Promptool-s/BACKEND-PROMPTOOL` (rama `fase-9-restos-menores`)
+Repo único:
+- **`Promptool-s/PROMPTOOL`** (rama `master`) — frontend en `src/`, backend en `server/`.
 
-⚠️ La migración es **una sola unidad lógica repartida en 2 repos**. El frontend
-llama a endpoints nuevos: si se despliega el front sin el back, **prod se rompe**.
-Desplegar **BACKEND primero**, luego FRONTEND.
+⚠️ Backend consolidado en `PROMPTOOL/server/`: el frontend depende **solo** de
+endpoints de su propio repo. `PROMPTOOL` ya **no** depende de `BACKEND-PROMPTOOL`
+(ese repo queda como prototipo divergente, no es el target de deploy). Frontend y
+backend viajan juntos; desplegar `server/` y `src/` como una unidad.
 
 ---
 
@@ -63,10 +63,18 @@ Desplegar **BACKEND primero**, luego FRONTEND.
 `components/landing/CommunitySlideshow.jsx`, `hooks/useAdmin.js`, `hooks/useDev.js`,
 `services/plagiarismService.js`, `services/rateLimitService.js` (solo comentario).
 
-### Backend (`BACKEND-PROMPTOOL/src`)
+### Backend (`PROMPTOOL/server/src`)
 `app.js`, `controllers/{admin,enterprise,imagen,intento,usuario,torneo}Controller.js`,
 `repositories/{empresa,imagen,intento,usuario,torneo}Repository.js`,
-`services/{admin,enterprise,imagen,intento,storage,usuario,torneo}Service.js`.
+`services/{admin,enterprise,imagen,intento,usuario,torneo}Service.js`.
+
+> Consolidación método-a-método: se portó la superficie de migración desde el
+> prototipo `BACKEND-PROMPTOOL` a `PROMPTOOL/server/`, preservando la infra más
+> nueva de `server/` donde divergían (Auth-Hook `rawBody`, alias
+> `/api/send-auth-email`, `cron`/`auth` controllers, img-proxy antes del rate-limit,
+> welcome-email, generación de desafío storage-first con `image_path`,
+> naming `challenge_eval_instructions`, param `ranked` en el submit, feed
+> `daily/before/excludeMastered`). Los torneos se agregan como trío nuevo.
 
 ---
 
@@ -113,9 +121,8 @@ Con la eliminación de `exec_sql` y el acceso directo:
 
 ## 9. Checklist de despliegue
 
-1. [ ] Merge/deploy **BACKEND-PROMPTOOL** (`fase-9-restos-menores`) primero.
-2. [ ] Validar esquema real (§7).
-3. [ ] Deploy **PROMPTOOL** (`master`).
-4. [ ] Ejecutar pasos DB (§6) — revoke + delete `exec_sql`.
-5. [ ] Smoke E2E: login, jugar intento, daily, torneos (listar/inscribir/leaderboard),
+1. [ ] Validar esquema real (§7).
+2. [ ] Deploy **PROMPTOOL** (`master`) — `src/` + `server/` como una sola unidad.
+3. [ ] Ejecutar pasos DB (§6) — revoke + delete `exec_sql`.
+4. [ ] Smoke E2E: login, jugar intento, daily, torneos (listar/inscribir/leaderboard),
        guías enterprise, reveal de invitado (demo), suspensión.

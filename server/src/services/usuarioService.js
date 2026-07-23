@@ -3,6 +3,7 @@ import FollowRepository from '../repositories/followRepository.js'
 import EmailService from './emailService.js'
 import { throwError } from '../helpers/httpError.js'
 import { isValidString, isValidHexColor, isValidUsername, isValidHttpsUrl } from '../helpers/validatorHelper.js'
+import { nowAR } from '../helpers/dateHelper.js'
 import { LIMITES } from '../constants/index.js'
 
 /**
@@ -14,12 +15,36 @@ import { LIMITES } from '../constants/index.js'
 
 /** Únicos campos que el dueño del perfil puede editar. */
 const CAMPOS_EDITABLES = [
-    'nombre_display', 'bio', 'accent_color', 'avatar_url', 'show_company_badge',
-    'user_onboarded', 'showcase_url', 'idioma_preferido',
+    'nombre_display', 'bio', 'accent_color', 'avatar_url', 'banner_url', 'showcase_url',
+    'show_company_badge', 'show_stats', 'user_onboarded', 'enterprise_onboarded', 'idioma_preferido',
+    'email_publico', 'social_website', 'pais', 'idioma_display',
+    'social_github', 'social_linkedin', 'social_twitter', 'pronouns', 'status',
+    'organization', 'company_tagline', 'company_industry', 'company_size', 'company_founded',
 ]
 
 /** Campos que además requieren perfil enterprise (gateados contra la BD). */
-const CAMPOS_ENTERPRISE = ['company_name', 'social_website', 'email_publico', 'industry_type']
+const CAMPOS_ENTERPRISE = ['company_name', 'industry_type']
+
+/**
+ * Vista de perfil devuelta al público (perfil ajeno). Excluye columnas
+ * sensibles (email salvo email_publico, adminstate/devstate, suspensión).
+ * El dueño y los admin reciben la fila completa vía _shapePerfilPropio.
+ */
+const CAMPOS_PERFIL_PUBLICO = [
+    'id_usuario', 'nombre', 'nombre_display', 'username', 'bio', 'avatar_url', 'banner_url',
+    'fecha_registro', 'total_intentos', 'promedio_score', 'mejor_score', 'peor_score',
+    'porcentaje_aprobacion', 'racha_actual', 'pais', 'idioma_display',
+    'social_github', 'social_linkedin', 'social_twitter', 'social_website', 'pronouns',
+    'status', 'accent_color', 'organization', 'showcase_url', 'elo_rating', 'user_type',
+    'company_name', 'company_id', 'company_role', 'company_joined_at', 'show_stats',
+    'show_company_badge', 'verified', 'company_tagline', 'company_industry', 'company_size',
+    'company_founded',
+]
+
+/** Columnas internas que nunca salen al cliente, ni siquiera al dueño. */
+const CAMPOS_SECRETOS = new Set([
+    'suspension_reason', 'suspension_until', 'suspension_status', 'password', 'auth_id',
+])
 
 export default class UsuarioService {
     constructor() {
@@ -33,6 +58,85 @@ export default class UsuarioService {
         if (!perfil) throwError('Usuario no encontrado.', 404)
         return perfil
     }
+
+    /** Fila completa del dueño/admin, menos columnas secretas. */
+    _shapePerfilPropio = (row) => {
+        const out = {}
+        for (const [k, v] of Object.entries(row)) {
+            if (!CAMPOS_SECRETOS.has(k)) out[k] = v
+        }
+        return out
+    }
+
+    /** Vista pública de un perfil ajeno: email solo si email_publico. */
+    _shapePerfilPublico = (row) => {
+        const out = {}
+        for (const key of CAMPOS_PERFIL_PUBLICO) {
+            if (row[key] !== undefined) out[key] = row[key]
+        }
+        if (row.email_publico) {
+            out.email = row.email
+            out.email_publico = true
+        }
+        return out
+    }
+
+    /**
+     * Perfil completo para la página de perfil. Si el solicitante es el dueño
+     * o un admin, devuelve la fila entera (sin secretos); si es ajeno, la vista
+     * pública filtrada. Reemplaza el `supabase.from('usuarios').select(...)`
+     * de UsuarioApp.jsx.
+     */
+    getPerfilVistaAsync = async (idPerfil, idSolicitante = null) => {
+        const row = await this.repo.getByIdAsync(idPerfil)
+        if (!row) throwError('Usuario no encontrado.', 404)
+        const esDueno = idSolicitante && idSolicitante === idPerfil
+        const esAdmin = idSolicitante && !esDueno && await this.repo.isAdminAsync(idSolicitante)
+        return esDueno || esAdmin ? this._shapePerfilPropio(row) : this._shapePerfilPublico(row)
+    }
+
+    /**
+     * Estado de suspensión del propio usuario para el banner de UX (App.jsx).
+     * Devuelve el estado DERIVADO (allowed/reason/until), no las columnas
+     * secretas crudas — reemplaza el read directo de plagiarismService.js del
+     * cliente. El control real sigue en POST /api/intentos (403).
+     */
+    getEstadoSuspensionAsync = async (idUsuario) => {
+        const susp = await this.repo.getSuspensionAsync(idUsuario)
+        if (!susp?.suspension_status || susp.suspension_status === 'none') return { allowed: true }
+        if (susp.suspension_status === 'banned') {
+            return { allowed: false, reason: susp.suspension_reason || 'Cuenta suspendida permanentemente.' }
+        }
+        if (susp.suspension_status === 'suspended') {
+            const until = susp.suspension_until ? new Date(susp.suspension_until) : null
+            if (until && until > new Date()) {
+                return {
+                    allowed: false,
+                    reason: susp.suspension_reason || 'Cuenta suspendida temporalmente.',
+                    until: susp.suspension_until,
+                }
+            }
+        }
+        return { allowed: true }
+    }
+
+    /** Resuelve un username a su id (para /user/:username). */
+    getIdPorUsernameAsync = async (username) => {
+        const user = await this.repo.getByUsernameAsync(username)
+        if (!user) throwError('No existe un usuario con ese nombre.', 404)
+        return { id_usuario: user.id_usuario }
+    }
+
+    /** Búsqueda pública de usuarios (feature de comparar perfiles). */
+    buscarAsync = async (q, limit = 5) => {
+        const term = typeof q === 'string' ? q.trim() : ''
+        if (term.length < 2) return []
+        return await this.repo.searchPublicAsync(term.slice(0, 60), Math.min(Math.max(limit, 1), 10))
+    }
+
+    /** Roster público de una empresa (perfil de empresa). */
+    getMiembrosPublicosAsync = async (companyId, limit = 24) =>
+        await this.repo.getMiembrosPublicosAsync(companyId, Math.min(Math.max(limit, 1), 50))
 
     /**
      * Crea el perfil tras el signup (email/Google). El id y el email vienen del
@@ -134,6 +238,25 @@ export default class UsuarioService {
             if (body[key] !== undefined) fields[key] = body[key]
         }
 
+        // Cambio de username: validación + cooldown de 7 días + unicidad.
+        // El server fija username_last_changed (el cliente no puede saltearlo).
+        if (body.username !== undefined && body.username !== null && body.username !== '') {
+            const actual = await this.repo.getByIdAsync(idUsuario)
+            if (actual && body.username !== actual.username) {
+                if (!isValidUsername(body.username)) {
+                    throwError('El username debe tener 3–30 caracteres (letras, números, _ o .).', 400)
+                }
+                const last = actual.username_last_changed ? new Date(actual.username_last_changed) : null
+                const dias = last ? (Date.now() - last.getTime()) / 86_400_000 : Infinity
+                if (dias < 7) throwError('Solo podés cambiar tu username cada 7 días.', 429)
+                if (await this.repo.usernameExistsAsync(body.username)) {
+                    throwError('Ese nombre de usuario ya está en uso.', 409)
+                }
+                fields.username = body.username
+                fields.username_last_changed = nowAR()
+            }
+        }
+
         // Los campos de empresa solo aplican a perfiles enterprise (verificado
         // contra la BD, nunca contra user_metadata del token).
         const pideEnterprise = CAMPOS_ENTERPRISE.some((key) => body[key] !== undefined)
@@ -160,12 +283,12 @@ export default class UsuarioService {
         if (fields.accent_color !== undefined && !isValidHexColor(fields.accent_color)) {
             throwError('El color debe ser hexadecimal (#rrggbb).', 400)
         }
-        for (const flag of ['show_company_badge', 'user_onboarded', 'email_publico']) {
+        for (const flag of ['show_company_badge', 'show_stats', 'user_onboarded', 'email_publico']) {
             if (fields[flag] !== undefined && typeof fields[flag] !== 'boolean') {
                 throwError(`${flag} debe ser booleano.`, 400)
             }
         }
-        for (const urlField of ['showcase_url', 'social_website']) {
+        for (const urlField of ['showcase_url', 'banner_url', 'social_website']) {
             if (fields[urlField] !== undefined && fields[urlField] !== null && fields[urlField] !== '' && !isValidHttpsUrl(fields[urlField])) {
                 throwError(`${urlField} debe ser una URL https válida.`, 400)
             }
@@ -182,7 +305,7 @@ export default class UsuarioService {
 
         const updated = await this.repo.updatePerfilAsync(idUsuario, fields)
         if (!updated) throwError('Usuario no encontrado.', 404)
-        return await this.repo.getPerfilPublicoAsync(idUsuario)
+        return await this.getPerfilVistaAsync(idUsuario, idUsuario)
     }
 
     // ── Follows (reemplaza los insert/delete directos de UsuarioApp.jsx) ─────

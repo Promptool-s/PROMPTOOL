@@ -285,4 +285,133 @@ export default class IntentoService {
 
     getHistorialAsync = async (idUsuario, { limit, offset }) =>
         await this.intentoRepo.getByUsuarioAsync(idUsuario, { limit, offset })
+
+    /**
+     * Tiempo recomendado personalizado según el historial del usuario en la
+     * dificultad. Porta el cálculo que hacía App.jsx en el cliente (promedio de
+     * los últimos 15 intentos ajustado por score), ahora server-side. Devuelve
+     * segundos.
+     */
+    getTiempoPersonalizadoAsync = async (idUsuario, difficulty = 'Medium') => {
+        const baseTime = { easy: 90, medium: 150, hard: 240 }
+        const nd = String(difficulty || 'Medium').toLowerCase()
+        const defaultTime = baseTime[nd] ?? baseTime.medium
+
+        const attempts = await this.intentoRepo.getUltimosPorDificultadAsync(idUsuario, difficulty, 15)
+        if (attempts.length < 3) return { recommended_seconds: defaultTime }
+
+        const validTimes = attempts
+            .map((a) => Number(a.tiempo_respuesta))
+            .filter((t) => t > 0 && t < 600)
+        if (validTimes.length === 0) return { recommended_seconds: defaultTime }
+
+        const avgTime = validTimes.reduce((sum, t) => sum + t, 0) / validTimes.length
+        const avgScore = attempts.reduce((sum, a) => sum + (Number(a.puntaje_similitud) || 0), 0) / attempts.length
+
+        let adjustedTime = avgTime
+        if (avgScore >= 70) adjustedTime = avgTime * 0.9
+        else if (avgScore < 50) adjustedTime = avgTime * 1.15
+
+        const minTime = defaultTime * 0.6
+        const maxTime = defaultTime * 1.8
+        return { recommended_seconds: Math.round(Math.max(minTime, Math.min(maxTime, adjustedTime))) }
+    }
+
+    /**
+     * Showcase de comunidad para la landing (reemplaza el read directo de 500
+     * filas + agrupado en el cliente de CommunitySlideshow.jsx). Elige el mejor
+     * intento por usuario, filtra contenido, mezcla y devuelve hasta `count`
+     * slides ya con la forma que consume el componente.
+     */
+    getComunidadShowcaseAsync = async (count = 10) => {
+        const BLOCKED = ['nude', 'naked', 'porn', 'sex', 'nsfw', 'explicit', 'gore', 'blood',
+            'violence', 'kill', 'murder', 'hate', 'racist', 'drug', 'weapon', 'desnud',
+            'porno', 'sexo', 'sangre', 'matar', 'odio', 'droga']
+        const promptOk = (p) => {
+            if (!p || typeof p !== 'string') return false
+            const l = p.toLowerCase()
+            if (BLOCKED.some((w) => l.includes(w))) return false
+            return p.trim().split(/\s+/).length > 10
+        }
+
+        const rows = await this.intentoRepo.getComunidadShowcaseAsync(500)
+        const byUser = {}
+        for (const row of rows) {
+            if (!row.url_image || !promptOk(row.prompt_usuario)) continue
+            const uid = row.id_usuario || row.username || Math.random()
+            const score = Number(row.puntaje_similitud) || 0
+            if (!byUser[uid] || score > (Number(byUser[uid].puntaje_similitud) || 0)) {
+                byUser[uid] = row
+            }
+        }
+
+        const poolRows = Object.values(byUser)
+        for (let i = poolRows.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1))
+            ;[poolRows[i], poolRows[j]] = [poolRows[j], poolRows[i]]
+        }
+
+        return poolRows.slice(0, count).map((row) => ({
+            url_image: row.url_image,
+            prompt_usuario: row.prompt_usuario,
+            score: Number(row.puntaje_similitud) || 0,
+            username: row.username || null,
+            avatar_url: row.avatar_url || null,
+            is_dev: row.devstate === true,
+        }))
+    }
+
+    /** ¿El usuario ya completó el modo daily hoy? (reemplaza el read directo de App.jsx). */
+    yaHizoDailyHoyAsync = async (idUsuario) => {
+        const hoy = new Date()
+        hoy.setHours(0, 0, 0, 0)
+        const done = await this.intentoRepo.existeDailyDesdeAsync(idUsuario, hoy.toISOString())
+        return { done }
+    }
+
+    /**
+     * Historial para la página de perfil. El dueño y los admin ven la historia
+     * completa (con prompt_original); un visitante ve una ventana pública sin
+     * el prompt original. Devuelve los intentos con la imagen anidada (para no
+     * cambiar la forma que consume UsuarioApp) más el mapa de nombres de empresa.
+     */
+    getHistorialPerfilAsync = async (idPerfil, idSolicitante = null) => {
+        const esDueno = idSolicitante && idSolicitante === idPerfil
+        const esAdmin = idSolicitante && !esDueno && await this.usuarioRepo.isAdminAsync(idSolicitante)
+        const privilegiado = esDueno || esAdmin
+        const rows = await this.intentoRepo.getHistorialPerfilAsync(idPerfil, {
+            limit: privilegiado ? 2000 : 365,
+            includeOriginal: privilegiado,
+        })
+
+        const companyNames = {}
+        const intentos = rows.map((r) => {
+            if (r.company_id != null && companyNames[r.company_id] === undefined) {
+                companyNames[r.company_id] = r.company_name || r.company_nombre_display || 'Empresa'
+            }
+            const imagenes_ia = {
+                url_image: r.url_image ?? null,
+                image_diff: r.image_diff ?? null,
+                company_id: r.company_id ?? null,
+            }
+            if (privilegiado) imagenes_ia.prompt_original = r.prompt_original ?? null
+            return {
+                id_intento: r.id_intento,
+                id_imagen: r.id_imagen,
+                prompt_usuario: r.prompt_usuario,
+                puntaje_similitud: r.puntaje_similitud,
+                fecha_hora: r.fecha_hora,
+                modo: r.modo,
+                is_ranked: r.is_ranked,
+                elo_delta: r.elo_delta,
+                tiempo_respuesta: r.tiempo_respuesta,
+                strengths: r.strengths ?? [],
+                improvements: r.improvements ?? [],
+                imagenes_ia,
+                company_verified: r.company_verified === true,
+            }
+        })
+
+        return { intentos, company_names: companyNames }
+    }
 }
