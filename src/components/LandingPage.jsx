@@ -8,7 +8,8 @@ import 'lenis/dist/lenis.css'
 import { landingEditorial } from '../data/siteContent'
 import { copy, detectLang } from './landing/landingCopy'
 import { scrollBus } from './landing/scrollBus'
-import CommunitySlideshow from './landing/CommunitySlideshow'
+import PromptQualityLab from './landing/PromptQualityLab'
+import RotatingWord from './landing/RotatingWord'
 import InteractiveDemo from './landing/InteractiveDemo'
 import PromptTypingField from './landing/PromptTypingField'
 import { AnimatedStats, StatsChart, OrgIcon, GLASS, FOCUS, useTilt, MagneticButton, CountUp } from './landing/widgets'
@@ -69,8 +70,22 @@ const GUIDE_LEVEL_STYLES = [
   'bg-violet-500/10 text-violet-700',
 ]
 
-const BTN_PRIMARY = `inline-flex items-center justify-center rounded-lg bg-cyan-500 px-8 py-3.5 text-sm font-semibold text-slate-950 shadow-lg shadow-cyan-500/25 transition hover:bg-cyan-400 active:scale-[0.98] ${FOCUS}`
-const BTN_GHOST = `inline-flex items-center justify-center rounded-lg border border-slate-900/15 px-8 py-3.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-900/[0.04] active:scale-[0.98] ${FOCUS}`
+const BTN_PRIMARY = `group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-cyan-500 to-sky-400 px-7 py-3.5 text-sm font-semibold text-slate-950 shadow-lg shadow-cyan-500/30 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/40 active:scale-[0.98] ${FOCUS}`
+const BTN_GHOST = `group inline-flex items-center justify-center gap-2 rounded-xl border border-slate-900/[0.12] bg-white/60 px-7 py-3.5 text-sm font-semibold text-slate-700 backdrop-blur-sm transition-all duration-300 hover:border-cyan-600/40 hover:bg-white hover:text-slate-900 active:scale-[0.98] ${FOCUS}`
+
+// Light sweep across a button on hover — sits above the gradient, below the label.
+const Sheen = () => (
+  <span
+    aria-hidden="true"
+    className="pointer-events-none absolute inset-y-0 -left-full w-full bg-gradient-to-r from-transparent via-white/50 to-transparent transition-transform duration-700 ease-out group-hover:translate-x-[200%]"
+  />
+)
+
+const ArrowIcon = () => (
+  <svg className="relative h-4 w-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4 12h15m0 0l-6-6m6 6l-6 6" />
+  </svg>
+)
 
 const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
   const [lang] = useState(detectLang)
@@ -228,7 +243,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
   const setSectionRef = (i) => (el) => { sectionRefs.current[i] = el }
 
   return (
-    <div ref={rootRef} className="relative min-h-screen bg-[#f8fafc] text-slate-900 antialiased" style={{ overflowX: 'clip' }}>
+    <div ref={rootRef} className="landing-root relative min-h-screen bg-[#f8fafc] text-slate-900 antialiased" style={{ overflowX: 'clip' }}>
       <a href="#main-content" className={`sr-only focus:not-sr-only fixed left-4 top-4 z-30 rounded-lg bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 ${FOCUS}`}>
         {c.skipToContent}
       </a>
@@ -285,18 +300,60 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
             <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
               <div className="space-y-6 lg:space-y-8">
                 <div data-hero-fade className="flex flex-wrap gap-2">
-                  <span className="inline-flex items-center gap-2 rounded-full border border-cyan-600/30 bg-cyan-500/10 px-4 py-1.5 text-xs font-semibold text-cyan-700">
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-600" aria-hidden="true" />
-                    {c.badge}
+                  <span className="relative inline-flex items-center gap-2 overflow-hidden rounded-full border border-cyan-600/30 bg-cyan-500/10 px-4 py-1.5 text-xs font-semibold text-cyan-700">
+                    <span className="relative flex h-1.5 w-1.5 shrink-0" aria-hidden="true">
+                      {!reducedMotion && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-500 opacity-75" />}
+                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-cyan-600" />
+                    </span>
+                    <span className="relative">{c.badge}</span>
+                    <span aria-hidden="true" className="hero-badge-sheen pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-white/70 to-transparent" />
                   </span>
                 </div>
-                <h1 aria-label={`${c.h1a} ${c.h1b}`} className="text-4xl font-black leading-tight tracking-tight sm:text-5xl lg:text-7xl">
-                  <span aria-hidden="true" className="block overflow-hidden pb-1"><span data-hero-line className="block">{c.h1a}</span></span>
-                  <span aria-hidden="true" className="block overflow-hidden pb-1"><span data-hero-line className="block bg-gradient-to-r from-cyan-600 to-violet-600 bg-clip-text text-transparent">{c.h1b}</span></span>
+                <h1 aria-label={`${c.h1a} ${c.h1b}`} className="text-4xl font-black leading-[0.85] tracking-tight sm:text-5xl lg:text-7xl">
+                  {/* "Descifra el prompt." es larga a este tamaño y hace wrap
+                      en dos renglones dentro de su propia máscara en la
+                      mayoría de los viewports — leading-[0.92] achica ESE
+                      espacio vertical. El mt-* de la línea 2, más abajo, es
+                      independiente del leading y da la separación entre los
+                      dos bloques del h1.
+                      word-spacing negativo: a este tamaño el espacio entre
+                      palabras se ve desproporcionado frente al tracking-tight
+                      de las letras. Solo afecta line 1 (texto plano, sin
+                      spans internos) para no romper el scramble del intro,
+                      que opera sobre [data-hero-line].textContent. */}
+                  <span aria-hidden="true" className="block overflow-hidden pb-1">
+                    <span data-hero-line className="block [word-spacing:-0.12em]">{c.h1a}</span>
+                  </span>
+                  {/* Línea 2: el prefijo lo scramblea el intro del hero (toca
+                      textContent), así que la palabra que rota vive fuera de
+                      [data-hero-line] para que no se la lleve puesta.
+                      Ambos ítems comparten la misma geometría de máscara
+                      (overflow-hidden + pb/-mb en em) y se alinean por el
+                      borde inferior, así "Domina" y la palabra que rota
+                      comparten baseline exacto en todos los breakpoints.
+                      mt-* separa esta línea de la anterior — independiente
+                      del leading (que solo tensa el wrap interno de cada
+                      bloque) y del gap-x (espacio interno del bloque). */}
+                  <span aria-hidden="true" className="mt-3 flex flex-wrap items-end gap-x-1.5 pb-1 sm:mt-4">
+                    <span className="block overflow-hidden pb-[0.14em] -mb-[0.14em]">
+                      <span data-hero-line className="block">{c.h1bPrefix}</span>
+                    </span>
+                    <span data-hero-fade className="flex">
+                      <RotatingWord words={c.h1Rotate} animate={!reducedMotion} wordClassName="hero-word-flow" />
+                    </span>
+                  </span>
                 </h1>
-                <p data-hero-fade className="max-w-md text-base leading-relaxed text-slate-600 lg:text-lg">{c.sub}</p>
+                <p data-hero-fade className="max-w-md text-base leading-relaxed text-slate-600 lg:text-lg">
+                  {c.subA}
+                  <span className="font-semibold text-slate-800">{c.subHl}</span>
+                  {c.subB}
+                </p>
                 <div data-hero-fade className="flex flex-wrap gap-3 lg:gap-4">
-                  <MagneticButton type="button" onClick={onTryApp} className={BTN_PRIMARY} enabled={!reducedMotion}>{c.cta1}</MagneticButton>
+                  <MagneticButton type="button" onClick={onTryApp} className={BTN_PRIMARY} enabled={!reducedMotion}>
+                    <Sheen />
+                    <span className="relative">{c.cta1}</span>
+                    <ArrowIcon />
+                  </MagneticButton>
                   <button type="button" onClick={onOpenAuth} className={BTN_GHOST}>{c.cta2}</button>
                 </div>
                 <div data-hero-fade className="flex items-center gap-3 pt-1">
@@ -304,7 +361,7 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                   <button
                     type="button"
                     onClick={onEnterprise}
-                    className={`group inline-flex items-center gap-2 rounded-full border border-slate-900/10 bg-white/70 px-4 py-1.5 text-xs font-semibold text-slate-500 transition-all hover:border-violet-500/60 hover:bg-violet-500/10 hover:text-violet-700 ${FOCUS}`}
+                    className={`group inline-flex items-center gap-2 rounded-full border border-slate-900/10 bg-white/70 px-4 py-1.5 text-xs font-semibold text-slate-500 transition-all duration-300 hover:border-violet-500/60 hover:bg-violet-500/10 hover:text-violet-700 ${FOCUS}`}
                   >
                     <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -317,10 +374,8 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                   <div className="h-px flex-1 bg-slate-900/10" aria-hidden="true" />
                 </div>
               </div>
-              <div ref={heroCardTilt} data-hero-fade className={`relative hidden overflow-hidden rounded-2xl p-6 lg:block lg:h-[520px] ${GLASS}`}>
-                <div className="relative h-full">
-                  <CommunitySlideshow lang={lang} />
-                </div>
+              <div ref={heroCardTilt} data-hero-fade className="relative">
+                <PromptQualityLab lang={lang} animate={!reducedMotion} className="h-[26rem] sm:h-[30rem] lg:h-[34rem]" />
               </div>
             </div>
             <div className="absolute bottom-8 left-1/2 hidden -translate-x-1/2 lg:block">
@@ -613,12 +668,16 @@ const LandingPage = ({ onOpenAuth, onTryApp, onEnterprise }) => {
                 </h2>
                 <p className="mx-auto max-w-md text-base text-slate-600 sm:text-lg">{c.ctaDesc}</p>
                 <div className="flex flex-wrap justify-center gap-4 pt-2">
-                  <MagneticButton type="button" onClick={onTryApp} className={BTN_PRIMARY} enabled={!reducedMotion}>{c.ctaPlay}</MagneticButton>
+                  <MagneticButton type="button" onClick={onTryApp} className={BTN_PRIMARY} enabled={!reducedMotion}>
+                    <Sheen />
+                    <span className="relative">{c.ctaPlay}</span>
+                    <ArrowIcon />
+                  </MagneticButton>
                   <button type="button" onClick={onOpenAuth} className={BTN_GHOST}>{c.ctaSignup}</button>
                   <button
                     type="button"
                     onClick={onEnterprise}
-                    className={`inline-flex items-center justify-center gap-2 rounded-lg border border-violet-600/50 px-8 py-3.5 text-sm font-semibold text-violet-700 transition hover:bg-violet-500/10 active:scale-[0.98] ${FOCUS}`}
+                    className={`inline-flex items-center justify-center gap-2 rounded-xl border border-violet-600/50 px-7 py-3.5 text-sm font-semibold text-violet-700 transition-all duration-300 hover:bg-violet-500/10 active:scale-[0.98] ${FOCUS}`}
                   >
                     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
