@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '../supabaseClient'
 import { useLang } from '../contexts/LangContext'
 import Header from './Header'
 import Footer from './Footer'
@@ -9,7 +8,6 @@ import {
 } from 'recharts'
 import { proxyImg } from '../utils/imgProxy'
 import { api } from '../lib/apiClient'
-import { nowAR } from '../utils/dateAR'
 import ChallengeCreatorModal from './ChallengeCreatorModal'
 import { sanitizeText } from '../utils/inputSanitizer'
 import GUIDE_LIBRARY from '../data/guides'
@@ -198,12 +196,8 @@ const EnterprisePanel = ({ user }) => {
     if (!compId) return
     setLoadingGuides(true)
     try {
-      const { data } = await supabase
-        .from('usuarios')
-        .select('training_config')
-        .eq('id_usuario', compId)
-        .maybeSingle()
-      const assignments = data?.training_config?.guide_assignments || []
+      const cfg = await api.get('/enterprise/config')
+      const assignments = cfg?.training_config?.guide_assignments || []
       setGuideAssignments(assignments)
     } catch { /* silent */ } finally {
       setLoadingGuides(false)
@@ -211,17 +205,13 @@ const EnterprisePanel = ({ user }) => {
   }
 
   const fetchMemberProgress = async (memberIds) => {
-    // El progreso de guías se lee de training_config->guide_progress de cada miembro
+    // El progreso de guías se lee server-side de training_config->guide_progress
     if (!memberIds?.length) return
     try {
-      const { data } = await supabase
-        .from('usuarios')
-        .select('id_usuario, training_config')
-        .in('id_usuario', memberIds)
+      const data = await api.get('/enterprise/analytics/progreso-miembros')
       const map = {}
       ;(data || []).forEach(row => {
-        const progress = row.training_config?.guide_progress || {}
-        map[row.id_usuario] = progress
+        map[row.id_usuario] = row.guide_progress || {}
       })
       setMemberProgress(map)
     } catch { /* silent */ }
@@ -291,45 +281,33 @@ const EnterprisePanel = ({ user }) => {
         created_at: new Date().toISOString(),
       }
 
-      const { data: current } = await supabase
-        .from('usuarios')
-        .select('training_config')
-        .eq('id_usuario', companyData.id_usuario)
-        .maybeSingle()
-
-      const existing = current?.training_config || {}
+      const cfg = await api.get('/enterprise/config')
+      const existing = cfg?.training_config || {}
       const updatedAssignments = [...(existing.guide_assignments || []), newAssignment]
 
-      const { error } = await supabase
-        .from('usuarios')
-        .update({
-          training_config: { ...existing, guide_assignments: updatedAssignments }
-        })
-        .eq('id_usuario', companyData.id_usuario)
+      await api.put('/enterprise/config', {
+        training_config: { ...existing, guide_assignments: updatedAssignments },
+      })
 
-      if (error) throw error
-
-      // ── Notificaciones ───────────────────────────────────────────────────
+      // ── Notificaciones (server-side, best-effort) ────────────────────────
       const guideTitle = guideForm.type === 'catalog'
         ? (GUIDE_LIBRARY.find(g => g.id === guideForm.guide_id)?.title || guideForm.guide_id)
         : guideForm.custom_title.trim()
       const companyName = companyData.company_name || (lang === 'en' ? 'Your company' : 'Tu empresa')
-      const notifPayload = []
       const targets = guideForm.target === 'all' ? teamUsers : teamUsers.filter(m => m.id_usuario === guideForm.target)
-      targets.forEach(m => {
-        notifPayload.push({
-          target_user_id: m.id_usuario,
-          target_email: m.email || null,
-          title: lang === 'en' ? 'New guide assigned' : 'Nueva guía asignada',
-          message: lang === 'en'
-            ? `${companyName} assigned you: "${guideTitle}"${guideForm.note ? ` — ${guideForm.note}` : ''}`
-            : `${companyName} te asignó: "${guideTitle}"${guideForm.note ? ` — ${guideForm.note}` : ''}`,
-          guide_slug: guideForm.type === 'catalog' ? `guia-${guideForm.guide_id}` : null,
-          guide_url: guideForm.type === 'catalog' ? `/guides#guia-${guideForm.guide_id}` : '/guides',
-        })
-      })
-      if (notifPayload.length > 0) {
-        await supabase.from('guide_suggestions').insert(notifPayload)
+      const targetIds = targets.map(m => m.id_usuario)
+      if (targetIds.length > 0) {
+        try {
+          await api.post('/enterprise/guias/notificar', {
+            targets: targetIds,
+            titulo: lang === 'en' ? 'New guide assigned' : 'Nueva guía asignada',
+            mensaje: lang === 'en'
+              ? `${companyName} assigned you: "${guideTitle}"${guideForm.note ? ` — ${guideForm.note}` : ''}`
+              : `${companyName} te asignó: "${guideTitle}"${guideForm.note ? ` — ${guideForm.note}` : ''}`,
+            guide_slug: guideForm.type === 'catalog' ? `guia-${guideForm.guide_id}` : null,
+            guide_url: guideForm.type === 'catalog' ? `/guides#guia-${guideForm.guide_id}` : '/guides',
+          })
+        } catch { /* notificaciones best-effort, no frenan la asignación */ }
       }
 
       setGuideAssignments(updatedAssignments)
@@ -346,16 +324,11 @@ const EnterprisePanel = ({ user }) => {
   const deleteGuideAssignment = async (id) => {
     try {
       const updated = guideAssignments.filter(a => a.id !== id)
-      const { data: current } = await supabase
-        .from('usuarios')
-        .select('training_config')
-        .eq('id_usuario', companyData.id_usuario)
-        .maybeSingle()
-      const existing = current?.training_config || {}
-      await supabase
-        .from('usuarios')
-        .update({ training_config: { ...existing, guide_assignments: updated } })
-        .eq('id_usuario', companyData.id_usuario)
+      const cfg = await api.get('/enterprise/config')
+      const existing = cfg?.training_config || {}
+      await api.put('/enterprise/config', {
+        training_config: { ...existing, guide_assignments: updated },
+      })
       setGuideAssignments(updated)
     } catch { /* silent */ }
   }
@@ -372,12 +345,7 @@ const EnterprisePanel = ({ user }) => {
     if (!companyData?.id_usuario) return
     setLoadingChallenges(true)
     try {
-      const { data, error } = await supabase
-        .from('imagenes_ia')
-        .select('id_imagen, url_image, image_diff, image_theme, fecha, prompt_original, challenge_description, challenge_time_limit, challenge_max_attempts, challenge_min_words, challenge_start_date, challenge_end_date, challenge_visibility, challenge_points, challenge_tags, challenge_hints, challenge_evaluation_mode')
-        .eq('company_id', companyData.id_usuario)
-        .order('fecha', { ascending: false })
-      if (error) throw error
+      const data = await api.get('/enterprise/desafios')
       setChallenges(data || [])
     } catch {
       // fetch challenges failed silently
@@ -390,25 +358,9 @@ const EnterprisePanel = ({ user }) => {
     if (!companyData?.id_usuario || challenges.length === 0 || teamUsers.length === 0) return
     setLoadingAttempts(true)
     try {
-      const challengeIds = challenges.map(c => c.id_imagen)
-      const memberIds = teamUsers.map(m => m.id_usuario)
-
-      const { data, error } = await supabase
-        .from('intentos')
-        .select('id_intento, id_usuario, id_imagen, puntaje_similitud, prompt_usuario, strengths, improvements, fecha_hora, modo')
-        .in('id_imagen', challengeIds)
-        .in('id_usuario', memberIds)
-        .order('fecha_hora', { ascending: false })
-
-      if (error) throw error
-
-      // Agrupar por id_imagen
-      const grouped = {}
-      ;(data || []).forEach(intento => {
-        if (!grouped[intento.id_imagen]) grouped[intento.id_imagen] = []
-        grouped[intento.id_imagen].push(intento)
-      })
-      setChallengeAttempts(grouped)
+      // El backend agrupa por id_imagen y resuelve membresía/ownership en SQL.
+      const grouped = await api.get('/enterprise/analytics/intentos')
+      setChallengeAttempts(grouped || {})
     } catch {
       // fetch challenge attempts failed silently
     } finally {
@@ -421,21 +373,12 @@ const EnterprisePanel = ({ user }) => {
     if (!user) return
     const fetchCompanyData = async () => {
       try {
-        const { data: company, error } = await supabase
-          .from('usuarios')
-          .select('company_name, user_type, id_usuario, bio, social_website, settings_allowed_diffs, industry_type, tournament_enabled, default_challenge_type, default_challenge_mode, performance_metrics, training_config, dashboard_filters')
-          .eq('id_usuario', user.id)
-          .maybeSingle()
-
-        if (error) throw error
+        const company = await api.get('/enterprise/settings')
 
         // Auto-heal: enterprise users created before company_name was required
         if (company && company.user_type === 'enterprise' && !company.company_name) {
           const fallbackName = user.user_metadata?.nombre || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Mi Empresa'
-          await supabase
-            .from('usuarios')
-            .update({ company_name: fallbackName, nombre_display: fallbackName })
-            .eq('id_usuario', user.id)
+          try { await api.put('/enterprise/settings', { company_name: fallbackName }) } catch { /* best-effort */ }
           company.company_name = fallbackName
           company.nombre_display = fallbackName
         }
@@ -478,24 +421,14 @@ const EnterprisePanel = ({ user }) => {
         }        
         // Fetch team members (users under this company)
         if (company) {
-          const { data: members } = await supabase
-            .from('usuarios')
-            .select('id_usuario, nombre, nombre_display, company_display_name, username, avatar_url, email, elo_rating, total_intentos, promedio_score, porcentaje_aprobacion, racha_actual, company_role, company_joined_at, created_at')
-            .eq('company_id', company.id_usuario)
-            .order('elo_rating', { ascending: false })
+          const members = await api.get('/enterprise/equipo')
           setTeamUsers(members || [])
 
           // Fetch progreso del equipo — últimos 30 días de intentos de miembros
           if ((members || []).length > 0) {
-            const memberIds = (members || []).map(m => m.id_usuario)
             const since = new Date()
             since.setDate(since.getDate() - 29)
-            const { data: progressData } = await supabase
-              .from('intentos')
-              .select('id_usuario, puntaje_similitud, fecha_hora')
-              .in('id_usuario', memberIds)
-              .gte('fecha_hora', since.toISOString())
-              .order('fecha_hora', { ascending: true })
+            const progressData = await api.get('/enterprise/analytics/intentos-diarios?days=30')
 
             // Agrupar por día: promedio de score del equipo
             const byDay = {}
@@ -521,37 +454,17 @@ const EnterprisePanel = ({ user }) => {
           }
 
           // Fetch challenges
-          const { data: chs } = await supabase
-            .from('imagenes_ia')
-            .select('id_imagen, url_image, image_diff, image_theme, fecha, prompt_original, challenge_description, challenge_time_limit, challenge_max_attempts, challenge_min_words, challenge_start_date, challenge_end_date, challenge_visibility, challenge_points, challenge_tags, challenge_hints, challenge_evaluation_mode, challenge_eval_instructions, challenge_content_type')
-            .eq('company_id', company.id_usuario)
-            .order('fecha', { ascending: false })
+          const chs = await api.get('/enterprise/desafios')
           setChallenges(chs || [])
 
           // Fetch custom roles
-          const { data: roles } = await supabase
-            .from('custom_roles')
-            .select('*')
-            .eq('company_id', company.id_usuario)
-            .order('role_name')
+          const roles = await api.get('/enterprise/roles')
           setCustomRoles(roles || [])
 
-          // Fetch intentos de esos desafíos por miembros del equipo
+          // Fetch intentos de esos desafíos por miembros del equipo (ya agrupados)
           if ((chs || []).length > 0 && (members || []).length > 0) {
-            const challengeIds = (chs || []).map(c => c.id_imagen)
-            const memberIds = (members || []).map(m => m.id_usuario)
-            const { data: attemptsData } = await supabase
-              .from('intentos')
-              .select('id_intento, id_usuario, id_imagen, puntaje_similitud, prompt_usuario, strengths, improvements, fecha_hora, modo, visualElements, styleAtmosphere, technicalDetails, clarity')
-              .in('id_imagen', challengeIds)
-              .in('id_usuario', memberIds)
-              .order('fecha_hora', { ascending: false })
-            const grouped = {}
-            ;(attemptsData || []).forEach(intento => {
-              if (!grouped[intento.id_imagen]) grouped[intento.id_imagen] = []
-              grouped[intento.id_imagen].push(intento)
-            })
-            setChallengeAttempts(grouped)
+            const grouped = await api.get('/enterprise/analytics/intentos')
+            setChallengeAttempts(grouped || {})
           }
 
           // Fetch guide assignments y progreso de miembros
@@ -575,10 +488,7 @@ const EnterprisePanel = ({ user }) => {
   const saveDashboardFilters = async (newFilters) => {
     if (!user?.id) return
     try {
-      await supabase
-        .from('usuarios')
-        .update({ dashboard_filters: newFilters })
-        .eq('id_usuario', user.id)
+      await api.put('/enterprise/config', { dashboard_filters: newFilters })
     } catch (error) {
       console.error('Error saving dashboard filters:', error)
     }
@@ -598,14 +508,7 @@ const EnterprisePanel = ({ user }) => {
     setChallengeStatsModal({ challengeId, challengeName })
     
     try {
-      const { data, error } = await supabase
-        .from('challenge_attempts_detailed')
-        .select('*')
-        .eq('id_imagen', challengeId)
-        .eq('company_id', companyData.id_usuario)
-        .order('fecha_hora', { ascending: false })
-      
-      if (error) throw error
+      const data = await api.get(`/enterprise/desafios/${challengeId}/stats`)
       setChallengeStatsData(data || [])
     } catch (error) {
       console.error('Error fetching challenge stats:', error)
@@ -631,13 +534,7 @@ const EnterprisePanel = ({ user }) => {
     if (!companyData?.id_usuario) return
     setLoadingRoles(true)
     try {
-      const { data, error } = await supabase
-        .from('custom_roles')
-        .select('*')
-        .eq('company_id', companyData.id_usuario)
-        .order('role_name')
-      
-      if (error) throw error
+      const data = await api.get('/enterprise/roles')
       setCustomRoles(data || [])
     } catch (error) {
       console.error('Error fetching custom roles:', error)
@@ -659,14 +556,12 @@ const EnterprisePanel = ({ user }) => {
     }
 
     try {
-      const { error } = await supabase.rpc('create_custom_role', {
-        role_name: newRoleForm.name.trim(),
-        role_description: newRoleForm.description.trim() || null,
-        role_color: newRoleForm.color
+      await api.post('/enterprise/roles', {
+        nombre: newRoleForm.name.trim(),
+        descripcion: newRoleForm.description.trim() || null,
+        color: newRoleForm.color,
       })
-      
-      if (error) throw error
-      
+
       // Refrescar lista de roles
       await fetchCustomRoles()
       
@@ -687,12 +582,8 @@ const EnterprisePanel = ({ user }) => {
     )) return
     
     try {
-      const { error } = await supabase.rpc('delete_custom_role', {
-        role_name: roleName
-      })
-      
-      if (error) throw error
-      
+      await api.del(`/enterprise/roles/${encodeURIComponent(roleName)}`)
+
       // Refrescar lista de roles y miembros
       await Promise.all([fetchCustomRoles(), fetchCompanyDataRef.current?.()])
     } catch (error) {
@@ -705,23 +596,16 @@ const EnterprisePanel = ({ user }) => {
     if (!user?.id) return
     setEnterpriseLoadingRequests(true)
     try {
-      const { data, error } = await supabase
-        .from('team_invitations')
-        .select('id, user_email, user_id, status, message, created_at, usuarios!team_invitations_user_id_fkey(nombre, nombre_display, username, avatar_url)')
-        .eq('company_id', user.id)
-        .order('created_at', { ascending: false })
-      if (error) {
-        // Fallback sin join si la FK no existe
-        const { data: fallback, error: fallbackErr } = await supabase
-          .from('team_invitations')
-          .select('id, user_email, user_id, status, message, created_at')
-          .eq('company_id', user.id)
-          .order('created_at', { ascending: false })
-        if (fallbackErr) throw fallbackErr
-        setEnterpriseRequests(fallback || [])
-      } else {
-        setEnterpriseRequests(data || [])
-      }
+      // El backend hace el LEFT JOIN con usuarios y devuelve los campos planos;
+      // los reanidamos en `usuarios` para no tocar el render.
+      const data = await api.get('/enterprise/invitaciones')
+      const normalized = (data || []).map(r => ({
+        ...r,
+        usuarios: r.user_id
+          ? { nombre_display: r.nombre_display, username: r.username, avatar_url: r.avatar_url }
+          : null,
+      }))
+      setEnterpriseRequests(normalized)
     } catch {
       setEnterpriseRequests([])
     } finally {
@@ -784,15 +668,10 @@ const EnterprisePanel = ({ user }) => {
     }
     try {
       if (status === 'accepted') {
-        // Usar RPC con SECURITY DEFINER para poder escribir company_id en el usuario
-        const { error } = await supabase.rpc('accept_team_invitation', { invitation_id: request.id })
-        if (error) throw error
+        // El backend elige la RPC SECURITY DEFINER correcta según quién acepta.
+        await api.post(`/enterprise/invitaciones/${request.id}/aceptar`)
       } else {
-        const { error } = await supabase
-          .from('team_invitations')
-          .update({ status })
-          .eq('id', request.id)
-        if (error) throw error
+        await api.patch(`/enterprise/invitaciones/${request.id}`, { status: 'rejected' })
       }
 
       setEnterpriseActionStatus(
@@ -802,11 +681,7 @@ const EnterprisePanel = ({ user }) => {
       )
 
       // Refrescar lista de miembros
-      const { data: members } = await supabase
-        .from('usuarios')
-        .select('id_usuario, nombre, nombre_display, company_display_name, username, avatar_url, email, elo_rating, total_intentos, promedio_score, porcentaje_aprobacion, racha_actual, company_role, company_joined_at, created_at')
-        .eq('company_id', user.id)
-        .order('elo_rating', { ascending: false })
+      const members = await api.get('/enterprise/equipo')
       setTeamUsers(members || [])
 
       fetchEnterpriseRequests()
@@ -818,8 +693,7 @@ const EnterprisePanel = ({ user }) => {
   const cancelEnterpriseInvite = async (requestId) => {
     setCancellingId(requestId)
     try {
-      const { error } = await supabase.from('team_invitations').delete().eq('id', requestId)
-      if (error) throw error
+      await api.del(`/enterprise/invitaciones/${requestId}`)
       setEnterpriseActionStatus(lang === 'en' ? 'Invitation cancelled.' : 'Invitación cancelada.')
       fetchEnterpriseRequests()
     } catch {
@@ -845,8 +719,7 @@ const EnterprisePanel = ({ user }) => {
         performance_metrics: settingsForm.performance_metrics,
         training_config: settingsForm.training_config,
       }
-      const { error } = await supabase.from('usuarios').update(updates).eq('id_usuario', user.id)
-      if (error) throw error
+      await api.put('/enterprise/settings', updates)
       setCompanyData(prev => ({ ...prev, ...updates }))
       setSettingsStatus('ok')
       setTimeout(() => setSettingsStatus(null), 2500)
@@ -864,11 +737,7 @@ const EnterprisePanel = ({ user }) => {
     setTeamUsers(prev => prev.map(u => u.id_usuario === userId ? { ...u, company_role: role || null } : u))
     setRoleError(null)
     try {
-      const { error } = await supabase.rpc('assign_company_role', {
-        target_user_id: userId,
-        role: role || '',
-      })
-      if (error) throw error
+      await api.patch(`/enterprise/equipo/${userId}/rol`, { rol: role || '' })
     } catch (err) {
       // Revert to captured original role
       setTeamUsers(prev => prev.map(u => u.id_usuario === userId ? { ...u, company_role: originalRole } : u))
@@ -882,8 +751,7 @@ const EnterprisePanel = ({ user }) => {
     if (userId === user?.id) return
     setRemovingId(userId)
     try {
-      const { error } = await supabase.rpc('remove_team_member', { target_user_id: userId })
-      if (error) throw error
+      await api.del(`/enterprise/equipo/${userId}`)
       setTeamUsers(prev => prev.filter(u => u.id_usuario !== userId))
       setConfirmRemove(null)
     } catch (err) {
@@ -901,12 +769,8 @@ const EnterprisePanel = ({ user }) => {
       // Sanitize: strip HTML-injectable chars, cap length at 60
       const newName = editingName.value.trim().slice(0, 60).replace(/[<>"'`]/g, '')
       if (!newName) return
-      // Use RPC to set company_display_name — does NOT touch the user's real nombre/nombre_display
-      const { error } = await supabase.rpc('set_company_display_name', {
-        target_user_id: editingName.id,
-        display_name: newName,
-      })
-      if (error) throw error
+      // El backend setea company_display_name (no toca el nombre real del usuario).
+      await api.patch(`/enterprise/equipo/${editingName.id}/nombre`, { nombre: newName })
       setTeamUsers(prev => prev.map(u =>
         u.id_usuario === editingName.id ? { ...u, company_display_name: newName } : u
       ))
@@ -1006,29 +870,19 @@ const EnterprisePanel = ({ user }) => {
       : (lang === 'en' ? 'Uploading file...' : 'Subiendo archivo...')
     setChallengeStatus(uploadLabel)
     try {
-      const ext = (challengeImageFile.name.split('.').pop() || 'jpg').toLowerCase()
-      const path = `${user.id}/${Date.now()}-challenge.${ext}`
-
-      const { error: uploadError } = await supabase.storage
-        .from('enterprise-challenges')
-        .upload(path, challengeImageFile, { upsert: false })
-      if (uploadError) throw new Error(`Storage: ${uploadError.message}`)
-
-      const { data: publicData } = supabase.storage
-        .from('enterprise-challenges')
-        .getPublicUrl(path)
-      const imageUrl = publicData.publicUrl
+      // Subida validada server-side (magic bytes + moderación NSFW); devuelve public_url.
+      const { public_url: imageUrl } = await api.postRaw(
+        '/enterprise/desafios/imagen', challengeImageFile, challengeImageFile.type
+      )
 
       setChallengeStatus(lang === 'en' ? 'Saving challenge...' : 'Guardando desafío...')
 
+      // company_id y fecha los pone el backend — NUNCA el cliente.
       const payload = {
         url_image: imageUrl,
         prompt_original: challengeForm.prompt.trim(),
         image_diff: challengeForm.difficulty,
         image_theme: challengeForm.theme.trim(),
-        fecha: nowAR(),
-        company_id: companyData?.id_usuario || user.id,
-        // Nuevos campos de personalización
         challenge_description: challengeForm.description.trim() || null,
         challenge_time_limit: challengeForm.timeLimit,
         challenge_max_attempts: challengeForm.maxAttempts || null,
@@ -1043,8 +897,7 @@ const EnterprisePanel = ({ user }) => {
         challenge_eval_instructions: challengeForm.evalInstructions.trim() || null,
       }
 
-      const { error: insertError } = await supabase.from('imagenes_ia').insert([payload])
-      if (insertError) throw new Error(`DB: ${insertError.message}`)
+      await api.post('/enterprise/desafios', payload)
 
       setChallengeStatus(lang === 'en' ? 'Challenge created successfully.' : 'Desafío creado correctamente.')
       fetchChallenges()
@@ -1070,20 +923,12 @@ const EnterprisePanel = ({ user }) => {
     try {
       let imageUrl = editingChallenge.url_image
 
-      // If new image uploaded, upload it
+      // If new image uploaded, upload it (validado server-side)
       if (challengeImageFile) {
-        const ext = (challengeImageFile.name.split('.').pop() || 'jpg').toLowerCase()
-        const path = `${user.id}/${Date.now()}-challenge.${ext}`
-
-        const { error: uploadError } = await supabase.storage
-          .from('enterprise-challenges')
-          .upload(path, challengeImageFile, { upsert: false })
-        if (uploadError) throw new Error(`Storage: ${uploadError.message}`)
-
-        const { data: publicData } = supabase.storage
-          .from('enterprise-challenges')
-          .getPublicUrl(path)
-        imageUrl = publicData.publicUrl
+        const { public_url } = await api.postRaw(
+          '/enterprise/desafios/imagen', challengeImageFile, challengeImageFile.type
+        )
+        imageUrl = public_url
       }
 
       const payload = {
@@ -1105,11 +950,7 @@ const EnterprisePanel = ({ user }) => {
         challenge_eval_instructions: challengeForm.evalInstructions.trim() || null,
       }
 
-      const { error: updateError } = await supabase
-        .from('imagenes_ia')
-        .update(payload)
-        .eq('id_imagen', editingChallenge.id_imagen)
-      if (updateError) throw new Error(`DB: ${updateError.message}`)
+      await api.put(`/enterprise/desafios/${editingChallenge.id_imagen}`, payload)
 
       setChallengeStatus(lang === 'en' ? 'Challenge updated successfully.' : 'Desafío actualizado correctamente.')
       fetchChallenges()
@@ -1127,12 +968,7 @@ const EnterprisePanel = ({ user }) => {
     if (!companyData?.id_usuario) return
     setLoadingGuides(true)
     try {
-      const { data, error } = await supabase
-        .from('enterprise_guides')
-        .select('*')
-        .eq('company_id', companyData.id_usuario)
-        .order('created_at', { ascending: false })
-      if (error) throw error
+      const data = await api.get('/enterprise/guias')
       setEnterpriseGuides(data || [])
     } catch (error) {
       console.error('Error fetching guides:', error)
@@ -1201,15 +1037,13 @@ const EnterprisePanel = ({ user }) => {
     try {
       setGuideStatus(lang === 'en' ? 'Creating guide...' : 'Creando guía...')
       
-      const { data, error } = await supabase.rpc('create_enterprise_guide', {
-        title: guideForm.title.trim(),
-        summary: guideForm.summary.trim() || null,
-        content: guideForm.content,
+      await api.post('/enterprise/guias', {
+        titulo: guideForm.title.trim(),
+        resumen: guideForm.summary.trim() || null,
+        contenido: guideForm.content,
         accent: guideForm.accent,
-        keywords: guideForm.keywords.filter(k => k.trim())
+        keywords: guideForm.keywords.filter(k => k.trim()),
       })
-
-      if (error) throw error
 
       setGuideStatus(lang === 'en' ? 'Guide created successfully.' : 'Guía creada correctamente.')
       fetchEnterpriseGuides()
@@ -1231,19 +1065,13 @@ const EnterprisePanel = ({ user }) => {
     try {
       setGuideStatus(lang === 'en' ? 'Updating guide...' : 'Actualizando guía...')
       
-      const { error } = await supabase
-        .from('enterprise_guides')
-        .update({
-          title: guideForm.title.trim(),
-          summary: guideForm.summary.trim() || null,
-          content: guideForm.content,
-          accent: guideForm.accent,
-          keywords: guideForm.keywords.filter(k => k.trim()),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', editingGuide.id)
-
-      if (error) throw error
+      await api.put(`/enterprise/guias/${editingGuide.id}`, {
+        titulo: guideForm.title.trim(),
+        resumen: guideForm.summary.trim() || null,
+        contenido: guideForm.content,
+        accent: guideForm.accent,
+        keywords: guideForm.keywords.filter(k => k.trim()),
+      })
 
       setGuideStatus(lang === 'en' ? 'Guide updated successfully.' : 'Guía actualizada correctamente.')
       fetchEnterpriseGuides()
@@ -1260,13 +1088,7 @@ const EnterprisePanel = ({ user }) => {
     }
 
     try {
-      const { error } = await supabase
-        .from('enterprise_guides')
-        .delete()
-        .eq('id', guideId)
-
-      if (error) throw error
-
+      await api.del(`/enterprise/guias/${guideId}`)
       fetchEnterpriseGuides()
     } catch (error) {
       console.error('Error deleting guide:', error)
@@ -1297,39 +1119,17 @@ const EnterprisePanel = ({ user }) => {
     }
 
     try {
-      const { data, error } = await supabase.rpc('assign_guide_to_members', {
-        guide_id: selectedGuideForAssignment.id,
+      // El backend hace la RPC de asignación Y las notificaciones en un paso.
+      const { asignados } = await api.post(`/enterprise/guias/${selectedGuideForAssignment.id}/asignar`, {
         member_ids: selectedMembersForAssignment,
         due_date: assignmentDueDate || null,
-        notes: assignmentNotes.trim() || null
+        notas: assignmentNotes.trim() || null,
+        titulo: selectedGuideForAssignment.title,
       })
 
-      if (error) throw error
-
-      // Create notifications for assigned members
-      const notifications = selectedMembersForAssignment.map(memberId => ({
-        target_user_id: memberId,
-        target_email: null,
-        title: lang === 'en' ? 'New Guide Assigned' : 'Nueva Guía Asignada',
-        message: lang === 'en' 
-          ? `You have been assigned the guide "${selectedGuideForAssignment.title}". ${assignmentNotes.trim() ? `Note: ${assignmentNotes.trim()}` : ''}`
-          : `Se te ha asignado la guía "${selectedGuideForAssignment.title}". ${assignmentNotes.trim() ? `Nota: ${assignmentNotes.trim()}` : ''}`,
-        guide_slug: null,
-        guide_url: `/guides?enterprise_guide=${selectedGuideForAssignment.id}`,
-        created_at: new Date().toISOString()
-      }))
-
-      // Insert notifications
-      try {
-        await supabase.from('guide_suggestions').insert(notifications)
-      } catch (notifError) {
-        console.warn('Could not create notifications:', notifError)
-        // Don't fail the assignment if notifications fail
-      }
-
-      alert(lang === 'en' 
-        ? `Guide assigned to ${data} member${data !== 1 ? 's' : ''}.`
-        : `Guía asignada a ${data} miembro${data !== 1 ? 's' : ''}.`
+      alert(lang === 'en'
+        ? `Guide assigned to ${asignados} member${asignados !== 1 ? 's' : ''}.`
+        : `Guía asignada a ${asignados} miembro${asignados !== 1 ? 's' : ''}.`
       )
       closeAssignmentModal()
     } catch (error) {
@@ -1571,11 +1371,8 @@ RESPONSE RULES:
             if (isMember) {
               const { sanitized: safeName } = sanitizeText(actionData.newName, 50)
               if (safeName) {
-                // Use RPC — only sets company_display_name, never touches real nombre
-                await supabase.rpc('set_company_display_name', {
-                  target_user_id: actionData.userId,
-                  display_name: safeName,
-                })
+                // Solo setea company_display_name, nunca toca el nombre real.
+                await api.patch(`/enterprise/equipo/${actionData.userId}/nombre`, { nombre: safeName })
                 setTeamUsers(prev => prev.map(u =>
                   u.id_usuario === actionData.userId ? { ...u, company_display_name: safeName } : u
                 ))
@@ -1591,10 +1388,7 @@ RESPONSE RULES:
               const isValidRole = builtInRoles.includes(requestedRole.toLowerCase()) ||
                 customRoleNames.includes(requestedRole.toLowerCase())
               const role = isValidRole ? requestedRole : null
-              await supabase.rpc('assign_company_role', {
-                target_user_id: actionData.userId,
-                role: role || '',
-              })
+              await api.patch(`/enterprise/equipo/${actionData.userId}/rol`, { rol: role || '' })
               setTeamUsers(prev => prev.map(u =>
                 u.id_usuario === actionData.userId ? { ...u, company_role: role || null } : u
               ))
@@ -1603,7 +1397,7 @@ RESPONSE RULES:
             // Security: verify user belongs to this team
             const isMember = teamUsers.some(u => u.id_usuario === actionData.userId)
             if (isMember) {
-              await supabase.rpc('remove_team_member', { target_user_id: actionData.userId })
+              await api.del(`/enterprise/equipo/${actionData.userId}`)
               setTeamUsers(prev => prev.filter(u => u.id_usuario !== actionData.userId))
             }
           } else if (actionData.action === 'filter_challenge' && actionData.challengeId) {
@@ -1622,14 +1416,12 @@ RESPONSE RULES:
           } else if (actionData.action === 'create_role' && actionData.roleName) {
             // Create new custom role
             try {
-              const { error } = await supabase.rpc('create_custom_role', {
-                role_name: actionData.roleName.trim(),
-                role_description: actionData.description?.trim() || null,
-                role_color: actionData.color || '#6b7280'
+              await api.post('/enterprise/roles', {
+                nombre: actionData.roleName.trim(),
+                descripcion: actionData.description?.trim() || null,
+                color: actionData.color || '#6b7280',
               })
-              
-              if (error) throw error
-              
+
               // Refresh custom roles
               await fetchCustomRoles()
               
@@ -1651,12 +1443,8 @@ RESPONSE RULES:
           } else if (actionData.action === 'delete_role' && actionData.roleName) {
             // Delete custom role
             try {
-              const { error } = await supabase.rpc('delete_custom_role', {
-                role_name: actionData.roleName.trim()
-              })
-              
-              if (error) throw error
-              
+              await api.del(`/enterprise/roles/${encodeURIComponent(actionData.roleName.trim())}`)
+
               // Refresh custom roles and team users
               await Promise.all([fetchCustomRoles(), fetchCompanyDataRef.current?.()])
               

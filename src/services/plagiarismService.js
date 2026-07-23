@@ -10,41 +10,22 @@
  * corta con 403 igual si el chequeo de acá fallara o se saltara.
  */
 
-import { supabase } from '../supabaseClient'
+import { api } from '../lib/apiClient'
 
 /**
  * Verifica si un usuario está suspendido antes de permitir un intento.
+ * El estado derivado lo calcula el backend; acá solo se formatea la fecha.
  * @returns {{ allowed: boolean, reason?: string, until?: string }}
  */
 export const checkSuspension = async (userId) => {
   if (!userId) return { allowed: true }
   try {
-    const { data } = await supabase
-      .from('usuarios')
-      .select('suspension_status, suspension_reason, suspension_until')
-      .eq('id_usuario', userId)
-      .maybeSingle()
-
-    if (!data?.suspension_status || data.suspension_status === 'none') return { allowed: true }
-
-    if (data.suspension_status === 'banned') {
-      return { allowed: false, reason: data.suspension_reason || 'Cuenta suspendida permanentemente.' }
-    }
-
-    if (data.suspension_status === 'suspended') {
-      const until = data.suspension_until ? new Date(data.suspension_until) : null
-      if (until && until > new Date()) {
-        return {
-          allowed: false,
-          reason: data.suspension_reason || 'Cuenta suspendida temporalmente.',
-          until: until.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }),
-        }
-      }
-      // Suspensión vencida — el backend la limpia en el próximo submit
-      // (POST /api/intentos → _verificarSuspensionAsync); acá solo leemos.
-    }
-
-    return { allowed: true }
+    const estado = await api.get('/usuarios/me/suspension')
+    if (!estado || estado.allowed) return { allowed: true }
+    const until = estado.until
+      ? new Date(estado.until).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })
+      : undefined
+    return { allowed: false, reason: estado.reason, ...(until ? { until } : {}) }
   } catch {
     return { allowed: true } // fail open — no bloquear por error técnico
   }

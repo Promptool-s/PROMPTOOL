@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import Header from './components/Header'
 import Footer from './components/Footer'
-import { supabase } from './supabaseClient'
+import { api } from './lib/apiClient'
 import { useAuth } from './hooks/useAuth'
 import { useLang } from './contexts/LangContext'
 import AuthModal from './components/AuthModal'
@@ -67,48 +67,40 @@ function TournamentsApp() {
 
   useEffect(() => {
     const fetchTournaments = async () => {
-      const { data } = await supabase
-        .from('torneos')
-        .select('*')
-        .order('fecha_inicio', { ascending: true })
-      setTournaments(data || [])
+      try {
+        const data = await api.get('/torneos')
+        setTournaments(Array.isArray(data) ? data : [])
 
-      // Check registration for each tournament
-      if (user && data?.length) {
-        const ids = data.map(t => t.id_torneo)
-        const { data: regs } = await supabase
-          .from('torneo_participantes')
-          .select('id_torneo')
-          .eq('id_usuario', user.id)
-          .in('id_torneo', ids)
-        const regMap = {}
-        regs?.forEach(r => { regMap[r.id_torneo] = true })
-        setRegistered(regMap)
+        // Check registration (server derives ids from the JWT)
+        if (user) {
+          const ids = await api.get('/torneos/mis-inscripciones')
+          const regMap = {}
+          if (Array.isArray(ids)) ids.forEach(id => { regMap[id] = true })
+          setRegistered(regMap)
+        }
+      } catch (_) {
+        setTournaments([])
+      } finally {
+        setLoading(false)
       }
-
-      setLoading(false)
     }
     fetchTournaments()
   }, [user])
 
   const fetchLeaderboard = async (id_torneo) => {
-    const { data } = await supabase
-      .from('torneo_participantes')
-      .select('id_usuario, score_total, intentos_completados, usuarios(nombre, nombre_display, username, avatar_url)')
-      .eq('id_torneo', id_torneo)
-      .order('score_total', { ascending: false })
-      .limit(20)
-    setLeaderboards(prev => ({ ...prev, [id_torneo]: data || [] }))
+    try {
+      const data = await api.get(`/torneos/${id_torneo}/leaderboard`)
+      setLeaderboards(prev => ({ ...prev, [id_torneo]: Array.isArray(data) ? data : [] }))
+    } catch (_) {
+      setLeaderboards(prev => ({ ...prev, [id_torneo]: [] }))
+    }
   }
 
   const handleRegister = async (id_torneo) => {
     if (!user) return alert(lang === 'en' ? 'Sign in to register' : 'Iniciá sesión para inscribirte')
     setRegistering(id_torneo)
     try {
-      const { error } = await supabase
-        .from('torneo_participantes')
-        .insert([{ id_torneo, id_usuario: user.id }])
-      if (error) throw error
+      await api.post(`/torneos/${id_torneo}/inscribirse`, {})
       setRegistered(prev => ({ ...prev, [id_torneo]: true }))
     } catch (err) {
       alert(err.message)

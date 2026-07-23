@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../supabaseClient'
+import { api } from '../lib/apiClient'
 
 export const useAdmin = (userId) => {
   const [isAdmin, setIsAdmin] = useState(false)
@@ -12,44 +12,20 @@ export const useAdmin = (userId) => {
       return
     }
 
+    let cancelled = false
     const checkAdmin = async () => {
       try {
-        // 1. Intentar desde metadata del JWT (no requiere RLS, es instantáneo)
-        const { data: { user } } = await supabase.auth.getUser()
-
-        if (user?.user_metadata?.adminstate === true) {
-          setIsAdmin(true)
-          setLoading(false)
-          return
-        }
-
-        // 2. Fallback: leer desde la tabla (funciona porque tenemos public_read_profiles)
-        const { data, error } = await supabase
-          .from('usuarios')
-          .select('adminstate')
-          .eq('id_usuario', userId)
-          .maybeSingle()
-
-        if (error) {
-          setIsAdmin(false)
-          return
-        }
-
-        if (data?.adminstate === true) {
-          setIsAdmin(true)
-          // Sincronizar al metadata para que la próxima vez sea instantáneo
-          await supabase.auth.updateUser({ data: { adminstate: true } })
-        } else {
-          setIsAdmin(false)
-        }
+        const me = await api.get('/usuarios/me')
+        if (!cancelled) setIsAdmin(me?.adminstate === true)
       } catch {
-        setIsAdmin(false)
+        if (!cancelled) setIsAdmin(false)
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
 
     checkAdmin()
+    return () => { cancelled = true }
   }, [userId])
 
   return { isAdmin, loading }

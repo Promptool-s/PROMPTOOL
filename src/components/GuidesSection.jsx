@@ -3,7 +3,7 @@ import GUIDE_LIBRARY from '../data/guides'
 import { guideArticlePath } from '../utils/guideRoutes'
 import { useLang } from '../contexts/LangContext'
 import { useAuth } from '../hooks/useAuth'
-import { supabase } from '../supabaseClient'
+import { api } from '../lib/apiClient'
 import EnterpriseGuideContent from './EnterpriseGuideContent'
 
 const ACCENTS = {
@@ -412,37 +412,8 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
     if (!userId) return
     setLoadingEnterpriseGuides(true)
     try {
-      const { data, error } = await supabase
-        .from('guide_assignments')
-        .select(`
-          *,
-          enterprise_guides (
-            id,
-            title,
-            summary,
-            content,
-            accent,
-            keywords,
-            status,
-            created_at
-          )
-        `)
-        .eq('assigned_to', userId)
-        .eq('status', 'assigned')
-      
-      if (error) throw error
-      
-      // Transform the data to match the expected format
-      const guides = (data || []).map(assignment => ({
-        ...assignment.enterprise_guides,
-        assignment_id: assignment.id,
-        assigned_by: assignment.assigned_by,
-        due_date: assignment.due_date,
-        notes: assignment.notes,
-        assignment_status: assignment.status
-      }))
-      
-      setEnterpriseGuides(guides)
+      const guides = await api.get('/enterprise/guias-asignadas')
+      setEnterpriseGuides(Array.isArray(guides) ? guides : [])
     } catch (error) {
       console.error('Error fetching enterprise guides:', error)
       setEnterpriseGuides([])
@@ -471,44 +442,23 @@ const GuidesSection = ({ recommendedGuideIds = [], companyAssignments = [] }) =>
   useEffect(() => {
     if (user?.id) {
       fetchAssignedEnterpriseGuides(user.id)
-      // Also check for new notifications
-      checkForNewGuideNotifications(user.id)
     }
   }, [user?.id])
 
-  // Mark notification as read
+  // Mark the guide_suggestion notification(s) for this guide as read. El estado
+  // de lectura lo centraliza el backend (source_type/source_id), así que se
+  // resuelve desde el feed unificado en vez de tocar guide_suggestions directo.
   const markNotificationAsRead = async (guideId) => {
     if (!user?.id) return
-    
     try {
-      await supabase
-        .from('guide_suggestions')
-        .update({ read_at: new Date().toISOString() })
-        .eq('target_user_id', user.id)
-        .like('guide_url', `%${guideId}%`)
-        .is('read_at', null)
+      const feed = await api.get('/notificaciones')
+      const items = (Array.isArray(feed) ? feed : [])
+        .filter((n) => n.source_type === 'guide_suggestion' && !n.read
+          && typeof n.payload?.guide_url === 'string' && n.payload.guide_url.includes(guideId))
+        .map((n) => ({ source_type: n.source_type, source_id: n.source_id }))
+      if (items.length) await api.post('/notificaciones/leidas', { items })
     } catch (error) {
       console.error('Error marking notification as read:', error)
-    }
-  }
-
-  // Check for new guide notifications
-  const checkForNewGuideNotifications = async (userId) => {
-    try {
-      const { data, error } = await supabase
-        .from('guide_suggestions')
-        .select('*')
-        .eq('target_user_id', userId)
-        .is('read_at', null)
-        .order('created_at', { ascending: false })
-
-      if (error) return // table may not exist yet — fail silently
-
-      if (data && data.length > 0) {
-        // unread guide suggestions available — could trigger a toast here
-      }
-    } catch {
-      // fail silently
     }
   }
 

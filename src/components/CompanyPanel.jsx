@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '../supabaseClient'
+import { api } from '../lib/apiClient'
 import { useLang } from '../contexts/LangContext'
 import { proxyImg } from '../utils/imgProxy'
 
@@ -34,11 +34,7 @@ const CompanyPanel = ({ user, companyData, onClose, onLeft }) => {
   const fetchMembers = async () => {
     setLoadingMembers(true)
     try {
-      const { data } = await supabase
-        .from('usuarios')
-        .select('id_usuario, nombre, nombre_display, username, avatar_url, elo_rating, total_intentos, promedio_score, porcentaje_aprobacion, racha_actual, company_role')
-        .eq('company_id', companyData.id_usuario)
-        .order('elo_rating', { ascending: false })
+      const data = await api.get(`/usuarios/${companyData.id_usuario}/miembros`)
       setMembers(data || [])
     } catch {
       // fetch members failed silently
@@ -50,11 +46,7 @@ const CompanyPanel = ({ user, companyData, onClose, onLeft }) => {
   const fetchChallenges = async () => {
     setLoadingChallenges(true)
     try {
-      const { data } = await supabase
-        .from('imagenes_ia')
-        .select('id_imagen, url_image, image_diff, image_theme, fecha')
-        .eq('company_id', companyData.id_usuario)
-        .order('fecha', { ascending: false })
+      const data = await api.get(`/imagenes/empresa/${companyData.id_usuario}`)
       setChallenges(data || [])
     } catch {
       // fetch challenges failed silently
@@ -69,8 +61,7 @@ const CompanyPanel = ({ user, companyData, onClose, onLeft }) => {
   const handleLeave = async () => {
     setLeaving(true)
     try {
-      const { error } = await supabase.rpc('leave_company')
-      if (error) throw error
+      await api.post('/enterprise/salir')
       onClose()
       if (onLeft) onLeft()
       // Recargar la página para reflejar el cambio en el header

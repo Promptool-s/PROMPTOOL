@@ -1,16 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
-import { supabase } from '../../supabaseClient'
+import { api } from '../../lib/apiClient'
 import { proxyImg } from '../../utils/imgProxy'
 import { copy } from './landingCopy'
-
-// ── Blocked words ──────────────────────────────────────────────────────────
-const BLOCKED_WORDS = ['nude', 'naked', 'porn', 'sex', 'nsfw', 'explicit', 'gore', 'blood', 'violence', 'kill', 'murder', 'hate', 'racist', 'drug', 'weapon', 'desnud', 'porno', 'sexo', 'sangre', 'matar', 'odio', 'droga']
-const isPromptOk = (p) => {
-  if (!p || typeof p !== 'string') return false
-  const l = p.toLowerCase()
-  if (BLOCKED_WORDS.some(w => l.includes(w))) return false
-  return p.trim().split(/\s+/).length > 10
-}
 
 const Slide = ({ item, visible, isFirst }) => (
   <div className={`absolute inset-0 flex flex-col transition-opacity duration-700 ${visible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
@@ -62,45 +53,9 @@ const CommunitySlideshow = ({ lang }) => {
   useEffect(() => {
     const fetch = async () => {
       try {
-        // Fetch a larger pool with varied users, score >= 70
-        const { data, error } = await supabase
-          .from('intentos')
-          .select('prompt_usuario, puntaje_similitud, id_usuario, id_imagen, imagenes_ia(url_image), usuarios(username, avatar_url, devstate)')
-          .gte('puntaje_similitud', 70)
-          .not('prompt_usuario', 'is', null)
-          .order('fecha_hora', { ascending: false })
-          .limit(500)
-
-        if (error || !data) return
-
-        // Group by user, pick best per user
-        const byUser = {}
-        for (const row of data) {
-          if (!row.imagenes_ia?.url_image) continue
-          if (!isPromptOk(row.prompt_usuario)) continue
-          const uid = row.id_usuario || row.usuarios?.username || Math.random()
-          if (!byUser[uid] || row.puntaje_similitud > byUser[uid].puntaje_similitud) {
-            byUser[uid] = row
-          }
-        }
-
-        const pool = Object.values(byUser)
-
-        // Shuffle the entire pool using Fisher-Yates
-        for (let i = pool.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [pool[i], pool[j]] = [pool[j], pool[i]]
-        }
-
-        // Take random 10 from shuffled pool
-        const selectedSlides = pool.slice(0, 10).map(row => ({
-          url_image: row.imagenes_ia.url_image,
-          prompt_usuario: row.prompt_usuario,
-          score: row.puntaje_similitud,
-          username: row.usuarios?.username || null,
-          avatar_url: row.usuarios?.avatar_url || null,
-          is_dev: row.usuarios?.devstate === true,
-        }))
+        // Selección (mejor por usuario, filtro de contenido, shuffle) server-side.
+        const selectedSlides = await api.get('/intentos/comunidad', { auth: false })
+        if (!Array.isArray(selectedSlides)) return
 
         setSlides(selectedSlides)
 

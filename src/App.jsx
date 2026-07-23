@@ -9,7 +9,6 @@ import SplashScreen from './components/SplashScreen'
 import { checkSuspension } from './services/plagiarismService'
 import { checkClipboardForGameImage } from './services/aiDetectionService'
 import { getRecommendedGuides } from './data/guides'
-import { supabase } from './supabaseClient'
 import { api } from './lib/apiClient'
 import { useAuth } from './hooks/useAuth'
 import { useLang } from './contexts/LangContext'
@@ -64,60 +63,16 @@ const normalizeDifficulty = (difficulty = 'Medium') => difficulty.toLowerCase()
  */
 const getPersonalizedTime = async (userId, difficulty = 'Medium') => {
   // Tiempos base por dificultad (fallback)
-  const baseTime = {
-    easy: 90,
-    medium: 150,
-    hard: 240
-  }
-  
+  const baseTime = { easy: 90, medium: 150, hard: 240 }
   const nd = normalizeDifficulty(difficulty)
   const defaultTime = baseTime[nd] || baseTime.medium
 
   if (!userId) return defaultTime
 
   try {
-    // Obtener últimos 15 intentos del usuario en esta dificultad
-    const { data: attempts } = await supabase
-      .from('intentos')
-      .select('tiempo_respuesta, puntaje_similitud, imagenes_ia!inner(image_diff)')
-      .eq('id_usuario', userId)
-      .eq('imagenes_ia.image_diff', difficulty)
-      .not('tiempo_respuesta', 'is', null)
-      .order('fecha_hora', { ascending: false })
-      .limit(15)
-
-    if (!attempts || attempts.length < 3) {
-      // No hay suficiente historial, usar tiempo base
-      return defaultTime
-    }
-
-    // Calcular tiempo promedio del usuario en esta dificultad
-    const validTimes = attempts
-      .map(a => a.tiempo_respuesta)
-      .filter(t => t > 0 && t < 600) // filtrar outliers (más de 10 min)
-    
-    if (validTimes.length === 0) return defaultTime
-
-    const avgTime = validTimes.reduce((sum, t) => sum + t, 0) / validTimes.length
-
-    // Calcular score promedio para ajustar
-    const avgScore = attempts.reduce((sum, a) => sum + (a.puntaje_similitud || 0), 0) / attempts.length
-
-    // Ajustar tiempo basado en performance:
-    // - Si el usuario tiene buen score (>70), darle menos tiempo (es eficiente)
-    // - Si tiene score bajo (<50), darle más tiempo (necesita más tiempo para pensar)
-    let adjustedTime = avgTime
-    if (avgScore >= 70) {
-      adjustedTime = avgTime * 0.9 // 10% menos tiempo
-    } else if (avgScore < 50) {
-      adjustedTime = avgTime * 1.15 // 15% más tiempo
-    }
-
-    // Asegurar que esté dentro de rangos razonables
-    const minTime = baseTime[nd] * 0.6
-    const maxTime = baseTime[nd] * 1.8
-    
-    return Math.round(Math.max(minTime, Math.min(maxTime, adjustedTime)))
+    // El promedio ponderado del historial se calcula server-side.
+    const data = await api.get(`/intentos/tiempo-personalizado?difficulty=${encodeURIComponent(difficulty)}`)
+    return data?.recommended_seconds ?? defaultTime
   } catch (error) {
     console.error('Error calculating personalized time:', error)
     return defaultTime
@@ -279,13 +234,12 @@ function App() {
 
     // Cargar datos de la empresa para mostrar en el banner
     const loadInviteCompany = async () => {
-      const { data } = await supabase
-        .from('usuarios')
-        .select('company_name, nombre_display, avatar_url')
-        .eq('id_usuario', inviteCompanyId)
-        .eq('user_type', 'enterprise')
-        .maybeSingle()
-      setInviteCompany(data || null)
+      try {
+        const data = await api.get(`/usuarios/${inviteCompanyId}`, { auth: false })
+        setInviteCompany(data?.user_type === 'enterprise' ? data : null)
+      } catch {
+        setInviteCompany(null)
+      }
     }
     loadInviteCompany()
 
@@ -382,11 +336,8 @@ function App() {
 
     const fetchUserType = async () => {
       setUserTypeLoading(true)
-      const { data } = await supabase
-        .from('usuarios')
-        .select('user_type, racha_actual, company_id, enterprise_onboarded, user_onboarded')
-        .eq('id_usuario', user.id)
-        .maybeSingle()
+      let data = null
+      try { data = await api.get('/usuarios/me') } catch { /* silencioso */ }
       const type = data?.user_type || 'individual'
       setUserType(type)
       setUserStreak(data?.racha_actual || 0)
@@ -458,16 +409,11 @@ function App() {
         if (!submitted) { setMode('random') }
         return
       }
-      const hoy = new Date()
-      hoy.setHours(0, 0, 0, 0)
-      const { data } = await supabase
-        .from('intentos')
-        .select('id_intento')
-        .eq('id_usuario', user.id)
-        .eq('modo', 'daily')
-        .gte('fecha_hora', hoy.toISOString())
-        .limit(1)
-      const done = !!(data && data.length > 0)
+      let done = false
+      try {
+        const res = await api.get('/intentos/daily-hecho')
+        done = res?.done === true
+      } catch { /* silencioso */ }
       setDailyDone(done)
       if (done) {
         localStorage.setItem(dailyKey, new Date().toDateString())
@@ -781,13 +727,13 @@ function App() {
         setGuestAttemptCount(next)
         sessionStorage.setItem('guestDemoAttempts', String(next))
         // Al llegar al último intento, pre-fetchear el prompt para mostrarlo si lo pide.
-        // Los guests todavía no tienen intentos persistidos a su nombre (juegan sin
-        // sesión), así que el endpoint gateado de reveal no aplica acá — mismo
-        // comportamiento que tenía antes de esta migración.
+        // Los guests no tienen intentos persistidos a su nombre, así que usan el
+        // endpoint de demo (restringido al pool Easy/sin-empresa) en vez del reveal
+        // gateado.
         if (next >= GUEST_MAX_ATTEMPTS) {
-          supabase.from('imagenes_ia').select('prompt_original')
-            .eq('id_imagen', imageData.id_imagen).maybeSingle()
-            .then(({ data }) => { if (data?.prompt_original) setRevealedPromptText(data.prompt_original) })
+          api.post(`/imagenes/${imageData.id_imagen}/revelar-demo`, {}, { auth: false })
+            .then((data) => { if (data?.prompt_original) setRevealedPromptText(data.prompt_original) })
+            .catch(() => { /* fuera del pool de la demo o imagen inválida */ })
         }
       }
 
@@ -951,13 +897,9 @@ function App() {
         const data = await api.post(`/imagenes/${imageData.id_imagen}/revelar`)
         setRevealedPromptText(data?.prompt_original ?? '')
       } else {
-        // Guests: sin intentos persistidos todavía (se migran recién al registrarse),
-        // así que el endpoint gateado no aplica — mismo comportamiento que antes.
-        const { data } = await supabase
-          .from('imagenes_ia')
-          .select('prompt_original')
-          .eq('id_imagen', imageData.id_imagen)
-          .maybeSingle()
+        // Guests: sin intentos persistidos (juegan sin sesión). Usan el endpoint
+        // de demo, restringido al pool Easy/sin-empresa.
+        const data = await api.post(`/imagenes/${imageData.id_imagen}/revelar-demo`, {}, { auth: false })
         setRevealedPromptText(data?.prompt_original ?? '')
       }
     } catch { /* silencioso */ }

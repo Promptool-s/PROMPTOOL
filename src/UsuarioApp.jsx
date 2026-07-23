@@ -11,11 +11,11 @@ import { useAuth } from './hooks/useAuth'
 import flameLitGif from './assets/flame-lit.gif'
 import { useAdmin } from './hooks/useAdmin'
 import { useLang } from './contexts/LangContext'
-import { supabase } from './supabaseClient'
-import { nowAR } from './utils/dateAR'
+import { api } from './lib/apiClient'
 import { checkImageSafe } from './services/moderationService'
 import { getRank, getNextRank, ELO_RANKS } from './services/eloService'
-import { calculateElo } from './services/eloService'
+
+const SUPABASE_STORAGE_BASE = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/avatars`
 import ImageCropper from './components/ImageCropper'
 import { proxyImg } from './utils/imgProxy'
 import { BuildingIcon, UsersIcon, CalendarIcon, MapPinIcon, LinkIcon, CheckIcon, ClockIcon, CloseIcon, StarIcon } from './components/Icons'
@@ -119,11 +119,10 @@ function UsuarioApp() {
   const [loadingCompare, setLoadingCompare] = useState(false)
 
   const fetchCompareStats = async (userId) => {
-    const { data } = await supabase
-      .from('usuarios')
-      .select('id_usuario, nombre_display, nombre, username, avatar_url, promedio_score, mejor_score, peor_score, porcentaje_aprobacion, total_intentos, racha_actual')
-      .eq('id_usuario', userId)
-      .maybeSingle()
+    let data
+    try {
+      data = await api.get(`/usuarios/${userId}`)
+    } catch { return null }
     if (!data) return null
     return {
       id: data.id_usuario,
@@ -145,12 +144,12 @@ function UsuarioApp() {
     setCompareSearch(q)
     if (!q.trim()) { setCompareResults([]); return }
     setLoadingCompare(true)
-    const { data } = await supabase
-      .from('usuarios')
-      .select('id_usuario, nombre_display, nombre, username, avatar_url')
-      .or(`username.ilike.%${q}%,nombre_display.ilike.%${q}%,nombre.ilike.%${q}%`)
-      .limit(5)
-    setCompareResults(data || [])
+    try {
+      const data = await api.get(`/usuarios/buscar?q=${encodeURIComponent(q)}`)
+      setCompareResults(data || [])
+    } catch {
+      setCompareResults([])
+    }
     setLoadingCompare(false)
   }
 
@@ -197,12 +196,9 @@ function UsuarioApp() {
       setProfile(p => ({ ...p, showcase_url: previewUrl }))
       setUploadingShowcase(true)
       try {
-        await supabase.storage.createBucket('avatars', { public: true }).catch(() => {})
-        const path = `${user.id}/showcase.${ext}`
-        await supabase.storage.from('avatars').upload(path, file, { upsert: true })
-        const { data } = supabase.storage.from('avatars').getPublicUrl(path)
-        const url = data.publicUrl + '?t=' + Date.now()
-        await supabase.from('usuarios').update({ showcase_url: url }).eq('id_usuario', user.id)
+        const { public_url } = await api.postRaw('/usuarios/me/showcase', file, file.type)
+        const url = public_url + '?t=' + Date.now()
+        await api.put('/usuarios/me', { showcase_url: url })
         setProfile(p => ({ ...p, showcase_url: url }))
       } catch (err) { alert('Error: ' + err.message) }
       finally { setUploadingShowcase(false) }
@@ -212,7 +208,7 @@ function UsuarioApp() {
   const handleChartColorChange = (hex) => {    setChartColor(hex)
     if (user) {
       localStorage.setItem(`profileChartColor_${user.id}`, hex)
-      supabase.from('usuarios').update({ accent_color: hex }).eq('id_usuario', user.id).then(() => {})
+      api.put('/usuarios/me', { accent_color: hex }).catch(() => {})
     }
   }
 
@@ -302,12 +298,10 @@ function UsuarioApp() {
       // Si hay username en URL, resolver a id primero
       const resolveId = async () => {
         if (targetUsername) {
-          const { data } = await supabase
-            .from('usuarios')
-            .select('id_usuario')
-            .ilike('username', targetUsername)
-            .maybeSingle()
-          return data?.id_usuario || null
+          try {
+            const { id_usuario } = await api.get(`/usuarios/id-por-username?u=${encodeURIComponent(targetUsername)}`)
+            return id_usuario || null
+          } catch { return null }
         }
         return targetId || user?.id || null
       }
@@ -318,24 +312,14 @@ function UsuarioApp() {
       const fetchData = async () => {
       setLoadingData(true)
       try {
-        // Intentar con columnas completas primero
+        // Perfil vía backend: /me para el propio, /:id (vista pública) para ajenos.
         let prof = null
-        const { data: profFull, error: profError } = await supabase
-          .from('usuarios')
-          .select('id_usuario, nombre, nombre_display, username, email, email_publico, bio, avatar_url, banner_url, adminstate, devstate, fecha_registro, total_intentos, promedio_score, mejor_score, peor_score, porcentaje_aprobacion, racha_actual, pais, idioma_display, social_github, social_linkedin, social_twitter, social_website, pronouns, status, accent_color, organization, showcase_url, elo_rating, user_type, company_name, company_id, company_role, company_joined_at, show_stats, show_company_badge, verified, company_tagline, company_industry, company_size, company_founded, username_last_changed')
-          .eq('id_usuario', idToLoad)
-          .maybeSingle()
-
-        if (profError) {
-          // Columnas nuevas no existen aún — fallback a columnas básicas
-          const { data: profBasic } = await supabase
-            .from('usuarios')
-            .select('id_usuario, nombre, email, adminstate, fecha_registro')
-            .eq('id_usuario', idToLoad)
-            .maybeSingle()
-          prof = profBasic
-        } else {
-          prof = profFull
+        try {
+          prof = (user && idToLoad === user.id)
+            ? await api.get('/usuarios/me')
+            : await api.get(`/usuarios/${idToLoad}`)
+        } catch {
+          prof = null
         }
 
         if (!prof) {
@@ -347,12 +331,9 @@ function UsuarioApp() {
 
         // Cargar datos de empresa si el usuario pertenece a una
         if (prof?.company_id) {
-          supabase
-            .from('usuarios')
-            .select('id_usuario, company_name, nombre_display, avatar_url, verified, company_joined_at')
-            .eq('id_usuario', prof.company_id)
-            .maybeSingle()
-            .then(({ data }) => setUserCompanyData(data || null))
+          api.get(`/usuarios/${prof.company_id}`)
+            .then((data) => setUserCompanyData(data || null))
+            .catch(() => setUserCompanyData(null))
         } else {
           setUserCompanyData(null)
         }
@@ -384,14 +365,20 @@ function UsuarioApp() {
           }
         }
 
-        // Cargar intentos — RLS permite leer solo los propios, admin puede leer todos
-        if (ownProfile || isAdmin) {
-          const { data: intentos, error: intentosError } = await supabase
-            .from('intentos')
-.select('id_intento, puntaje_similitud, fecha_hora, prompt_usuario, id_imagen, strengths, improvements, elo_delta, is_ranked, tiempo_respuesta, imagenes_ia(url_image, prompt_original, image_diff, company_id)')            .eq('id_usuario', idToLoad)
-            .order('fecha_hora', { ascending: false })
+        // Historial de intentos vía backend: resuelve el cap (2000 propio/admin, 365 público),
+        // los nombres de empresa y el flag verified server-side.
+        let intentos = []
+        let companyNames = {}
+        try {
+          const hist = await api.get(`/intentos/perfil/${idToLoad}`)
+          intentos = hist.intentos || []
+          companyNames = hist.company_names || {}
+        } catch {
+          intentos = []
+        }
 
-          if (intentos && intentos.length > 0) {
+        {
+          if (intentos.length > 0) {
             const realIntentos = intentos.filter(i => i.prompt_usuario !== '[REVEALED]')
             const total = realIntentos.length
             const scores = realIntentos.map(i => i.puntaje_similitud || 0)
@@ -442,21 +429,11 @@ function UsuarioApp() {
               })(),
             })
 
-            // Filtrar del historial los intentos de desafíos de empresas no verificadas
-            const companyIds = [...new Set(intentos.map(i => i.imagenes_ia?.company_id).filter(Boolean))]
-            let verifiedCompanyIds = new Set()
-            if (companyIds.length > 0) {
-              const { data: verifiedCos } = await supabase
-                .from('usuarios')
-                .select('id_usuario')
-                .in('id_usuario', companyIds)
-                .eq('verified', true)
-              verifiedCos?.forEach(c => verifiedCompanyIds.add(c.id_usuario))
-            }
+            // Filtrar del historial los desafíos de empresas no verificadas (flag del backend)
             const intentosVisibles = intentos.filter(i => {
               const cid = i.imagenes_ia?.company_id
               if (!cid) return true // desafío normal, siempre visible
-              return verifiedCompanyIds.has(cid) // solo si la empresa está verificada
+              return i.company_verified // solo si la empresa está verificada
             })
             setRecentAttempts(intentosVisibles.slice(0, 10))
 
@@ -477,14 +454,8 @@ function UsuarioApp() {
             setAllAttemptsForChart(intentos)
             setChartData(buildChartData(intentos, '20'))
 
-            // Nombres de empresas para el tooltip del gráfico
-            const chartCids = [...new Set(last20.map(i => i.imagenes_ia?.company_id).filter(Boolean))]
-            if (chartCids.length > 0) {
-              const { data: cos } = await supabase.from('usuarios').select('id_usuario, company_name, nombre_display').in('id_usuario', chartCids)
-              const map = {}
-              cos?.forEach(c => { map[c.id_usuario] = c.company_name || c.nombre_display || 'Empresa' })
-              setChartCompanyNames(map)
-            }
+            // Nombres de empresas para el tooltip del gráfico (resueltos por el backend)
+            setChartCompanyNames(companyNames)
 
             // Heatmap: contar intentos por día (últimos 365 días)
             const map = {}
@@ -494,166 +465,7 @@ function UsuarioApp() {
               map[key] = (map[key] || 0) + 1
             })
             setHeatmapData(map)
-
-            if (ownProfile) {
-              await supabase.from('usuarios').update({
-                total_intentos: total, promedio_score: promedio, mejor_score: mejor,
-                peor_score: peor, porcentaje_aprobacion: porcentajeAprobacion, racha_actual: racha,
-              }).eq('id_usuario', idToLoad)
-
-              // Recalcular ELO retroactivo si no tiene o tiene el default 1000
-              if (!prof.elo_rating || prof.elo_rating === 1000) {
-                try {
-                  // Ordenar intentos cronológicamente (más viejo primero)
-                  const chronological = [...intentos].reverse()
-                  let eloActual = 1000
-                  const updates = []
-
-                  chronological.forEach((intento, idx) => {
-                    const diff = intento.imagenes_ia?.image_diff || 'Medium'
-                    const { newElo, delta } = calculateElo({
-                      userElo: eloActual,
-                      totalAttempts: idx,
-                      score: intento.puntaje_similitud || 0,
-                      difficulty: diff,
-                      timing: {},
-                    })
-                    updates.push({ id: intento.id_intento, delta })
-                    eloActual = newElo
-                  })
-
-                  // Guardar ELO final
-                  await supabase.from('usuarios').update({ elo_rating: eloActual }).eq('id_usuario', idToLoad)
-
-                  // Actualizar elo_delta en cada intento (en batch de 10)
-                  for (let i = 0; i < updates.length; i += 10) {
-                    const batch = updates.slice(i, i + 10)
-                    await Promise.all(batch.map(u =>
-                      supabase.from('intentos').update({ elo_delta: u.delta }).eq('id_intento', u.id)
-                    ))
-                  }
-                } catch {
-                  // ELO retroactivo failed silently
-                }
-              }
-            }
           } else {
-            setStats({
-              totalIntentos: prof.total_intentos || 0,
-              promedioScore: prof.promedio_score || 0,
-              mejorScore: prof.mejor_score || 0,
-              peorScore: prof.peor_score || 0,
-              intentosHoy: 0, intentosEstaSemana: 0,
-              porcentajeAprobacion: prof.porcentaje_aprobacion || 0,
-              racha: prof.racha_actual || 0,
-              avgTime: null,
-            })
-          }
-        } else {
-          // Cargar intentos públicos — calcular todo igual que perfil propio
-          const { data: publicIntentos } = await supabase
-            .from('intentos')
-            .select('puntaje_similitud, fecha_hora, prompt_usuario, strengths, improvements, elo_delta, is_ranked, id_imagen, imagenes_ia(url_image, image_diff, company_id)')
-            .eq('id_usuario', idToLoad)
-            .order('fecha_hora', { ascending: false })
-            .limit(365)
-
-          if (publicIntentos && publicIntentos.length > 0) {
-            const total = publicIntentos.length
-            const scores = publicIntentos.map(i => i.puntaje_similitud || 0)
-            const promedio = Math.round(scores.reduce((s, v) => s + v, 0) / total)
-            const mejor = Math.max(...scores)
-            const peor = Math.min(...scores)
-            const aprobados = publicIntentos.filter(i => (i.puntaje_similitud || 0) >= 60).length
-            const porcentajeAprobacion = Math.round((aprobados / total) * 100)
-
-            const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
-            const intentosHoy = publicIntentos.filter(i => new Date(i.fecha_hora) >= hoy).length
-            const inicioSemana = new Date()
-            inicioSemana.setDate(inicioSemana.getDate() - inicioSemana.getDay())
-            inicioSemana.setHours(0, 0, 0, 0)
-            const intentosEstaSemana = publicIntentos.filter(i => new Date(i.fecha_hora) >= inicioSemana).length
-
-            let racha = 0
-            const fechasUnicas = [...new Set(publicIntentos.map(i => {
-              const d = new Date(i.fecha_hora)
-              return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
-            }))]
-            const hoyStr = `${hoy.getFullYear()}-${hoy.getMonth()}-${hoy.getDate()}`
-            if (fechasUnicas.includes(hoyStr)) {
-              racha = 1
-              for (let i = 1; i < 365; i++) {
-                const dia = new Date(hoy); dia.setDate(dia.getDate() - i)
-                const diaStr = `${dia.getFullYear()}-${dia.getMonth()}-${dia.getDate()}`
-                if (fechasUnicas.includes(diaStr)) racha++; else break
-              }
-            }
-
-            setStats({
-              totalIntentos: prof.total_intentos || total,
-              promedioScore: promedio,
-              mejorScore: mejor,
-              peorScore: peor,
-              intentosHoy,
-              intentosEstaSemana,
-              porcentajeAprobacion,
-              racha,
-              avgTime: null,
-            })
-
-            // Filtrar del historial los intentos de desafíos de empresas no verificadas
-            const pubCompanyIds = [...new Set(publicIntentos.map(i => i.imagenes_ia?.company_id).filter(Boolean))]
-            let pubVerifiedIds = new Set()
-            if (pubCompanyIds.length > 0) {
-              const { data: verifiedCos } = await supabase
-                .from('usuarios')
-                .select('id_usuario')
-                .in('id_usuario', pubCompanyIds)
-                .eq('verified', true)
-              verifiedCos?.forEach(c => pubVerifiedIds.add(c.id_usuario))
-            }
-            const pubVisibles = publicIntentos.filter(i => {
-              const cid = i.imagenes_ia?.company_id
-              if (!cid) return true
-              return pubVerifiedIds.has(cid)
-            })
-            setRecentAttempts(pubVisibles.slice(0, 10))
-
-            // Top strengths/improvements de los últimos 5
-            const last5 = publicIntentos.slice(0, 5)
-            const allStrengths = last5.flatMap(i => i.strengths || [])
-            const allImprovements = last5.flatMap(i => i.improvements || [])
-            const countMap = (arr) => {
-              const map = {}
-              arr.forEach(s => { map[s] = (map[s] || 0) + 1 })
-              return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([k]) => k)
-            }
-            setTopStrengths(countMap(allStrengths).slice(0, 4))
-            setTopImprovements(countMap(allImprovements).slice(0, 4))
-
-            // Gráfico de evolución — guardar todos para filtrar dinámicamente
-            setAllAttemptsForChart(publicIntentos)
-            setChartData(buildChartData(publicIntentos, '20'))
-
-            // Nombres de empresas para el tooltip del gráfico
-            const chartCids = [...new Set(last20.map(i => i.imagenes_ia?.company_id).filter(Boolean))]
-            if (chartCids.length > 0) {
-              const { data: cos } = await supabase.from('usuarios').select('id_usuario, company_name, nombre_display').in('id_usuario', chartCids)
-              const map = {}
-              cos?.forEach(c => { map[c.id_usuario] = c.company_name || c.nombre_display || 'Empresa' })
-              setChartCompanyNames(map)
-            }
-
-            // Heatmap (todos los intentos del año)
-            const map = {}
-            publicIntentos.forEach(i => {
-              const d = new Date(i.fecha_hora)
-              const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-              map[key] = (map[key] || 0) + 1
-            })
-            setHeatmapData(map)
-          } else {
-            // Sin intentos — usar datos cacheados de la BD
             setStats({
               totalIntentos: prof.total_intentos || 0,
               promedioScore: prof.promedio_score || 0,
@@ -675,17 +487,12 @@ function UsuarioApp() {
 
       fetchData()
 
-      // Check if top 1
+      // Check if top 1 (leaderboard público, ordenado por promedio)
       const checkTop1 = async () => {
-        const { data } = await supabase
-          .from('usuarios')
-          .select('id_usuario')
-          .eq('adminstate', false)
-          .gt('total_intentos', 0)
-          .order('promedio_score', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-        setIsTop1(data?.id_usuario === idToLoad)
+        try {
+          const top = await api.get('/leaderboard?sort=promedio_score&limit=1')
+          setIsTop1(Array.isArray(top) && top[0]?.id_usuario === idToLoad)
+        } catch { /* noop */ }
       }
       checkTop1()
     }
@@ -730,14 +537,8 @@ function UsuarioApp() {
     if (!avatarFile || !user) return null
     setUploadingAvatar(true)
     try {
-      await supabase.storage.createBucket('avatars', { public: true }).catch(() => {})
-      const path = `${user.id}/avatar`
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(path, avatarFile, { upsert: true, contentType: avatarFile.type })
-      if (uploadError) throw uploadError
-      const { data } = supabase.storage.from('avatars').getPublicUrl(path)
-      return data.publicUrl
+      const { avatar_url } = await api.postRaw('/usuarios/me/avatar', avatarFile, avatarFile.type || 'image/png')
+      return avatar_url
     } catch (err) {
       alert('Error al subir imagen: ' + err.message)
       return null
@@ -750,15 +551,8 @@ function UsuarioApp() {
     if (!bannerFile || !user) return null
     setUploadingBanner(true)
     try {
-      await supabase.storage.createBucket('avatars', { public: true }).catch(() => {})
-      const ext = bannerFile.name.split('.').pop()
-      const path = `${user.id}/banner.${ext}`
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(path, bannerFile, { upsert: true })
-      if (uploadError) throw uploadError
-      const { data } = supabase.storage.from('avatars').getPublicUrl(path)
-      return data.publicUrl
+      const { public_url } = await api.postRaw('/usuarios/me/banner', bannerFile, bannerFile.type || 'image/png')
+      return public_url
     } catch (err) {
       alert('Error al subir banner: ' + err.message)
       return null
@@ -771,15 +565,8 @@ function UsuarioApp() {
     if (!showcaseFile || !user) return null
     setUploadingShowcase(true)
     try {
-      await supabase.storage.createBucket('avatars', { public: true }).catch(() => {})
-      const ext = showcaseFile.name.split('.').pop()
-      const path = `${user.id}/showcase.${ext}`
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(path, showcaseFile, { upsert: true })
-      if (uploadError) throw uploadError
-      const { data } = supabase.storage.from('avatars').getPublicUrl(path)
-      return data.publicUrl
+      const { public_url } = await api.postRaw('/usuarios/me/showcase', showcaseFile, showcaseFile.type || 'image/png')
+      return public_url
     } catch (err) {
       alert('Error al subir imagen: ' + err.message)
       return null
@@ -799,26 +586,9 @@ function UsuarioApp() {
           updates.nombre_display = editedProfile.company_name
         }
       }
-      // Username — solo si cambió y pasaron 7 días
+      // Username — solo si cambió; el backend valida cooldown de 7 días y unicidad.
       if (editedProfile.username !== undefined && editedProfile.username !== profile?.username) {
-        const lastChanged = profile?.username_last_changed ? new Date(profile.username_last_changed) : null
-        const daysSince = lastChanged ? Math.floor((Date.now() - lastChanged.getTime()) / 86400000) : 999
-        if (daysSince >= 7) {
-          // Verificar que no esté tomado
-          const { data: existing } = await supabase
-            .from('usuarios')
-            .select('id_usuario')
-            .ilike('username', editedProfile.username)
-            .neq('id_usuario', user.id)
-            .maybeSingle()
-          if (existing) {
-            alert(lang === 'en' ? 'Username already taken.' : 'Ese username ya está en uso.')
-            setSaving(false)
-            return
-          }
-          updates.username = editedProfile.username
-          updates.username_last_changed = nowAR()
-        }
+        updates.username = editedProfile.username
       }
       updates.email_publico = editedProfile.email_publico ?? profile?.email_publico ?? true
       updates.show_company_badge = editedProfile.show_company_badge ?? profile?.show_company_badge ?? true
@@ -855,18 +625,8 @@ function UsuarioApp() {
       }
 
       if (Object.keys(updates).length > 0) {
-        const { error } = await supabase.from('usuarios').update(updates).eq('id_usuario', user.id)
-        if (error) throw error
-
-        const metaUpdates = {}
-        if (updates.nombre_display) metaUpdates.nombre = updates.nombre_display
-        if (updates.avatar_url) metaUpdates.avatar_url = updates.avatar_url
-        if (Object.keys(metaUpdates).length > 0) {
-          await supabase.auth.updateUser({ data: metaUpdates })
-          await supabase.auth.refreshSession()
-        }
-
-        setProfile(p => ({ ...p, ...updates }))
+        const perfil = await api.put('/usuarios/me', updates)
+        setProfile(p => ({ ...p, ...(perfil || updates) }))
       }
 
       setAvatarFile(null)
@@ -885,8 +645,7 @@ function UsuarioApp() {
   const saveBio = async () => {
     setSaving(true)
     try {
-      const { error } = await supabase.from('usuarios').update({ bio: editedBio }).eq('id_usuario', user.id)
-      if (error) throw error
+      await api.put('/usuarios/me', { bio: editedBio })
       setProfile(p => ({ ...p, bio: editedBio }))
       setEditingBio(false)
     } catch (err) {
@@ -908,8 +667,7 @@ function UsuarioApp() {
         porcentaje_aprobacion: parseInt(editedStats.porcentajeAprobacion) || 0,
         racha_actual: parseInt(editedStats.racha) || 0,
       }
-      const { error } = await supabase.from('usuarios').update(ns).eq('id_usuario', idToLoad)
-      if (error) throw error
+      await api.patch(`/admin/usuarios/${idToLoad}/stats`, ns)
       setStats(s => ({ ...s, totalIntentos: ns.total_intentos, promedioScore: ns.promedio_score, mejorScore: ns.mejor_score, peorScore: ns.peor_score, porcentajeAprobacion: ns.porcentaje_aprobacion, racha: ns.racha_actual }))
       setEditingStats(false)
     } catch (err) {
@@ -923,13 +681,7 @@ function UsuarioApp() {
     if (!profile?.id_usuario || profile?.user_type !== 'enterprise') return
     setEnterpriseLoadingRequests(true)
     try {
-      const { data, error } = await supabase
-        .from('team_invitations')
-        .select('id, user_email, user_id, status, message, created_at')
-        .eq('company_id', profile.id_usuario)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
+      const data = await api.get('/enterprise/invitaciones')
       setEnterpriseRequests(data || [])
     } catch {
       setEnterpriseRequests([])
@@ -948,9 +700,8 @@ function UsuarioApp() {
         social_website: enterpriseProfileValues.website,
         email_publico: enterpriseProfileValues.publicProfile,
       }
-      const { error } = await supabase.from('usuarios').update(updates).eq('id_usuario', profile.id_usuario)
-      if (error) throw error
-      setProfile(p => ({ ...p, ...updates }))
+      const perfil = await api.put('/usuarios/me', updates)
+      setProfile(p => ({ ...p, ...(perfil || updates) }))
       setEnterpriseActionStatus(lang === 'en' ? 'Profile saved' : 'Perfil guardado')
     } catch {
       setEnterpriseActionStatus(lang === 'en' ? 'Unable to save profile' : 'No se pudo guardar el perfil')
@@ -967,13 +718,10 @@ function UsuarioApp() {
     }
     setEnterpriseActionStatus(lang === 'en' ? 'Sending invitation...' : 'Enviando invitación...')
     try {
-      const { error } = await supabase.from('team_invitations').insert([{
-        company_id: profile.id_usuario,
-        user_email: inviteEmail.trim(),
-        status: 'pending',
-        message: inviteMessage.trim(),
-      }])
-      if (error) throw error
+      await api.post('/enterprise/invitaciones', {
+        email: inviteEmail.trim(),
+        mensaje: inviteMessage.trim(),
+      })
       setInviteEmail('')
       setInviteMessage('')
       fetchEnterpriseRequests()
@@ -987,14 +735,9 @@ function UsuarioApp() {
     if (!request?.id) return
     try {
       if (status === 'accepted') {
-        const { error } = await supabase.rpc('accept_team_invitation', { invitation_id: request.id })
-        if (error) throw error
+        await api.post(`/enterprise/invitaciones/${request.id}/aceptar`, {})
       } else {
-        const { error } = await supabase
-          .from('team_invitations')
-          .update({ status })
-          .eq('id', request.id)
-        if (error) throw error
+        await api.patch(`/enterprise/invitaciones/${request.id}`, { status })
       }
       setEnterpriseActionStatus(status === 'accepted'
         ? (lang === 'en' ? 'Request accepted.' : 'Solicitud aceptada.')
@@ -1009,27 +752,15 @@ function UsuarioApp() {
   useEffect(() => {
     if (!user || !profile || profile.user_type !== 'enterprise' || ownProfile) return
     const checkExisting = async () => {
-      // ¿Ya es miembro?
-      const { data: me } = await supabase
-        .from('usuarios')
-        .select('company_id')
-        .eq('id_usuario', user.id)
-        .maybeSingle()
-      if (me?.company_id === profile.id_usuario) {
-        setJoinRequestStatus('member')
-        return
-      }
-      // ¿Ya tiene solicitud pendiente o aceptada?
-      const { data: existing } = await supabase
-        .from('team_invitations')
-        .select('id, status')
-        .eq('company_id', profile.id_usuario)
-        .eq('user_id', user.id)
-        .in('status', ['requested', 'pending', 'accepted'])
-        .maybeSingle()
-      if (existing) {
-        setJoinRequestStatus(existing.status === 'accepted' ? 'member' : 'already')
-      }
+      // ¿Ya es miembro? — se resuelve con el perfil propio (company_id).
+      // No hay endpoint para consultar solicitudes salientes propias, así que el
+      // estado 'already' se degrada: el backend rechaza duplicados al enviar.
+      try {
+        const me = await api.get('/usuarios/me')
+        if (me?.company_id === profile.id_usuario) {
+          setJoinRequestStatus('member')
+        }
+      } catch { /* noop */ }
     }
     checkExisting()
   }, [user?.id, profile?.id_usuario, ownProfile])
@@ -1038,15 +769,10 @@ function UsuarioApp() {
     if (!user || !profile) return
     setJoinRequestStatus('loading')
     try {
-      const payload = {
+      await api.post('/enterprise/invitaciones/solicitud', {
         company_id: profile.id_usuario,
-        user_id: user.id,
-        user_email: user.email,
-        status: 'requested',
-        message: joinRequestMessage.trim(),
-      }
-      const { error } = await supabase.from('team_invitations').insert([payload])
-      if (error) throw error
+        mensaje: joinRequestMessage.trim(),
+      })
       setJoinRequestStatus('sent')
     } catch {
       setJoinRequestStatus('error')
@@ -1079,13 +805,7 @@ function UsuarioApp() {
     const fetchEnterpriseMembers = async () => {
       setEnterpriseMembersLoading(true)
       try {
-        const { data, error } = await supabase
-          .from('usuarios')
-          .select('id_usuario, nombre, nombre_display, username, avatar_url, elo_rating, total_intentos, promedio_score, porcentaje_aprobacion, company_role')
-          .eq('company_id', profile.id_usuario)
-          .order('elo_rating', { ascending: false })
-          .limit(24)
-        if (error) throw error
+        const data = await api.get(`/usuarios/${profile.id_usuario}/miembros`)
         setEnterpriseMembers(data || [])
       } catch {
         setEnterpriseMembers([])
@@ -1103,12 +823,11 @@ function UsuarioApp() {
     setFollowLoading(true)
     try {
       if (isFollowing) {
-        await supabase.from('follows').delete()
-          .eq('follower_id', user.id).eq('following_id', idToLoad)
+        await api.del(`/usuarios/${idToLoad}/follow`)
         setIsFollowing(false)
         setFollowersCount(c => Math.max(0, c - 1))
       } else {
-        await supabase.from('follows').insert([{ follower_id: user.id, following_id: idToLoad }])
+        await api.post(`/usuarios/${idToLoad}/follow`, {})
         setIsFollowing(true)
         setFollowersCount(c => c + 1)
       }
@@ -1154,8 +873,8 @@ function UsuarioApp() {
     // Si quedó una URL externa no-Supabase, pasarla por el proxy para evitar bloqueos institucionales.
     if ((raw.startsWith('http://') || raw.startsWith('https://')) && !storageMatch) return proxyImg(raw)
 
-    const { data } = supabase.storage.from('avatars').getPublicUrl(objectPath)
-    return query ? `${data.publicUrl}?${query}` : data.publicUrl
+    const publicUrl = `${SUPABASE_STORAGE_BASE}/${objectPath}`
+    return query ? `${publicUrl}?${query}` : publicUrl
   }
 
   const getAvatar = () =>
@@ -2572,7 +2291,7 @@ function UsuarioApp() {
                       <button
                         onClick={async () => {
                           const newVal = false
-                          await supabase.from('usuarios').update({ show_company_badge: newVal }).eq('id_usuario', user.id)
+                          await api.put('/usuarios/me', { show_company_badge: newVal })
                           setProfile(p => ({ ...p, show_company_badge: newVal }))
                         }}
                         title={lang === 'en' ? 'Hide badge' : 'Ocultar badge'}
@@ -2590,7 +2309,7 @@ function UsuarioApp() {
               {userCompanyData && profile?.show_company_badge === false && canEdit && (
                 <button
                   onClick={async () => {
-                    await supabase.from('usuarios').update({ show_company_badge: true }).eq('id_usuario', user.id)
+                    await api.put('/usuarios/me', { show_company_badge: true })
                     setProfile(p => ({ ...p, show_company_badge: true }))
                   }}
                   className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition w-fit"

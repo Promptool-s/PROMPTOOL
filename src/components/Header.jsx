@@ -64,25 +64,19 @@ const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
   // Fetch username del usuario logueado para construir la URL del perfil
   useEffect(() => {
     if (!user) { setProfileUsername(null); setCompanyData(null); setDbAvatarUrl(null); return }
-    supabase
-      .from('usuarios')
-      .select('username, company_id, avatar_url')
-      .eq('id_usuario', user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        setProfileUsername(data?.username || null)
-        setDbAvatarUrl(data?.avatar_url || null)
-        if (data?.company_id) {
-          supabase
-            .from('usuarios')
-            .select('id_usuario, company_name, nombre_display, avatar_url, verified')
-            .eq('id_usuario', data.company_id)
-            .maybeSingle()
-            .then(({ data: co }) => setCompanyData(co || null))
+    api.get('/usuarios/me')
+      .then((me) => {
+        setProfileUsername(me?.username || null)
+        setDbAvatarUrl(me?.avatar_url || null)
+        if (me?.company_id) {
+          api.get(`/usuarios/${me.company_id}`)
+            .then((co) => setCompanyData(co || null))
+            .catch(() => setCompanyData(null))
         } else {
           setCompanyData(null)
         }
       })
+      .catch(() => { setProfileUsername(null); setCompanyData(null); setDbAvatarUrl(null) })
   }, [user?.id, companyRefreshKey])
 
   const profileHref = profileUsername ? `/user/${profileUsername}` : `/usuario.html?id=${user?.id || ''}`
@@ -153,132 +147,71 @@ const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
     if (!user) { setNotifications([]); return }
     setLoadingNotifications(true)
     try {
-      const { data: myProfile } = await supabase
-        .from('usuarios')
-        .select('id_usuario, user_type, company_name')
-        .eq('id_usuario', user.id)
-        .maybeSingle()
-
-      const { data: invitationRows } = await supabase
-        .from('team_invitations')
-        .select('id, company_id, user_id, user_email, status, message, created_at, sender:usuarios!team_invitations_company_id_fkey(company_name, nombre_display, avatar_url, verified)')
-        .or(`company_id.eq.${user.id},user_id.eq.${user.id},user_email.eq.${user.email}`)
-        .order('created_at', { ascending: false })
-        .limit(30)
-
-      const { data: readRows } = await supabase
-        .from('notification_reads')
-        .select('source_type, source_id')
-        .eq('user_id', user.id)
-
-      let guideRows = []
-      try {
-        const { data } = await supabase
-          .from('guide_suggestions')
-          .select('id, target_user_id, target_email, title, message, guide_slug, guide_url, created_at')
-          .or(`target_user_id.eq.${user.id},target_email.eq.${user.email}`)
-          .order('created_at', { ascending: false })
-          .limit(30)
-        guideRows = data || []
-      } catch (_) {
-        guideRows = []
-      }
-
-      let challengeRows = []
-      try {
-        const { data } = await supabase
-          .from('challenge_notifications')
-          .select('id, challenge_id, company_id, title, message, created_at, imagenes_ia(id_imagen, url_image, image_theme, image_diff), usuarios!challenge_notifications_company_id_fkey(company_name, avatar_url, verified)')
-          .eq('target_user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(30)
-        challengeRows = data || []
-      } catch (_) {
-        challengeRows = []
-      }
-
-      const readSet = new Set((readRows || []).map(r => `${r.source_type}:${r.source_id}`))
-      const items = []
-
-      ;(invitationRows || []).forEach((inv) => {
-        const isCompany = inv.company_id === user.id
-        const isReceiver = inv.user_id === user.id || (!!user.email && inv.user_email === user.email)
-        // Nombre de la empresa: si soy el receptor, viene del join; si soy la empresa, del perfil propio
-        const senderCompanyName = inv.sender?.company_name || inv.sender?.nombre_display
-        const resolvedCompanyName = isCompany ? myProfile?.company_name : (senderCompanyName || myProfile?.company_name)
-        const copy = getInvitationNotificationText({
-          ...inv,
-          company_name: resolvedCompanyName,
-          sender_avatar: inv.sender?.avatar_url,
-          sender_verified: inv.sender?.verified,
-        }, isCompany, isReceiver)
-        const sourceType = 'team_invitation'
-        const sourceId = String(inv.id)
-        const sourceKey = `${sourceType}:${sourceId}`
-        const canRespond =
-          (isCompany && inv.status === 'requested') ||
-          (isReceiver && inv.status === 'pending')
-        items.push({
-          id: `inv-${inv.id}`,
-          sourceType,
-          sourceId,
-          read: readSet.has(sourceKey),
-          createdAt: inv.created_at,
-          title: copy.title,
-          body: copy.body,
-          invitation: { ...inv, company_name: resolvedCompanyName },
-          senderAvatar: inv.sender?.avatar_url || null,
-          senderVerified: inv.sender?.verified || false,
-          actionUrl: isCompany ? `/?tab=requests` : `/perfil?id=${inv.company_id}`,
-          canRespond,
-        })
+      // Feed unificado del backend (ya viene normalizado y ordenado).
+      const rows = await api.get('/notificaciones')
+      const items = (rows || []).map((n) => {
+        const p = n.payload || {}
+        if (n.source_type === 'team_invitation') {
+          const invitation = {
+            id: p.id,
+            company_id: p.company_id,
+            user_id: p.user_id,
+            user_email: p.user_email,
+            status: p.status,
+            message: p.message,
+            company_name: p.company_name,
+          }
+          const copy = getInvitationNotificationText(invitation, p.es_empresa, p.es_receptor)
+          return {
+            id: `inv-${p.id}`,
+            sourceType: n.source_type,
+            sourceId: n.source_id,
+            read: n.read,
+            createdAt: n.created_at,
+            title: copy.title,
+            body: copy.body,
+            invitation,
+            senderAvatar: p.sender_avatar || null,
+            senderVerified: p.sender_verified || false,
+            actionUrl: p.es_empresa ? `/?tab=requests` : `/perfil?id=${p.company_id}`,
+            canRespond: p.can_respond,
+          }
+        }
+        if (n.source_type === 'guide_suggestion') {
+          const isReportResponse = p.es_respuesta_reporte
+          return {
+            id: `guide-${p.id}`,
+            sourceType: n.source_type,
+            sourceId: n.source_id,
+            read: n.read,
+            createdAt: n.created_at,
+            title: isReportResponse
+              ? (lang === 'en' ? 'Response to your report' : 'Respuesta a tu reporte')
+              : (p.title || (lang === 'en' ? 'Guide suggestion' : 'Sugerencia de guía')),
+            body: p.message || (lang === 'en' ? 'You have a recommended guide.' : 'Tienes una guía recomendada.'),
+            actionUrl: p.guide_url || (p.guide_slug ? `/guides#${p.guide_slug}` : null),
+            guide: p,
+            isReportResponse,
+          }
+        }
+        // challenge_notification
+        const companyName = p.company_name || (lang === 'en' ? 'Your company' : 'Tu empresa')
+        const challengeTheme = p.challenge_theme || (lang === 'en' ? 'Challenge' : 'Desafío')
+        return {
+          id: `challenge-${p.id}`,
+          sourceType: n.source_type,
+          sourceId: n.source_id,
+          read: n.read,
+          createdAt: n.created_at,
+          title: p.title || (lang === 'en' ? 'New challenge available' : 'Nuevo desafío disponible'),
+          body: p.message || (lang === 'en' ? `${companyName} created a new challenge: ${challengeTheme}` : `${companyName} creó un nuevo desafío: ${challengeTheme}`),
+          actionUrl: `/?challenge=${p.challenge_id}`,
+          senderAvatar: p.company_avatar || null,
+          senderVerified: p.company_verified || false,
+          challengeImage: p.challenge_image || null,
+          challengeDiff: p.challenge_diff || null,
+        }
       })
-
-      ;(guideRows || []).forEach((g) => {
-        const sourceType = 'guide_suggestion'
-        const sourceId = String(g.id)
-        const sourceKey = `${sourceType}:${sourceId}`
-        // Detectar si es una respuesta a un reporte (enviada desde AdminApp)
-        const isReportResponse = g.title === 'Respuesta a tu reporte' || g.title === 'Report response'
-        items.push({
-          id: `guide-${g.id}`,
-          sourceType,
-          sourceId,
-          read: readSet.has(sourceKey),
-          createdAt: g.created_at,
-          title: isReportResponse
-            ? (lang === 'en' ? 'Response to your report' : 'Respuesta a tu reporte')
-            : (g.title || (lang === 'en' ? 'Guide suggestion' : 'Sugerencia de guía')),
-          body: g.message || (lang === 'en' ? 'You have a recommended guide.' : 'Tienes una guía recomendada.'),
-          actionUrl: g.guide_url || (g.guide_slug ? `/guides#${g.guide_slug}` : null),
-          guide: g,
-          isReportResponse,
-        })
-      })
-
-      ;(challengeRows || []).forEach((c) => {
-        const sourceType = 'challenge_notification'
-        const sourceId = String(c.id)
-        const sourceKey = `${sourceType}:${sourceId}`
-        const companyName = c.usuarios?.company_name || (lang === 'en' ? 'Your company' : 'Tu empresa')
-        const challengeTheme = c.imagenes_ia?.image_theme || (lang === 'en' ? 'Challenge' : 'Desafío')
-        items.push({
-          id: `challenge-${c.id}`,
-          sourceType,
-          sourceId,
-          read: readSet.has(sourceKey),
-          createdAt: c.created_at,
-          title: c.title || (lang === 'en' ? 'New challenge available' : 'Nuevo desafío disponible'),
-          body: c.message || (lang === 'en' ? `${companyName} created a new challenge: ${challengeTheme}` : `${companyName} creó un nuevo desafío: ${challengeTheme}`),
-          actionUrl: `/?challenge=${c.challenge_id}`,
-          senderAvatar: c.usuarios?.avatar_url || null,
-          senderVerified: c.usuarios?.verified || false,
-          challengeImage: c.imagenes_ia?.url_image || null,
-          challengeDiff: c.imagenes_ia?.image_diff || null,
-        })
-      })
-
-      items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       setNotifications(items)
     } catch {
       setNotifications([])
@@ -364,11 +297,7 @@ const Header = ({ companyRefreshKey = 0, onOpenSettings }) => {
     searchTimer.current = setTimeout(async () => {
       setSearchLoading(true)
       try {
-        const { data: users } = await supabase
-          .from('usuarios')
-          .select('id_usuario, nombre, nombre_display, username, avatar_url')
-          .or(`username.ilike.%${q}%,nombre.ilike.%${q}%,nombre_display.ilike.%${q}%`)
-          .limit(5)
+        const users = await api.get(`/usuarios/buscar?q=${encodeURIComponent(q)}`)
         setSearchResults(users || [])
       } catch (_) {}
       setSearchLoading(false)

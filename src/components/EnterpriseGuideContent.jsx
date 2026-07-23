@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../supabaseClient'
+import { api } from '../lib/apiClient'
 
 const EnterpriseGuideContent = ({ guide, accent, ui, lang, user }) => {
   const [progress, setProgress] = useState({})
@@ -11,14 +11,8 @@ const EnterpriseGuideContent = ({ guide, accent, ui, lang, user }) => {
     
     const loadProgress = async () => {
       try {
-        const { data, error } = await supabase
-          .from('guide_progress')
-          .select('section_id, completed, data')
-          .eq('guide_id', guide.id)
-          .eq('user_id', user.id)
-        
-        if (error) throw error
-        
+        const data = await api.get(`/enterprise/guias/${guide.id}/progreso`)
+
         const progressMap = {}
         ;(data || []).forEach(item => {
           progressMap[item.section_id] = {
@@ -41,15 +35,12 @@ const EnterpriseGuideContent = ({ guide, accent, ui, lang, user }) => {
     
     setLoading(true)
     try {
-      const { error } = await supabase.rpc('update_guide_progress', {
-        guide_id: guide.id,
+      await api.post(`/enterprise/guias/${guide.id}/progreso`, {
         section_id: sectionId,
         completed,
         data
       })
-      
-      if (error) throw error
-      
+
       setProgress(prev => ({
         ...prev,
         [sectionId]: { completed, data }

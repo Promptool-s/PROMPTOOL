@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { supabase } from '../supabaseClient'
 import { api } from '../lib/apiClient'
 
 const INDUSTRIES = [
@@ -48,7 +47,7 @@ const EnterpriseOnboarding = ({ user, onDone }) => {
   const saveAndNext = async () => {
     if (step === 1) {
       setSaving(true)
-      await supabase.from('usuarios').update({ industry_type: industry }).eq('id_usuario', user.id)
+      try { await api.put('/usuarios/me', { industry_type: industry }) } catch { /* no bloquea el onboarding */ }
       setSaving(false)
     }
     setStep(s => s + 1)
@@ -74,10 +73,7 @@ const EnterpriseOnboarding = ({ user, onDone }) => {
 
   const finish = async () => {
     try {
-      await supabase
-        .from('usuarios')
-        .update({ enterprise_onboarded: true })
-        .eq('id_usuario', user.id)
+      await api.put('/usuarios/me', { enterprise_onboarded: true })
     } catch (_) {}
     onDone()
   }

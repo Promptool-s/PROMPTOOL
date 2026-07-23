@@ -6,6 +6,15 @@ import { ErrorTypes } from '../utils/errorHandler'
  * Enhanced rate limiting service for authentication endpoints
  * Limits: 5 attempts per 15 minutes per IP and endpoint
  * Prevents spam, abuse, and brute force attacks
+ *
+ * EXCEPCIÓN INTENCIONAL de la migración de frontend: estos supabase.rpc son las
+ * ÚNICAS llamadas a Supabase que quedan fuera del backend, junto con
+ * supabase.auth.*. Guardan el flujo de auth (login/signup) que se ejecuta
+ * client-side ANTES de tener sesión, y usan funciones SECURITY DEFINER pensadas
+ * para ser invocadas por el rol anon. Al REVOCAR el acceso anon a las tablas de
+ * datos, hay que CONSERVAR el GRANT EXECUTE de check_rate_limit / reset_rate_limit
+ * para anon. (Mejora futura sugerida: mover el rate-limit al backend, keyeado por
+ * el IP real de la request en vez de un fingerprint del cliente.)
  */
 
 // Generate a privacy-preserving client fingerprint without calling external APIs.

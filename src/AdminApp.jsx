@@ -2,36 +2,26 @@ import { useEffect, useState, useRef } from 'react'
 import Header from './components/Header'
 import Footer from './components/Footer'
 import { useAuth } from './hooks/useAuth'
-import { supabase } from './supabaseClient'
-import { nowAR } from './utils/dateAR'
+import { api } from './lib/apiClient'
 import { proxyImg } from './utils/imgProxy'
 
+// Verificación server-side: /usuarios/me trae adminstate/devstate desde la BD (no metadata).
 async function checkIsAdmin(userId) {
   if (!userId) return false
   try {
-    // Always verify from DB only — never trust user_metadata (can be modified by user)
-    const { data } = await supabase.from('usuarios').select('adminstate, devstate').eq('id_usuario', userId).maybeSingle()
-    return data?.adminstate === true || data?.devstate === true
+    const me = await api.get('/usuarios/me')
+    return me?.adminstate === true || me?.devstate === true
   } catch { return false }
 }
 
-const TABLE_PKS  = { usuarios: 'id_usuario', imagenes_ia: 'id_imagen', intentos: 'id_intento' }
-const TABLE_SORT = { usuarios: 'fecha_registro', imagenes_ia: 'fecha', intentos: 'fecha_hora' }
-const TABLES     = ['usuarios', 'imagenes_ia', 'intentos']
-
-// Default empty row per table for the "Add" form
-const DEFAULT_ROW = {
-  usuarios:    { nombre: '', email: '', idioma_preferido: 'es', adminstate: false },
-  imagenes_ia: { url_image: '', prompt_original: '', image_diff: 'Medium', image_theme: '' },
-  intentos:    { id_usuario: '', id_imagen: '', prompt_usuario: '', puntaje_similitud: 0, modo: 'random' },
-}
+// Columnas de stats que el backend permite sobrescribir (PATCH /admin/usuarios/:id/stats).
+const STAT_COLS = ['total_intentos', 'promedio_score', 'mejor_score', 'peor_score', 'porcentaje_aprobacion', 'racha_actual']
 
 function AdminApp() {
   const { user, loading: authLoading } = useAuth()
   const [adminChecked, setAdminChecked] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
 
-  const [selectedTable, setSelectedTable] = useState('usuarios')
   const [tableData, setTableData] = useState([])
   const [columns, setColumns] = useState([])
   const [loading, setLoading] = useState(false)
@@ -39,20 +29,9 @@ function AdminApp() {
   const [editingRow, setEditingRow] = useState(null)
   const [editValues, setEditValues] = useState({})
 
-  const [addingRow, setAddingRow] = useState(false)
-  const [addValues, setAddValues] = useState({})
-
   const [search, setSearch] = useState('')
-  const [whereClause, setWhereClause] = useState('') // e.g. "adminstate=eq.true"
-  const [whereError, setWhereError] = useState('')
+  const [serverSearch, setServerSearch] = useState('')
   const [selectedUser, setSelectedUser] = useState(null)
-
-  // SQL runner
-  const [sqlQuery, setSqlQuery] = useState('')
-  const [sqlResult, setSqlResult] = useState(null)
-  const [sqlError, setSqlError] = useState('')
-  const [sqlLoading, setSqlLoading] = useState(false)
-  const [showSql, setShowSql] = useState(false)
 
   // Tickets
   const [activeTab, setActiveTab] = useState('tables') // 'tables' | 'tickets' | 'reports'
@@ -80,20 +59,17 @@ function AdminApp() {
 
   // ── TICKETS ──
   const fetchTickets = async () => {
-    const { data } = await supabase
-      .from('tickets')
-      .select('*, usuarios(nombre, nombre_display, email, avatar_url)')
-      .order('updated_at', { ascending: false })
-    setTickets(data || [])
+    try {
+      const data = await api.get('/tickets/todos')
+      setTickets(data || [])
+    } catch { setTickets([]) }
   }
 
   const fetchTicketMessages = async (id_ticket) => {
-    const { data } = await supabase
-      .from('ticket_mensajes')
-      .select('*, usuarios(nombre, nombre_display, avatar_url)')
-      .eq('id_ticket', id_ticket)
-      .order('created_at', { ascending: true })
-    setTicketMessages(data || [])
+    try {
+      const data = await api.get(`/tickets/${id_ticket}/mensajes`)
+      setTicketMessages(data || [])
+    } catch { setTicketMessages([]) }
     setTimeout(() => ticketEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
   }
 
@@ -107,16 +83,7 @@ function AdminApp() {
     if (!ticketReply.trim() || !selectedTicket) return
     setSendingReply(true)
     try {
-      await supabase.from('ticket_mensajes').insert([{
-        id_ticket: selectedTicket.id_ticket,
-        id_usuario: user.id,
-        mensaje: ticketReply,
-        es_admin: true,
-      }])
-      await supabase.from('tickets').update({
-        estado: 'in_progress',
-        updated_at: new Date().toISOString(),
-      }).eq('id_ticket', selectedTicket.id_ticket)
+      await api.post(`/tickets/${selectedTicket.id_ticket}/mensajes`, { mensaje: ticketReply })
       setTicketReply('')
       fetchTicketMessages(selectedTicket.id_ticket)
       fetchTickets()
@@ -128,21 +95,21 @@ function AdminApp() {
   }
 
   const closeTicket = async (id_ticket) => {
-    await supabase.from('tickets').update({ estado: 'closed' }).eq('id_ticket', id_ticket)
-    fetchTickets()
-    if (selectedTicket?.id_ticket === id_ticket) setSelectedTicket(t => ({ ...t, estado: 'closed' }))
-    showToast('Ticket closed')
+    try {
+      await api.patch(`/tickets/${id_ticket}/cerrar`, {})
+      fetchTickets()
+      if (selectedTicket?.id_ticket === id_ticket) setSelectedTicket(t => ({ ...t, estado: 'closed' }))
+      showToast('Ticket closed')
+    } catch (err) {
+      showToast('Error: ' + err.message, 'error')
+    }
   }
 
   // ── REPORTS ──
   const fetchReports = async () => {
     setReportsLoading(true)
     try {
-      const { data } = await supabase
-        .from('user_reports')
-        .select('*, reporter:usuarios!user_reports_reporter_id_fkey(nombre_display, nombre, username, avatar_url)')
-        .order('created_at', { ascending: false })
-        .limit(100)
+      const data = await api.get('/admin/reportes')
       setReports(data || [])
     } catch {
       setReports([])
@@ -153,17 +120,25 @@ function AdminApp() {
 
   const deleteReport = async (id) => {
     if (!confirm('Delete this report?')) return
-    await supabase.from('user_reports').delete().eq('id', id)
-    setReports(prev => prev.filter(r => r.id !== id))
-    if (selectedReport?.id === id) setSelectedReport(null)
-    showToast('Report deleted')
+    try {
+      await api.del(`/admin/reportes/${id}`)
+      setReports(prev => prev.filter(r => r.id !== id))
+      if (selectedReport?.id === id) setSelectedReport(null)
+      showToast('Report deleted')
+    } catch (err) {
+      showToast('Error: ' + err.message, 'error')
+    }
   }
 
   const updateReportStatus = async (id, status) => {
-    await supabase.from('user_reports').update({ status, reviewer_id: user.id, reviewed_at: new Date().toISOString() }).eq('id', id)
-    setReports(prev => prev.map(r => r.id === id ? { ...r, status } : r))
-    if (selectedReport?.id === id) setSelectedReport(r => ({ ...r, status }))
-    showToast(`Marked as ${status}`)
+    try {
+      await api.patch(`/admin/reportes/${id}`, { status })
+      setReports(prev => prev.map(r => r.id === id ? { ...r, status } : r))
+      if (selectedReport?.id === id) setSelectedReport(r => ({ ...r, status }))
+      showToast(`Marked as ${status}`)
+    } catch (err) {
+      showToast('Error: ' + err.message, 'error')
+    }
   }
 
   const sendReportResponse = async (e) => {
@@ -171,29 +146,10 @@ function AdminApp() {
     if (!reportReply.trim() || !selectedReport) return
     setSendingReportReply(true)
     try {
-      // Update report with reviewer notes
-      await supabase.from('user_reports').update({
+      await api.patch(`/admin/reportes/${selectedReport.id}`, {
         status: 'reviewed',
-        reviewer_id: user.id,
         reviewer_notes: reportReply,
-        reviewed_at: new Date().toISOString(),
-      }).eq('id', selectedReport.id)
-
-      // Send notification to reporter if they have an account
-      if (selectedReport.reporter_id) {
-        await supabase.from('notification_reads').upsert([]) // ensure table exists
-        // Insert into a generic notifications table or use guide_suggestions as carrier
-        try {
-          await supabase.from('guide_suggestions').insert([{
-            target_user_id: selectedReport.reporter_id,
-            title: 'Respuesta a tu reporte',
-            message: reportReply,
-            guide_slug: null,
-            guide_url: null,
-          }])
-        } catch { /* table may not exist, silent */ }
-      }
-
+      })
       setReports(prev => prev.map(r => r.id === selectedReport.id
         ? { ...r, status: 'reviewed', reviewer_notes: reportReply }
         : r))
@@ -226,176 +182,71 @@ function AdminApp() {
   }, [user, authLoading])
 
   useEffect(() => {
-    if (adminChecked && isAdmin) {
-      setWhereClause('')
-      setWhereError('')
-      fetchTableData('')
-    }
-  }, [selectedTable, adminChecked, isAdmin])
+    if (adminChecked && isAdmin && activeTab === 'tables') fetchTableData(serverSearch)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminChecked, isAdmin, activeTab])
 
-  const fetchTableData = async (customWhere = whereClause) => {
+  // Solo gestión de usuarios: el backend expone GET /admin/usuarios (con search),
+  // no CRUD arbitrario de tablas. La navegación libre de tablas + SQL fue removida
+  // a propósito (era el agujero de seguridad que cierra la migración).
+  const fetchTableData = async (searchTerm = serverSearch) => {
     setLoading(true)
     setEditingRow(null)
-    setAddingRow(false)
     setSelectedUser(null)
-    setWhereError('')
     try {
-      let query = supabase
-        .from(selectedTable)
-        .select('*')
-        .order(TABLE_SORT[selectedTable], { ascending: false })
-        .limit(300)
-
-      // Apply WHERE filters — format: "col=op.value" comma-separated
-      // e.g. "adminstate=eq.true,total_intentos=gt.10"
-      if (customWhere.trim()) {
-        const filters = customWhere.split(',').map(f => f.trim()).filter(Boolean)
-        for (const filter of filters) {
-          const eqIdx = filter.indexOf('=')
-          if (eqIdx === -1) { setWhereError(`Invalid filter: "${filter}". Use col=op.value`); setLoading(false); return }
-          const col = filter.slice(0, eqIdx).trim()
-          const rest = filter.slice(eqIdx + 1).trim()
-          const dotIdx = rest.indexOf('.')
-          if (dotIdx === -1) { setWhereError(`Invalid operator in: "${filter}". Use eq, gt, lt, gte, lte, like, ilike, neq`); setLoading(false); return }
-          const op = rest.slice(0, dotIdx).trim()
-          const val = rest.slice(dotIdx + 1).trim()
-          const validOps = ['eq','neq','gt','gte','lt','lte','like','ilike','is','in']
-          if (!validOps.includes(op)) { setWhereError(`Unknown operator "${op}". Valid: ${validOps.join(', ')}`); setLoading(false); return }
-          // Convert value types
-          let typedVal = val
-          if (val === 'true') typedVal = true
-          else if (val === 'false') typedVal = false
-          else if (val === 'null') typedVal = null
-          else if (!isNaN(val) && val !== '') typedVal = Number(val)
-          query = query.filter(col, op, typedVal)
-        }
-      }
-
-      const { data, error } = await query
-      if (error) throw error
-      setTableData(data || [])
-      setColumns(data?.length ? Object.keys(data[0]) : Object.keys(DEFAULT_ROW[selectedTable] || {}))
+      const qs = searchTerm.trim() ? `?limit=200&search=${encodeURIComponent(searchTerm.trim())}` : '?limit=200'
+      const data = await api.get(`/admin/usuarios${qs}`)
+      const rows = Array.isArray(data) ? data : (data?.usuarios || [])
+      setTableData(rows)
+      setColumns(rows.length ? Object.keys(rows[0]) : [])
     } catch (err) {
-      setWhereError('Query error: ' + err.message)
       showToast('Error loading: ' + err.message, 'error')
     } finally {
       setLoading(false)
     }
   }
 
-  // ── EDIT ──
+  // ── EDIT (solo columnas de stats permitidas por el backend) ──
   const startEdit = (row) => {
-    setAddingRow(false)
     setEditingRow(row)
     setEditValues({ ...row })
   }
 
   const saveEdit = async () => {
     try {
-      const pk = TABLE_PKS[selectedTable]
-      const { error } = await supabase.from(selectedTable).update(editValues).eq(pk, editingRow[pk])
-      if (error) throw error
-      showToast('Record updated')
+      const stats = {}
+      for (const col of STAT_COLS) {
+        if (editValues[col] !== undefined && editValues[col] !== editingRow[col]) {
+          const num = Number(editValues[col])
+          stats[col] = Number.isNaN(num) ? editValues[col] : num
+        }
+      }
+      if (Object.keys(stats).length === 0) { setEditingRow(null); return }
+      await api.patch(`/admin/usuarios/${editingRow.id_usuario}/stats`, stats)
+      showToast('Stats updated')
       setEditingRow(null)
-      fetchTableData()
+      fetchTableData(serverSearch)
     } catch (err) {
       showToast('Error: ' + err.message, 'error')
     }
   }
 
-  // ── ADD ──
-  const startAdd = () => {
-    setEditingRow(null)
-    setAddValues({ ...(DEFAULT_ROW[selectedTable] || {}) })
-    setAddingRow(true)
-  }
-
-  const saveAdd = async () => {
+  // ── TOGGLE FLAG (adminstate | verified | devstate) ──
+  const toggleFlag = async (row, campo, labels) => {
+    const newVal = !row[campo]
     try {
-      const { error } = await supabase.from(selectedTable).insert([addValues])
-      if (error) throw error
-      showToast('Record added')
-      setAddingRow(false)
-      fetchTableData()
+      await api.patch(`/admin/usuarios/${row.id_usuario}`, { campo, valor: newVal })
+      showToast(newVal ? labels.on : labels.off)
+      setTableData(prev => prev.map(r => r.id_usuario === row.id_usuario ? { ...r, [campo]: newVal } : r))
+      if (selectedUser?.id_usuario === row.id_usuario) setSelectedUser({ ...selectedUser, [campo]: newVal })
     } catch (err) {
       showToast('Error: ' + err.message, 'error')
     }
   }
 
-  // ── DELETE ──
-  const handleDelete = async (row) => {
-    if (!confirm('Delete this record?')) return
-    try {
-      const pk = TABLE_PKS[selectedTable]
-      const { error } = await supabase.from(selectedTable).delete().eq(pk, row[pk])
-      if (error) throw error
-      showToast('Record deleted')
-      if (selectedUser?.[pk] === row[pk]) setSelectedUser(null)
-      fetchTableData()
-    } catch (err) {
-      showToast('Error: ' + err.message, 'error')
-    }
-  }
-
-  // ── TOGGLE ADMIN ──
-  const toggleAdmin = async (row) => {
-    const newVal = !row.adminstate
-    try {
-      const { error } = await supabase.from('usuarios').update({ adminstate: newVal }).eq('id_usuario', row.id_usuario)
-      if (error) throw error
-      showToast(newVal ? 'Admin granted' : 'Admin removed')
-      if (selectedUser?.id_usuario === row.id_usuario) setSelectedUser({ ...selectedUser, adminstate: newVal })
-      fetchTableData()
-    } catch (err) {
-      showToast('Error: ' + err.message, 'error')
-    }
-  }
-
-  // ── TOGGLE VERIFIED (empresas) ──
-  const toggleVerified = async (row) => {
-    const newVal = !row.verified
-    try {
-      const { error } = await supabase.from('usuarios').update({ verified: newVal }).eq('id_usuario', row.id_usuario)
-      if (error) throw error
-      showToast(newVal ? 'Empresa verificada' : 'Verificacion removida')
-      if (selectedUser?.id_usuario === row.id_usuario) setSelectedUser({ ...selectedUser, verified: newVal })
-      fetchTableData()
-    } catch (err) {
-      showToast('Error: ' + err.message, 'error')
-    }
-  }
-
-  // ── TOGGLE DEV ──
-  const toggleDev = async (row) => {
-    const newVal = !row.devstate
-    try {
-      const { error } = await supabase.from('usuarios').update({ devstate: newVal }).eq('id_usuario', row.id_usuario)
-      if (error) throw error
-      showToast(newVal ? 'Dev granted' : 'Dev removed')
-      if (selectedUser?.id_usuario === row.id_usuario) setSelectedUser({ ...selectedUser, devstate: newVal })
-      fetchTableData()
-    } catch (err) {
-      showToast('Error: ' + err.message, 'error')
-    }
-  }
-
-  // ── SQL RUNNER ──
-  const runSql = async () => {
-    if (!sqlQuery.trim()) return
-    setSqlLoading(true)
-    setSqlResult(null)
-    setSqlError('')
-    try {
-      const { data, error } = await supabase.rpc('exec_sql', { query: sqlQuery })
-      if (error) throw error
-      setSqlResult(data)
-      showToast('Query executed')
-    } catch (err) {
-      setSqlError(err.message)
-    } finally {
-      setSqlLoading(false)
-    }
-  }
+  const toggleAdmin = (row) => toggleFlag(row, 'adminstate', { on: 'Admin granted', off: 'Admin removed' })
+  const toggleVerified = (row) => toggleFlag(row, 'verified', { on: 'Empresa verificada', off: 'Verificacion removida' })
+  const toggleDev = (row) => toggleFlag(row, 'devstate', { on: 'Dev granted', off: 'Dev removed' })
 
   // ── RENDER CELL ──
   const renderCell = (value, col, isEditMode, values, setValues) => {
@@ -453,13 +304,9 @@ function AdminApp() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Admin Panel</h1>
-            <p className="text-sm text-slate-500 mt-0.5">Full database management</p>
+            <p className="text-sm text-slate-500 mt-0.5">User management</p>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => setShowSql(s => !s)}
-              className={`rounded-xl px-4 py-2 text-sm font-semibold transition border ${showSql ? 'bg-slate-900 text-white border-slate-900' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-              SQL Runner
-            </button>
             <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-bold text-purple-700 uppercase tracking-wide">Admin</span>
           </div>
         </div>
@@ -471,64 +318,18 @@ function AdminApp() {
               className={`px-4 py-2 text-sm font-semibold border-b-2 transition -mb-px ${
                 activeTab === tab ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}>
-              {tab === 'tables' ? 'Tables'
+              {tab === 'tables' ? 'Users'
                 : tab === 'tickets' ? `Tickets ${tickets.filter(t => t.estado === 'open').length > 0 ? `(${tickets.filter(t => t.estado === 'open').length})` : ''}`
                 : `Reports ${reports.filter(r => r.status === 'pending').length > 0 ? `(${reports.filter(r => r.status === 'pending').length})` : ''}`}
             </button>
           ))}
         </div>
 
-        {/* SQL Runner */}
-        {showSql && activeTab === 'tables' && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-3">
-            <p className="text-sm font-semibold text-slate-700">SQL Query Runner</p>
-            <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 border border-amber-200">
-              ⚠ Requires a <code className="font-mono">exec_sql</code> RPC function in Supabase. Use with caution — this executes raw SQL.
-            </p>
-            <textarea
-              value={sqlQuery}
-              onChange={e => setSqlQuery(e.target.value)}
-              rows={4}
-              placeholder="SELECT * FROM usuarios LIMIT 10;"
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-mono outline-none focus:border-slate-400 resize-none"
-            />
-            <div className="flex gap-2">
-              <button onClick={runSql} disabled={sqlLoading || !sqlQuery.trim()}
-                className="rounded-xl bg-slate-900 px-5 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50 transition">
-                {sqlLoading ? 'Running...' : 'Run Query'}
-              </button>
-              <button onClick={() => { setSqlQuery(''); setSqlResult(null); setSqlError('') }}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">
-                Clear
-              </button>
-            </div>
-            {sqlError && (
-              <div className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-700 font-mono">{sqlError}</div>
-            )}
-            {sqlResult !== null && (
-              <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3">
-                <p className="text-xs font-semibold text-emerald-700 mb-2">Result:</p>
-                <pre className="text-xs text-emerald-800 overflow-auto max-h-48">{JSON.stringify(sqlResult, null, 2)}</pre>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Table tabs */}
+        {/* Users tab */}
         {activeTab === 'tables' && (<>
-        <div className="flex gap-2 flex-wrap">
-          {TABLES.map(t => (
-            <button key={t} onClick={() => setSelectedTable(t)}
-              className={`rounded-xl px-5 py-2.5 text-sm font-semibold transition ${
-                selectedTable === t ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-              }`}>
-              {t}
-            </button>
-          ))}
-        </div>
 
         {/* User detail panel */}
-        {selectedUser && selectedTable === 'usuarios' && (
+        {selectedUser && (
           <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-5">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-4">
@@ -596,105 +397,49 @@ function AdminApp() {
           </div>
         )}
 
-        {/* Add row form */}
-        {addingRow && (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-sm font-semibold text-emerald-800">Add new record to <span className="font-mono">{selectedTable}</span></p>
-              <button onClick={() => setAddingRow(false)} className="text-emerald-600 hover:text-emerald-900 text-sm">✕</button>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {Object.keys(addValues).map(col => (
-                <div key={col}>
-                  <label className="block text-xs font-semibold text-emerald-700 mb-1">{col}</label>
-                  {typeof addValues[col] === 'boolean' || col === 'adminstate' ? (
-                    <select value={String(addValues[col])} onChange={e => setAddValues({ ...addValues, [col]: e.target.value === 'true' })}
-                      className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm outline-none">
-                      <option value="false">false</option>
-                      <option value="true">true</option>
-                    </select>
-                  ) : (
-                    <input type="text" value={addValues[col] ?? ''} onChange={e => setAddValues({ ...addValues, [col]: e.target.value })}
-                      className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-400" />
-                  )}
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 flex gap-2">
-              <button onClick={saveAdd}
-                className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition">
-                Add record
-              </button>
-              <button onClick={() => setAddingRow(false)}
-                className="rounded-xl border border-emerald-200 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 transition">
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Main table */}
         <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
           <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
             <div className="flex items-center gap-3">
-              <h2 className="font-semibold text-slate-800">{selectedTable}</h2>
+              <h2 className="font-semibold text-slate-800">usuarios</h2>
               <span className="text-xs text-slate-400">{filteredData.length} / {tableData.length} records</span>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              {/* Client-side text search */}
+              {/* Client-side text search (rows already loaded) */}
               <input type="text" value={search} onChange={e => setSearch(e.target.value)}
                 placeholder="Filter visible rows..."
                 className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm outline-none focus:border-slate-400 w-40" />
-              {/* Server-side WHERE */}
+              {/* Server-side search (nombre/username/email) */}
               <div className="flex items-center gap-1">
                 <input
                   type="text"
-                  value={whereClause}
-                  onChange={e => { setWhereClause(e.target.value); setWhereError('') }}
-                  onKeyDown={e => e.key === 'Enter' && fetchTableData(whereClause)}
-                  placeholder="WHERE: col=eq.val, col=gt.10"
-                  title="Server-side filter. Format: column=operator.value — operators: eq, neq, gt, gte, lt, lte, like, ilike, is, in. Multiple filters comma-separated."
-                  className={`rounded-lg border px-3 py-1.5 text-sm font-mono outline-none w-56 ${
-                    whereError ? 'border-rose-400 bg-rose-50' : 'border-slate-200 bg-slate-50 focus:border-indigo-400'
-                  }`}
+                  value={serverSearch}
+                  onChange={e => setServerSearch(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && fetchTableData(serverSearch)}
+                  placeholder="Search all users..."
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm outline-none focus:border-indigo-400 w-52"
                 />
                 <button
-                  onClick={() => fetchTableData(whereClause)}
-                  title="Apply WHERE filter"
+                  onClick={() => fetchTableData(serverSearch)}
                   className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700 transition"
                 >
-                  Filter
+                  Search
                 </button>
-                {whereClause && (
+                {serverSearch && (
                   <button
-                    onClick={() => { setWhereClause(''); fetchTableData('') }}
-                    title="Clear filter"
+                    onClick={() => { setServerSearch(''); fetchTableData('') }}
                     className="rounded-lg bg-slate-200 px-2.5 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-300 transition"
                   >
                     ✕
                   </button>
                 )}
               </div>
-              <button onClick={startAdd}
-                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 transition">
-                + Add
-              </button>
-              <button onClick={() => fetchTableData(whereClause)}
+              <button onClick={() => fetchTableData(serverSearch)}
                 className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition">
                 Reload
               </button>
             </div>
           </div>
-          {whereError && (
-            <div className="px-5 py-2 bg-rose-50 border-b border-rose-200 text-xs text-rose-700 font-mono">
-              {whereError}
-            </div>
-          )}
-          {whereClause && !whereError && (
-            <div className="px-5 py-1.5 bg-indigo-50 border-b border-indigo-100 text-xs text-indigo-600 font-mono">
-              WHERE {whereClause}
-            </div>
-          )}
 
           {loading ? (
             <div className="flex justify-center py-16">
@@ -719,14 +464,13 @@ function AdminApp() {
                 </thead>
                 <tbody>
                   {filteredData.map((row, idx) => {
-                    const pk = TABLE_PKS[selectedTable]
-                    const isEditing = editingRow && editingRow[pk] === row[pk]
+                    const isEditing = editingRow && editingRow.id_usuario === row.id_usuario
                     const isSelected = selectedUser?.id_usuario === row.id_usuario
                     return (
                       <tr key={idx}
                         className={`border-b border-slate-50 transition ${isSelected ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
-                        onClick={() => selectedTable === 'usuarios' && !isEditing ? setSelectedUser(row) : null}
-                        style={{ cursor: selectedTable === 'usuarios' && !isEditing ? 'pointer' : 'default' }}
+                        onClick={() => !isEditing ? setSelectedUser(row) : null}
+                        style={{ cursor: !isEditing ? 'pointer' : 'default' }}
                       >
                         {columns.map(col => (
                           <td key={col} className="px-4 py-2.5 text-slate-600 max-w-[180px]"
@@ -748,37 +492,29 @@ function AdminApp() {
                             </div>
                           ) : (
                             <div className="flex gap-1.5">
-                              {selectedTable === 'usuarios' && (
-                                <>
-                                  <button onClick={() => toggleAdmin(row)}
-                                    className={`rounded px-2.5 py-1 text-xs font-semibold transition ${
-                                      row.adminstate ? 'bg-rose-100 text-rose-700 hover:bg-rose-200' : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
-                                    }`}>
-                                    {row.adminstate ? '−Admin' : '+Admin'}
-                                  </button>
-                                  <button onClick={() => toggleDev(row)}
-                                    className={`rounded px-2.5 py-1 text-xs font-semibold transition ${
-                                      row.devstate ? 'bg-rose-100 text-rose-700 hover:bg-rose-200' : 'bg-sky-100 text-sky-700 hover:bg-sky-200'
-                                    }`}>
-                                    {row.devstate ? '−Dev' : '+Dev'}
-                                  </button>
-                                  {row.user_type === 'enterprise' && (
-                                    <button onClick={() => toggleVerified(row)}
-                                      className={`rounded px-2.5 py-1 text-xs font-semibold transition ${
-                                        row.verified ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                                      }`}>
-                                      {row.verified ? 'Verified' : 'Verify'}
-                                    </button>
-                                  )}
-                                </>
+                              <button onClick={() => toggleAdmin(row)}
+                                className={`rounded px-2.5 py-1 text-xs font-semibold transition ${
+                                  row.adminstate ? 'bg-rose-100 text-rose-700 hover:bg-rose-200' : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                                }`}>
+                                {row.adminstate ? '−Admin' : '+Admin'}
+                              </button>
+                              <button onClick={() => toggleDev(row)}
+                                className={`rounded px-2.5 py-1 text-xs font-semibold transition ${
+                                  row.devstate ? 'bg-rose-100 text-rose-700 hover:bg-rose-200' : 'bg-sky-100 text-sky-700 hover:bg-sky-200'
+                                }`}>
+                                {row.devstate ? '−Dev' : '+Dev'}
+                              </button>
+                              {row.user_type === 'enterprise' && (
+                                <button onClick={() => toggleVerified(row)}
+                                  className={`rounded px-2.5 py-1 text-xs font-semibold transition ${
+                                    row.verified ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                                  }`}>
+                                  {row.verified ? 'Verified' : 'Verify'}
+                                </button>
                               )}
                               <button onClick={() => startEdit(row)}
                                 className="rounded bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200">
-                                Edit
-                              </button>
-                              <button onClick={() => handleDelete(row)}
-                                className="rounded bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-100">
-                                Del
+                                Edit stats
                               </button>
                             </div>
                           )}

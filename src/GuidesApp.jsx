@@ -7,7 +7,7 @@ import { useLang } from './contexts/LangContext'
 import { useAuth } from './hooks/useAuth'
 import AuthModal from './components/AuthModal'
 import { useState, useEffect } from 'react'
-import { supabase } from './supabaseClient'
+import { api } from './lib/apiClient'
 import { getGuideById } from './data/guides'
 import { getGuideSlugFromPath } from './utils/guideRoutes'
 
@@ -28,23 +28,8 @@ const GuidesApp = () => {
     if (!user) return
     const fetchAssignments = async () => {
       try {
-        const { data: profile } = await supabase
-          .from('usuarios')
-          .select('company_id')
-          .eq('id_usuario', user.id)
-          .maybeSingle()
-
-        if (!profile?.company_id) return
-
-        const { data: company } = await supabase
-          .from('usuarios')
-          .select('training_config')
-          .eq('id_usuario', profile.company_id)
-          .maybeSingle()
-
-        const all = company?.training_config?.guide_assignments || []
-        const mine = all.filter((a) => !a.target_user_id || a.target_user_id === user.id)
-        setCompanyAssignments(mine)
+        const mine = await api.get('/enterprise/mis-asignaciones')
+        setCompanyAssignments(Array.isArray(mine) ? mine : [])
       } catch {
         // silent
       }
