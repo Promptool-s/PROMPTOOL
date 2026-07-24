@@ -14,12 +14,17 @@ export default class InvitacionRepository {
         return result.rows[0] ?? null
     }
 
-    /** ¿Existe ya una invitación/solicitud activa entre esta empresa y este usuario/email? */
+    /**
+     * ¿Existe ya una invitación/solicitud SIN RESPONDER entre esta empresa y
+     * este usuario/email? 'accepted', 'rejected', 'left', 'removed' y
+     * 'cancelled' son estados terminales — ya fueron respondidos, no deben
+     * bloquear una invitación nueva.
+     */
     existeActivaAsync = async (companyId, { userId = null, userEmail = null }) => {
         const result = await pool.query(
             `SELECT 1 FROM team_invitations
              WHERE company_id = $1
-               AND status IN ('requested', 'pending', 'accepted')
+               AND status IN ('requested', 'pending')
                AND (($2::uuid IS NOT NULL AND user_id = $2)
                  OR ($3::text IS NOT NULL AND user_email = $3))
              LIMIT 1`,

@@ -269,8 +269,9 @@ export default class EnterpriseService {
                 joinUrl,
                 isExistingUser: !!existente,
             })
+            console.log(`[enterprise-invite] email enviado a ${cleanEmail} (invitacion ${invitacion.id})`)
         } catch (err) {
-            console.error('[enterprise-invite] email falló:', err?.message)
+            console.error(`[enterprise-invite] email falló para ${cleanEmail} (invitacion ${invitacion.id}):`, err?.message)
         }
 
         return invitacion
