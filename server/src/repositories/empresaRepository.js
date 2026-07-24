@@ -143,10 +143,12 @@ export default class EmpresaRepository {
      * desafíos se resuelven en SQL (company_id = $1), no se confía en el cliente.
      */
     getIntentosDesafiosAsync = async (companyId) => {
+        // Los criterios (visualElements/styleAtmosphere/...) se calculan al evaluar
+        // pero no se persisten en `intentos`, así que no se seleccionan acá: el panel
+        // los sintetiza a partir del puntaje cuando no vienen en las filas.
         const result = await pool.query(
             `SELECT i.id_intento, i.id_usuario, i.id_imagen, i.puntaje_similitud,
-                    i.prompt_usuario, i.strengths, i.improvements, i.fecha_hora, i.modo,
-                    i."visualElements", i."styleAtmosphere", i."technicalDetails", i.clarity
+                    i.prompt_usuario, i.strengths, i.improvements, i.fecha_hora, i.modo
              FROM intentos i
              WHERE i.id_imagen IN (SELECT id_imagen FROM imagenes_ia WHERE company_id = $1)
                AND i.id_usuario IN (SELECT id_usuario FROM usuarios WHERE company_id = $1)

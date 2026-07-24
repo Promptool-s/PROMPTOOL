@@ -12,7 +12,7 @@ function makeMathQuestion() {
   return { a, b, answer: String(a + b) }
 }
 
-const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSignUpWithEmail, inviteCompany = null, initialPlan = null }) => {
+const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSignUpWithEmail, inviteCompany = null, inviteEmail = null, initialPlan = null }) => {
   const { t, lang } = useLang()
   const [mode, setMode] = useState('signin')
   const [signupStep, setSignupStep] = useState('type') // 'type' | 'info' | 'otp'
@@ -41,6 +41,18 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
       setSignupStep('info')
     }
   }, [open, initialPlan])
+
+  // Invitación por email a alguien sin cuenta: abrir directo el registro
+  // (tipo individual, paso de datos) con el email ya cargado y bloqueado, para
+  // que el alta se vincule a la invitación (join_company_by_link matchea por email).
+  useEffect(() => {
+    if (open && inviteEmail) {
+      setMode('signup')
+      setUserType('individual')
+      setSignupStep('info')
+      setEmail(inviteEmail)
+    }
+  }, [open, inviteEmail])
 
   if (!open) return null
 
@@ -157,7 +169,7 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
   }
 
   const resetForm = () => {
-    setEmail(''); setPassword(''); setNombre(''); setUsername(''); setCompanyName('')
+    setEmail(inviteEmail || ''); setPassword(''); setNombre(''); setUsername(''); setCompanyName('')
     setUsernameStatus(null); setError(''); setAcceptTerms(false); setAcceptEmails(false)
     setUserType(null); setSignupStep('type'); setMathInput(''); setOtpToken(''); setOtpCode(''); setPendingSignup(null)
   }
@@ -410,7 +422,8 @@ const AuthModal = ({ open, onClose, onSignInWithGoogle, onSignInWithEmail, onSig
               <>
                 <input type="text" value={email} onChange={e => setEmail(e.target.value)}
                   placeholder={mode === 'signin' ? (lang === 'en' ? 'Email or username' : 'Email o usuario') : 'Email'}
-                  className={inputClass} required />
+                  readOnly={!!inviteEmail}
+                  className={`${inputClass} ${inviteEmail ? 'cursor-not-allowed opacity-70' : ''}`} required />
 
                 <input type="password" value={password} onChange={e => setPassword(e.target.value)}
                   placeholder={lang === 'en' ? 'Password' : 'Contraseña'}

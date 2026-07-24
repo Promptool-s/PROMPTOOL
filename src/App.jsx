@@ -128,6 +128,10 @@ function App() {
   const [challengeCompany, setChallengeCompany] = useState(null) // { company_name, avatar_url, verified }
   const challengeId = new URLSearchParams(window.location.search).get('challenge')
   const inviteCompanyId = new URLSearchParams(window.location.search).get('invite')
+  // Email al que la empresa envió la invitación (link ?invite=CO&email=...).
+  // Se usa para abrir el registro ya prefijado con ese email, de modo que el
+  // alta quede vinculada a la invitación (join_company_by_link matchea por email).
+  const inviteEmail = new URLSearchParams(window.location.search).get('email')
   const [inviteState, setInviteState] = useState(null)
   const [inviteCompany, setInviteCompany] = useState(null)
   const [imageAttempts, setImageAttempts] = useState(0)
@@ -1206,6 +1210,7 @@ function App() {
             onSignInWithEmail={signInWithEmail}
             onSignUpWithEmail={signUpWithEmail}
             inviteCompany={inviteState === 'prompt_login' ? inviteCompany : null}
+            inviteEmail={inviteState === 'prompt_login' ? inviteEmail : null}
             initialPlan={authPreselect}
           />
         </Suspense>
@@ -1728,6 +1733,7 @@ function App() {
           onSignInWithEmail={signInWithEmail}
           onSignUpWithEmail={signUpWithEmail}
           inviteCompany={inviteState === 'prompt_login' ? inviteCompany : null}
+          inviteEmail={inviteState === 'prompt_login' ? inviteEmail : null}
           initialPlan={authPreselect}
         />
       </Suspense>

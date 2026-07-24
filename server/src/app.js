@@ -36,15 +36,23 @@ const app = express()
 app.set('trust proxy', 1)
 
 app.use(helmet())
-app.use(cors({
-    origin: (origin, callback) => {
-        // Permitir requests sin Origin (curl, health checks, server-to-server)
-        if (!origin || config.corsOrigins.includes(origin)) {
-            return callback(null, true)
-        }
-        return callback(new Error('Origen no permitido por CORS'))
-    },
-    credentials: false, // se usa Bearer token, no cookies
+// Se usa la forma con `req` para poder detectar same-origin: en Vercel el front
+// y la API se sirven desde el mismo dominio (p.ej. promptool.vercel.app), y ese
+// origin no siempre está en la allowlist por env (VERCEL_PROJECT_PRODUCTION_URL
+// puede no estar expuesto, y el alias de producción no matchea con VERCEL_URL).
+app.use(cors((req, callback) => {
+    const origin = req.header('Origin')
+    let originHost = null
+    try { originHost = origin ? new URL(origin).host : null } catch { /* origin inválido */ }
+    // Permitir: requests sin Origin (curl, health checks, server-to-server),
+    // same-origin (mismo host que la request) o los orígenes de la allowlist.
+    const isAllowed =
+        !origin ||
+        (originHost && originHost === req.headers.host) ||
+        config.corsOrigins.includes(origin)
+    // Si no está permitido se responde sin headers CORS (el navegador bloquea del
+    // lado del cliente) en vez de lanzar un Error, que se convertía en un 500.
+    callback(null, { origin: isAllowed, credentials: false })
 }))
 // Se guarda el body crudo (req.rawBody) además de parsearlo: la verificación de
 // firma del Auth Hook de Supabase (Standard Webhooks, en emailController) necesita
