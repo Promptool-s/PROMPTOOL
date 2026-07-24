@@ -14,6 +14,11 @@ import { throwError } from '../helpers/httpError.js'
  */
 
 const MAX_BYTES = 3 * 1024 * 1024 // 3MB
+const TEXT_MAX_BYTES = 1 * 1024 * 1024 // 1MB para archivos de código/texto
+
+// Extensiones aceptadas para desafíos de código/documento (espejo del frontend).
+const CODE_EXTS = new Set(['js','jsx','ts','tsx','py','cs','java','cpp','c','cc','h','hpp','css','scss','html','xml','json','sql','sh','bash','rb','go','rs','php','swift','kt','vue','yaml','yml','toml','r','lua','dart','scala'])
+const DOC_EXTS = new Set(['txt','md','csv','log'])
 
 /** Detecta el tipo real por magic bytes. Solo formatos de imagen soportados. */
 function detectImageType(buffer) {
@@ -74,6 +79,55 @@ export default class StorageService {
             const detail = await response.json().catch(() => ({}))
             console.error('[storage] upload error:', response.status, detail)
             throwError('No se pudo subir la imagen.', 502)
+        }
+
+        return {
+            path,
+            public_url: `${this.supabaseUrl}/storage/v1/object/public/${bucket}/${path}`,
+        }
+    }
+
+    /**
+     * Sube un archivo de código/texto (desafíos que no son de imagen). Valida
+     * por extensión (whitelist) y descarta binarios (bytes nulos). Se guarda con
+     * Content-Type text/plain para que el juego lo lea como texto.
+     * @param {Buffer} buffer - bytes crudos del archivo
+     * @param {string} bucket - 'enterprise-challenges'
+     * @param {string} pathPrefix - carpeta (el id del usuario)
+     * @param {string} ext - extensión declarada por el cliente (validada acá)
+     */
+    subirArchivoAsync = async (buffer, bucket, pathPrefix, ext) => {
+        this._assertConfigurado()
+        if (!Buffer.isBuffer(buffer) || buffer.length === 0) throwError('El archivo está vacío.', 400)
+        if (buffer.length > TEXT_MAX_BYTES) throwError('El archivo supera el tamaño máximo (1MB).', 413)
+
+        const cleanExt = String(ext || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10)
+        if (!CODE_EXTS.has(cleanExt) && !DOC_EXTS.has(cleanExt)) {
+            throwError('Extensión de archivo no soportada.', 415)
+        }
+        // Rechazar binarios: un archivo de texto real no tiene bytes nulos.
+        if (buffer.subarray(0, 8192).includes(0x00)) {
+            throwError('El archivo no parece ser texto plano.', 415)
+        }
+
+        const path = `${pathPrefix}/${Date.now()}.${cleanExt}`
+        const response = await fetch(
+            `${this.supabaseUrl}/storage/v1/object/${bucket}/${path}`,
+            {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${this.serviceRoleKey}`,
+                    'Content-Type': 'text/plain; charset=utf-8',
+                    'x-upsert': 'true',
+                },
+                body: buffer,
+            }
+        )
+
+        if (!response.ok) {
+            const detail = await response.json().catch(() => ({}))
+            console.error('[storage] upload archivo error:', response.status, detail)
+            throwError('No se pudo subir el archivo.', 502)
         }
 
         return {

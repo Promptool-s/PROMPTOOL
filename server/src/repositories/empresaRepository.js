@@ -15,7 +15,7 @@ export default class EmpresaRepository {
                     porcentaje_aprobacion, racha_actual, company_role,
                     company_joined_at, created_at
              FROM usuarios
-             WHERE company_id = $1
+             WHERE company_id = $1 AND id_usuario <> $1
              ORDER BY elo_rating DESC NULLS LAST
              LIMIT $2`,
             [companyId, limit]

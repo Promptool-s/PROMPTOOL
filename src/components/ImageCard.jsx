@@ -187,12 +187,9 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
   }
 
   const openPreview = () => { setPreviewOpen(true); onPreviewChange?.(true) }
-  const closePreview = () => { 
+  const closePreview = () => {
     setPreviewOpen(false)
     onPreviewChange?.(false)
-    // Forzar recarga de la imagen principal al cerrar el modal
-    setImgLoaded(false)
-    setTimeout(() => setImgLoaded(true), 50)
   }
   const imageUrl = data?.url_image || ''
   const secureUrl = useSecureImage(imageUrl)
@@ -250,11 +247,27 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
       const language = LANG_MAP[ext] || 'Code'
       return (
         <div className="h-full min-h-[300px] w-full">
-          {isCodeFile ? (
-            <CodeView code={fileContent} language={language} />
-          ) : (
-            <DocView content={fileContent} />
-          )}
+          <div className="group/code relative h-full min-h-[300px] w-full">
+            {isCodeFile ? (
+              <CodeView code={fileContent} language={language} />
+            ) : (
+              <DocView content={fileContent} />
+            )}
+            {/* Expandir a pantalla completa */}
+            <button
+              type="button"
+              onClick={openPreview}
+              className={`absolute bottom-3 right-3 z-10 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold shadow-lg backdrop-blur-sm transition ${
+                isCodeFile ? 'bg-slate-800/90 text-slate-100 hover:bg-slate-700' : 'bg-slate-900/80 text-white hover:bg-slate-800'
+              }`}
+              aria-label="Ver en pantalla completa"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+              {isCodeFile ? 'Ver código completo' : 'Ver documento completo'}
+            </button>
+          </div>
           {revealedPrompt && (
             <div className="mt-3 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3">
               <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 mb-1">Respuesta esperada</p>
@@ -378,6 +391,16 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
           </div>
         )}
 
+        {/* Indicador persistente abajo a la derecha — click = pantalla completa */}
+        {!revealedPrompt && imgLoaded && (
+          <div className="pointer-events-none absolute bottom-3 right-3 z-[5] flex items-center gap-1.5 rounded-full bg-slate-900/70 px-3 py-1.5 shadow-lg backdrop-blur-sm">
+            <svg className="h-3.5 w-3.5 text-cyan-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+            </svg>
+            <span className="text-[11px] font-semibold text-white">Click para pantalla completa</span>
+          </div>
+        )}
+
         {/* Overlay hover — cubre toda la imagen */}
         {!revealedPrompt && imgLoaded && (
           <div
@@ -416,24 +439,39 @@ const ImageCard = ({ mode, data, imageStatus, onPreviewChange, revealedPrompt = 
           onClick={() => closePreview()}
           role="dialog"
           aria-modal="true"
-          aria-label="Vista ampliada de la imagen"
+          aria-label="Vista ampliada del desafío"
         >
-          <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
-            <img
-              src={secureUrl || ''}
-              alt="Imagen de referencia ampliada"
-              className="max-h-[90vh] max-w-[92vw] rounded-xl object-contain select-none pointer-events-none"
-              draggable={false}
-            />
-            {/* Capa de protección sobre el modal */}
-            <div
-              className="absolute inset-0 rounded-xl"
-              onContextMenu={e => e.preventDefault()}
-            />
+          <div
+            className={`relative ${isNonImage ? 'flex h-[90vh] w-[92vw] max-w-5xl flex-col overflow-hidden rounded-xl' : 'inline-block'}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {isNonImage ? (
+              <div className="h-full w-full overflow-hidden rounded-xl">
+                {isCodeFile ? (
+                  <CodeView code={fileContent} language={LANG_MAP[getExt(data?.url_image)] || 'Code'} />
+                ) : (
+                  <DocView content={fileContent} />
+                )}
+              </div>
+            ) : (
+              <>
+                <img
+                  src={secureUrl || ''}
+                  alt="Imagen de referencia ampliada"
+                  className="max-h-[90vh] max-w-[92vw] rounded-xl object-contain select-none pointer-events-none"
+                  draggable={false}
+                />
+                {/* Capa de protección sobre el modal */}
+                <div
+                  className="absolute inset-0 rounded-xl"
+                  onContextMenu={e => e.preventDefault()}
+                />
+              </>
+            )}
             <button
               type="button"
               onClick={() => closePreview()}
-              className="absolute right-3 top-3 z-10 text-3xl font-semibold leading-none text-white/95 transition hover:text-white"
+              className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-slate-900/70 text-2xl font-semibold leading-none text-white/95 transition hover:bg-slate-900 hover:text-white"
               aria-label="Cerrar vista ampliada"
             >
               ×
