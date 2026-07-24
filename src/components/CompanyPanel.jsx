@@ -3,6 +3,18 @@ import { api } from '../lib/apiClient'
 import { useLang } from '../contexts/LangContext'
 import { proxyImg } from '../utils/imgProxy'
 
+// Categoría real de un desafío: usa challenge_content_type; si falta, la infiere
+// por la extensión del url_image (registros viejos).
+const CODE_EXTS = new Set(['js','jsx','ts','tsx','py','cs','java','cpp','c','cc','h','hpp','css','scss','html','xml','json','sql','sh','bash','rb','go','rs','php','swift','kt','vue','yaml','yml','toml','r','lua','dart','scala'])
+const DOC_EXTS = new Set(['txt','md','csv','log'])
+const challengeCategory = (ch) => {
+  if (ch?.challenge_content_type) return ch.challenge_content_type
+  const ext = (ch?.url_image?.split('.').pop() || '').toLowerCase().split('?')[0]
+  if (CODE_EXTS.has(ext)) return 'code'
+  if (DOC_EXTS.has(ext)) return 'document'
+  return 'image'
+}
+
 const CompanyPanel = ({ user, companyData, onClose, onLeft }) => {
   const { lang } = useLang()
   const [activeTab, setActiveTab] = useState('leaderboard')
@@ -324,13 +336,19 @@ const CompanyPanel = ({ user, companyData, onClose, onLeft }) => {
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 px-1">
                     {challenges.length} {lang === 'en' ? 'challenges available' : 'desafíos disponibles'}
                   </p>
-                  {challenges.map((ch) => (
+                  {challenges.map((ch) => {
+                    const category = challengeCategory(ch)
+                    return (
                     <div key={ch.id_imagen} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 hover:border-violet-300 hover:bg-violet-50/30 transition group">
                       {/* Thumbnail */}
                       <div className="h-16 w-16 rounded-xl overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
-                        {ch.url_image
+                        {category === 'image' && ch.url_image
                           ? <img src={ch.url_image} alt="challenge" className="h-full w-full object-cover" />
-                          : <div className="h-full w-full flex items-center justify-center bg-slate-100"><svg className="h-6 w-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>
+                          : category === 'code'
+                            ? <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900"><svg className="h-6 w-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg></div>
+                            : category === 'document'
+                              ? <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-amber-50 to-amber-100"><svg className="h-6 w-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg></div>
+                              : <div className="h-full w-full flex items-center justify-center bg-slate-100"><svg className="h-6 w-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>
                         }
                       </div>
 
@@ -363,7 +381,8 @@ const CompanyPanel = ({ user, companyData, onClose, onLeft }) => {
                         </a>
                       )}
                     </div>
-                  ))}
+                    )
+                  })}
                 </>
               )}
             </div>

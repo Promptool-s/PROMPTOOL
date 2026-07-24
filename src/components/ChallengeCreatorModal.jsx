@@ -250,17 +250,12 @@ const ChallengeCreatorModal = ({
       setAiError(lang === 'en' ? 'Describe the challenge first.' : 'Describí el objetivo del desafío primero.')
       return
     }
-    if (contentType === 'image' && !challengeImageFile) {
-      setAiError(lang === 'en' ? 'Upload an image first.' : 'Primero subí una imagen.')
-      return
-    }
     setGeneratingWithAI(true)
     setAiError(null)
     setAiSuccess(false)
     try {
       const config = await generateChallengeConfig({
         userPrompt: aiPrompt,
-        imageFile: contentType === 'image' ? challengeImageFile : null,
         companyIndustry,
       })
       setChallengeForm(prev => ({ ...prev, ...config }))
@@ -480,10 +475,15 @@ const ChallengeCreatorModal = ({
             <div className="flex items-center gap-2">
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-600 text-white text-xs font-bold">✦</span>
               <p className="text-sm font-semibold text-violet-900">
-                {lang === 'en' ? 'Fill with AI' : 'Completar con IA'}
+                {lang === 'en' ? 'Auto-fill the form with AI' : 'Autocompletar el formulario con IA'}
               </p>
               <span className="ml-auto text-xs text-violet-500">{lang === 'en' ? 'Optional' : 'Opcional'}</span>
             </div>
+            <p className="text-xs text-violet-700 leading-relaxed">
+              {lang === 'en'
+                ? 'Describe the challenge in your own words and the AI will suggest values for the fields below (difficulty, time limit, points, hints, evaluation, etc.). It only fills the form — you can edit everything before saving. Nothing is submitted yet.'
+                : 'Describí el desafío con tus palabras y la IA sugiere valores para los campos de abajo (dificultad, tiempo, puntos, pistas, evaluación, etc.). Solo completa el formulario — podés editar todo antes de guardar. No se crea nada todavía.'}
+            </p>
             <textarea
               value={aiPrompt}
               onChange={e => setAiPrompt(e.target.value)}
@@ -494,16 +494,16 @@ const ChallengeCreatorModal = ({
               rows={3}
             />
             {aiError && <p className="text-xs text-rose-600">{aiError}</p>}
-            {aiSuccess && <p className="text-xs text-emerald-600 font-medium">{lang === 'en' ? 'Form filled — review below.' : 'Formulario completado — revisá abajo.'}</p>}
+            {aiSuccess && <p className="text-xs text-emerald-600 font-medium">{lang === 'en' ? 'Form filled — review the fields below.' : 'Formulario completado — revisá los campos de abajo.'}</p>}
             <button
               type="button"
               onClick={handleGenerateWithAI}
-              disabled={generatingWithAI || !aiPrompt.trim() || (contentType === 'image' && !challengeImageFile)}
+              disabled={generatingWithAI || !aiPrompt.trim()}
               className="w-full rounded-xl bg-violet-600 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-40 transition"
             >
               {generatingWithAI
                 ? (lang === 'en' ? 'Generating...' : 'Generando...')
-                : (lang === 'en' ? 'Generate with AI →' : 'Generar con IA →')}
+                : (lang === 'en' ? 'Auto-fill with AI →' : 'Autocompletar con IA →')}
             </button>
           </div>
 

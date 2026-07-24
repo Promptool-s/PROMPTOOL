@@ -204,7 +204,7 @@ export default class UsuarioRepository {
             `SELECT id_usuario, nombre, nombre_display, username, avatar_url,
                     elo_rating, total_intentos, promedio_score, porcentaje_aprobacion, company_role
              FROM usuarios
-             WHERE company_id = $1
+             WHERE company_id = $1 AND id_usuario <> $1
              ORDER BY elo_rating DESC NULLS LAST
              LIMIT $2`,
             [companyId, limit]

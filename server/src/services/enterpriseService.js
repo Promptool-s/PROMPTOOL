@@ -21,6 +21,7 @@ import { nowAR } from '../helpers/dateHelper.js'
 
 const DIFICULTADES = ['Easy', 'Medium', 'Hard']
 const EVAL_MODES = ['standard', 'strict', 'flexible']
+const CONTENT_TYPES = ['image', 'code', 'document']
 const INV_ESTADOS_RECHAZO = ['rejected', 'cancelled']
 
 // Columnas JSONB de `usuarios` que el panel edita sobre su PROPIA fila.
@@ -621,6 +622,12 @@ export default class EnterpriseService {
             fields.challenge_eval_instructions = isValidString(body.challenge_eval_instructions, { min: 1, max: 2000 })
                 ? body.challenge_eval_instructions.trim() : null
         }
+        if (body.challenge_content_type !== undefined) {
+            if (!CONTENT_TYPES.includes(body.challenge_content_type)) {
+                throwError(`challenge_content_type debe ser: ${CONTENT_TYPES.join(', ')}.`, 400)
+            }
+            fields.challenge_content_type = body.challenge_content_type
+        }
         return fields
     }
 
@@ -631,6 +638,7 @@ export default class EnterpriseService {
         fields.company_id = usuario.id
         fields.fecha = nowAR()
         if (!fields.image_diff) fields.image_diff = 'Medium'
+        if (!fields.challenge_content_type) fields.challenge_content_type = 'image'
         const creado = await this.empresaRepo.createDesafioAsync(fields)
         return { ok: true, id_imagen: creado?.id_imagen ?? null }
     }

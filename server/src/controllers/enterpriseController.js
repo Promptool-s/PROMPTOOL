@@ -267,15 +267,20 @@ router.get('/desafios/:id/stats', async (req, res) => {
 })
 
 /**
- * POST /api/enterprise/desafios/imagen — sube la imagen del desafío al bucket
- * y devuelve la URL para usar en el create/update. Body binario image/*.
+ * POST /api/enterprise/desafios/imagen — sube el contenido del desafío al bucket
+ * y devuelve la URL para usar en el create/update. Body binario.
+ * Para desafíos de código/documento: ?tipo=code|document&ext=<extensión>.
+ * Sin query (o ?tipo=image): imagen validada por magic bytes.
  */
-router.post('/desafios/imagen', express.raw({ type: 'image/*', limit: '3mb' }), async (req, res) => {
+router.post('/desafios/imagen', express.raw({ type: () => true, limit: '3mb' }), async (req, res) => {
     await svc.assertEmpresaAsync(req.usuario.id)
     if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
-        throwError('Mandá la imagen como body binario con Content-Type image/*.', 400)
+        throwError('Mandá el contenido como body binario.', 400)
     }
-    const subida = await storageSvc.subirImagenAsync(req.body, 'enterprise-challenges', req.usuario.id)
+    const tipo = req.query.tipo
+    const subida = (tipo === 'code' || tipo === 'document')
+        ? await storageSvc.subirArchivoAsync(req.body, 'enterprise-challenges', req.usuario.id, req.query.ext)
+        : await storageSvc.subirImagenAsync(req.body, 'enterprise-challenges', req.usuario.id)
     res.status(200).json(subida)
 })
 

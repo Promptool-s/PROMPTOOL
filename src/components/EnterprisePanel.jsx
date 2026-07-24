@@ -16,6 +16,28 @@ import { chatRateLimiter } from '../utils/rateLimiter'
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY
 const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions'
 
+// Ruta de subida: imagen va directa; código/documento manda tipo + extensión
+// para que el server valide por extensión y guarde como texto.
+const buildUploadPath = (contentType, file) => {
+  if (contentType === 'code' || contentType === 'document') {
+    const ext = (file?.name?.split('.').pop() || '').toLowerCase()
+    return `/enterprise/desafios/imagen?tipo=${contentType}&ext=${encodeURIComponent(ext)}`
+  }
+  return '/enterprise/desafios/imagen'
+}
+
+// Categoría real de un desafío: usa challenge_content_type; si falta (registros
+// viejos), la infiere por la extensión del url_image.
+const CODE_EXTS = new Set(['js','jsx','ts','tsx','py','cs','java','cpp','c','cc','h','hpp','css','scss','html','xml','json','sql','sh','bash','rb','go','rs','php','swift','kt','vue','yaml','yml','toml','r','lua','dart','scala'])
+const DOC_EXTS = new Set(['txt','md','csv','log'])
+const challengeCategory = (ch) => {
+  if (ch?.challenge_content_type) return ch.challenge_content_type
+  const ext = (ch?.url_image?.split('.').pop() || '').toLowerCase().split('?')[0]
+  if (CODE_EXTS.has(ext)) return 'code'
+  if (DOC_EXTS.has(ext)) return 'document'
+  return 'image'
+}
+
 const EMPTY_GUIDE_FORM = {
   type: 'catalog',
   guide_id: '',
@@ -870,9 +892,13 @@ const EnterprisePanel = ({ user }) => {
       : (lang === 'en' ? 'Uploading file...' : 'Subiendo archivo...')
     setChallengeStatus(uploadLabel)
     try {
-      // Subida validada server-side (magic bytes + moderación NSFW); devuelve public_url.
+      // Subida validada server-side; devuelve public_url. Para código/documento
+      // se manda ?tipo=&ext= para que el server valide por extensión.
+      const contentType = challengeForm.contentType || 'image'
       const { public_url: imageUrl } = await api.postRaw(
-        '/enterprise/desafios/imagen', challengeImageFile, challengeImageFile.type
+        buildUploadPath(contentType, challengeImageFile),
+        challengeImageFile,
+        challengeImageFile.type || 'application/octet-stream'
       )
 
       setChallengeStatus(lang === 'en' ? 'Saving challenge...' : 'Guardando desafío...')
@@ -880,6 +906,7 @@ const EnterprisePanel = ({ user }) => {
       // company_id y fecha los pone el backend — NUNCA el cliente.
       const payload = {
         url_image: imageUrl,
+        challenge_content_type: contentType,
         prompt_original: challengeForm.prompt.trim(),
         image_diff: challengeForm.difficulty,
         image_theme: challengeForm.theme.trim(),
@@ -922,17 +949,21 @@ const EnterprisePanel = ({ user }) => {
     setChallengeStatus(lang === 'en' ? 'Updating challenge...' : 'Actualizando desafío...')
     try {
       let imageUrl = editingChallenge.url_image
+      const contentType = challengeForm.contentType || editingChallenge.challenge_content_type || 'image'
 
-      // If new image uploaded, upload it (validado server-side)
+      // If new file uploaded, upload it (validado server-side)
       if (challengeImageFile) {
         const { public_url } = await api.postRaw(
-          '/enterprise/desafios/imagen', challengeImageFile, challengeImageFile.type
+          buildUploadPath(contentType, challengeImageFile),
+          challengeImageFile,
+          challengeImageFile.type || 'application/octet-stream'
         )
         imageUrl = public_url
       }
 
       const payload = {
         url_image: imageUrl,
+        challenge_content_type: contentType,
         prompt_original: challengeForm.prompt.trim(),
         image_diff: challengeForm.difficulty,
         image_theme: challengeForm.theme.trim(),
@@ -3682,14 +3713,25 @@ RESPONSE RULES:
           {challenges.map((ch) => {
             const diff = (ch.image_diff || 'medium').toLowerCase()
             const diffClass = diffColors[diff] || diffColors.medium
+            const category = challengeCategory(ch)
             return (
               <div key={ch.id_imagen} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden hover:border-violet-300 hover:shadow-md transition group">
                 <div className="h-40 bg-slate-100 dark:bg-slate-800 overflow-hidden relative">
-                  {ch.url_image
+                  {category === 'image' && ch.url_image
                     ? <img src={ch.url_image} alt="challenge" className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    : <div className="h-full w-full flex items-center justify-center bg-slate-100 dark:bg-slate-800">
-                        <svg className="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
-                      </div>
+                    : category === 'code'
+                      ? <div className="h-full w-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-800 to-slate-900">
+                          <svg className="h-9 w-9 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
+                          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-300">{lang === 'en' ? 'Code challenge' : 'Desafío de código'}</span>
+                        </div>
+                      : category === 'document'
+                        ? <div className="h-full w-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950/40 dark:to-amber-900/30">
+                            <svg className="h-9 w-9 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">{lang === 'en' ? 'Document challenge' : 'Desafío de documento'}</span>
+                          </div>
+                        : <div className="h-full w-full flex items-center justify-center bg-slate-100 dark:bg-slate-800">
+                            <svg className="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
+                          </div>
                   }
                   <button
                     onClick={() => openEditChallengeModal(ch)}
