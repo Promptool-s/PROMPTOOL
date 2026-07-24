@@ -12,6 +12,33 @@ import { clamp } from '../helpers/validatorHelper.js'
 
 const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions'
 const GROQ_MODEL = 'llama-3.3-70b-versatile'
+const GROQ_TIMEOUT_MS = 20000
+const GROQ_MAX_ATTEMPTS = 2
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+// Stopwords ES+EN para el fallback determinístico: no aportan a la similitud.
+const STOPWORDS = new Set([
+    'una', 'un', 'de', 'con', 'en', 'la', 'el', 'los', 'las', 'que', 'del', 'por', 'para', 'sobre', 'y', 'o',
+    'a', 'an', 'the', 'of', 'with', 'in', 'on', 'at', 'by', 'for', 'from', 'and', 'or', 'to', 'is', 'are',
+])
+
+const tokenize = (text = '') =>
+    (String(text || '').toLowerCase().match(/[a-záéíóúñ0-9]+/gi) || [])
+        .filter((word) => word.length >= 3 && !STOPWORDS.has(word))
+
+// Similitud léxica prompt-usuario vs prompt-original (0-100). Se usa solo como
+// respaldo cuando el proveedor de IA no está disponible.
+const computeLexicalSimilarity = (userPrompt = '', originalPrompt = '') => {
+    const uTokens = new Set(tokenize(userPrompt))
+    const oTokens = new Set(tokenize(originalPrompt))
+    if (!uTokens.size || !oTokens.size) return 0
+    let overlap = 0
+    uTokens.forEach((word) => { if (oTokens.has(word)) overlap++ })
+    const recall = overlap / oTokens.size
+    const precision = overlap / uTokens.size
+    return clamp(Math.round((recall * 0.65 + precision * 0.35) * 100))
+}
 
 const sanitizeList = (value, fallback = []) => {
     if (!Array.isArray(value)) return fallback
@@ -283,41 +310,25 @@ Return ONLY a valid JSON like this:
   "suggestions": "one sentence factual summary of main gaps (NO advice, NO motivational language) — in the user's language"
 }`
 
-        const response = await fetch(GROQ_ENDPOINT, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${config.groqApiKey}`,
-            },
-            body: JSON.stringify({
-                model: GROQ_MODEL,
-                messages: [{ role: 'user', content: prompt }],
-                temperature: 0.3,
-                max_tokens: 400,
-                response_format: { type: 'json_object' },
-            }),
-        })
-
-        const data = await response.json()
-
-        if (!response.ok) {
-            // Error del proveedor de IA — no exponer detalles internos al cliente
-            console.error('Groq API error:', data?.error?.message || response.status)
-            const error = new Error('El servicio de evaluación no está disponible. Probá de nuevo en unos segundos.')
-            error.statusCode = 502
-            throw error
+        // El proveedor de IA puede fallar (5xx, rate limit, timeout, JSON
+        // inválido). Antes eso tiraba un 502 que reventaba el intento entero y
+        // el usuario veía "error al analizar tu prompt" con 0%. Ahora se
+        // reintenta ante fallos transitorios y, si sigue caído, se cae a un
+        // scoring determinístico local para que el intento SIEMPRE devuelva una
+        // evaluación válida.
+        let parsed = null
+        for (let attempt = 1; attempt <= GROQ_MAX_ATTEMPTS; attempt++) {
+            try {
+                parsed = await this._callGroq(prompt)
+                break
+            } catch (err) {
+                console.error(`Groq API error (intento ${attempt}/${GROQ_MAX_ATTEMPTS}):`, err?.message || err)
+                if (attempt < GROQ_MAX_ATTEMPTS) await sleep(500 * attempt)
+            }
         }
 
-        let parsed
-        const textResponse = data?.choices?.[0]?.message?.content
-        if (!textResponse) throw Object.assign(new Error('Respuesta inválida del proveedor de IA.'), { statusCode: 502 })
-
-        try {
-            parsed = JSON.parse(textResponse)
-        } catch {
-            const match = textResponse.match(/\{[\s\S]*\}/)
-            if (!match) throw Object.assign(new Error('Respuesta inválida del proveedor de IA.'), { statusCode: 502 })
-            parsed = JSON.parse(match[0])
+        if (!parsed) {
+            return this._fallbackEvaluation({ userPrompt, originalPrompt, difficulty, detectedLang })
         }
 
         const criteria = {
@@ -346,6 +357,91 @@ Return ONLY a valid JSON like this:
             suggestions: String(parsed.suggestions || '').trim() || (detectedLang === 'en'
                 ? 'Keep experimenting! Each attempt helps you learn what works best.'
                 : '¡Seguí experimentando! Cada intento te ayuda a aprender qué funciona mejor.'),
+        }
+    }
+
+    /**
+     * Llama a Groq con timeout y devuelve el JSON parseado del modelo.
+     * Lanza en cualquier fallo (red, 5xx, JSON inválido) para que el caller
+     * decida reintentar o caer al fallback.
+     */
+    _callGroq = async (prompt) => {
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), GROQ_TIMEOUT_MS)
+        let response
+        try {
+            response = await fetch(GROQ_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${config.groqApiKey}`,
+                },
+                body: JSON.stringify({
+                    model: GROQ_MODEL,
+                    messages: [{ role: 'user', content: prompt }],
+                    temperature: 0.3,
+                    max_tokens: 400,
+                    response_format: { type: 'json_object' },
+                }),
+                signal: controller.signal,
+            })
+        } finally {
+            clearTimeout(timer)
+        }
+
+        const data = await response.json().catch(() => null)
+        if (!response.ok) {
+            throw new Error(`Groq ${response.status}: ${data?.error?.message || 'sin detalle'}`)
+        }
+
+        const textResponse = data?.choices?.[0]?.message?.content
+        if (!textResponse) throw new Error('Respuesta vacía del proveedor de IA.')
+
+        try {
+            return JSON.parse(textResponse)
+        } catch {
+            const match = textResponse.match(/\{[\s\S]*\}/)
+            if (!match) throw new Error('Respuesta no-JSON del proveedor de IA.')
+            return JSON.parse(match[0])
+        }
+    }
+
+    /**
+     * Scoring determinístico local cuando el proveedor de IA no responde.
+     * Deriva criterios de la similitud léxica user↔original + la calidad
+     * intrínseca del prompt, para que el intento nunca falle con 502.
+     */
+    _fallbackEvaluation = ({ userPrompt, originalPrompt, difficulty, detectedLang }) => {
+        const similarity = computeLexicalSimilarity(userPrompt, originalPrompt)
+        const q = evaluatePromptQuality(userPrompt, difficulty)
+
+        const criteria = {
+            visualElements: similarity,
+            styleAtmosphere: clamp(Math.round(similarity * 0.85 + q.quality * 0.15)),
+            technicalDetails: q.technicalHits > 0
+                ? clamp(Math.round(Math.min(100, 45 + q.technicalHits * 12)))
+                : clamp(Math.round(Math.max(20, similarity - 15))),
+            clarity: clamp(Math.round(q.quality * 0.7 + (/[,.;:]/.test(String(userPrompt || '')) ? 30 : 10))),
+        }
+
+        const weightedScore = computeWeightedScore(criteria, difficulty)
+        const adjustedScore = clamp(weightedScore - q.penalty + q.bonus)
+
+        return {
+            score: adjustedScore,
+            criteria,
+            explanation: detectedLang === 'en'
+                ? 'Your prompt was scored by comparing its key terms and technical detail against the original.'
+                : 'Tu prompt se evaluó comparando sus términos clave y nivel de detalle técnico con el original.',
+            strengths: detectedLang === 'en'
+                ? ['Matched several key terms from the original', 'Clear, readable prompt structure']
+                : ['Coincidiste en varios términos clave del original', 'Estructura de prompt clara y legible'],
+            improvements: detectedLang === 'en'
+                ? ['Add more of the original\'s specific elements', 'Include technical descriptors (lighting, camera, style)']
+                : ['Sumá más elementos específicos del original', 'Incluí descriptores técnicos (iluminación, cámara, estilo)'],
+            suggestions: detectedLang === 'en'
+                ? 'Aim to cover more of the original\'s subjects and add technical detail.'
+                : 'Apuntá a cubrir más sujetos del original y agregar detalle técnico.',
         }
     }
 }
