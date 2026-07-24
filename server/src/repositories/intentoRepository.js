@@ -37,8 +37,11 @@ export default class IntentoRepository {
                 intento.id_imagen,
                 intento.id_usuario,
                 intento.fecha_hora,
-                JSON.stringify(intento.strengths ?? []),
-                JSON.stringify(intento.improvements ?? []),
+                // strengths/improvements son text[] en la DB: pg serializa arrays de JS
+                // nativamente al formato de Postgres. JSON.stringify producía "[...]",
+                // que Postgres rechaza como array literal (necesita "{...}").
+                intento.strengths ?? [],
+                intento.improvements ?? [],
                 intento.modo,
                 intento.elo_delta,
                 intento.is_ranked,
